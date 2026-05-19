@@ -54,19 +54,35 @@ function previsualizarGestoria() {
   const regs  = filtrarRegistros(desde, hasta, plat, '');
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['COD', 'NOMBRE', 'PERÍODO', 'H_EXTRA', 'H_PRESEN', 'NOCTURNO', 'DIET_NAC', 'DIET_INTER', 'ANTICIPOS', 'MEJORA'];
-  const filas = regs.map(r => ({
-    'COD':        r.codigoConductor,
-    'NOMBRE':     r.nombreConductor,
-    'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
-    'H_EXTRA':    fmt2(r.resultado?.H_EXTRA),
-    'H_PRESEN':   fmt2(r.resultado?.H_PRESEN),
-    'NOCTURNO':   fmt2(r.resultado?.NOCTURNO),
-    'DIET_NAC':   fmt2(r.resultado?.DIET_NAC),
-    'DIET_INTER': fmt2(r.resultado?.DIET_INTER),
-    'ANTICIPOS':  fmt2(r.anticipos),
-    'MEJORA':     fmt2(r.resultado?.MEJORA),
-  }));
+  let headers, filas;
+
+  if (plat === 'CAUDETE') {
+    headers = ['COD', 'NOMBRE', 'PERÍODO', 'PLUS_EFICIENCIA', 'DISPONIBILIDAD', 'DIETAS', 'TOTAL', 'ANTICIPOS'];
+    filas = regs.map(r => ({
+      'COD':             r.codigoConductor,
+      'NOMBRE':          r.nombreConductor,
+      'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
+      'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
+      'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
+      'DIETAS':          fmt2(r.resultado?.DIETAS),
+      'TOTAL':           fmt2(r.resultado?.TOTAL),
+      'ANTICIPOS':       fmt2(r.anticipos),
+    }));
+  } else {
+    headers = ['COD', 'NOMBRE', 'PERÍODO', 'H_EXTRA', 'H_PRESEN', 'NOCTURNO', 'DIET_NAC', 'DIET_INTER', 'ANTICIPOS', 'MEJORA'];
+    filas = regs.map(r => ({
+      'COD':        r.codigoConductor,
+      'NOMBRE':     r.nombreConductor,
+      'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
+      'H_EXTRA':    fmt2(r.resultado?.H_EXTRA),
+      'H_PRESEN':   fmt2(r.resultado?.H_PRESEN),
+      'NOCTURNO':   fmt2(r.resultado?.NOCTURNO),
+      'DIET_NAC':   fmt2(r.resultado?.DIET_NAC),
+      'DIET_INTER': fmt2(r.resultado?.DIET_INTER),
+      'ANTICIPOS':  fmt2(r.anticipos),
+      'MEJORA':     fmt2(r.resultado?.MEJORA),
+    }));
+  }
 
   _informe = { tipo: 'gestoria', datos: regs, headers, filas, titulo: `Gestoria_${plat}` };
   mostrarPreview(headers, filas, `Gestoría — ${plat}`);
@@ -134,7 +150,8 @@ function previsualizarRRHH() {
 const NUM_COLS = new Set(['Días','Total Km','KM','DÍAS','TOTAL',
   'H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','ANTICIPOS',
   'SUM_DIETAS','PLUS_EFIC','DISPONIB','DIETAS_CAU','EXTRAS','COEF_NAC','DOM_FEST',
-  'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','ACARREOS','VLISSINGEN']);
+  'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','ACARREOS','VLISSINGEN',
+  'PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS']);
 
 function mostrarPreview(headers, filas, titulo) {
   document.getElementById('inf-preview-empty').style.display   = 'none';
