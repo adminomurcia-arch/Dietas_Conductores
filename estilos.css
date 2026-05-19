@@ -314,6 +314,7 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
 /* ---- INFORMES ---- */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+#tab-informes.active { display: block; } /* el grid está en .inf-layout hijo */
 
 .inf-layout {
   display: grid;

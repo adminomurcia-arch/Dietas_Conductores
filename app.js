@@ -24,9 +24,14 @@ function fijarLimiteFechas() {
 
 // ---- TABS PRINCIPALES ----
 function showTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none';
+    el.classList.remove('active');
+  });
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById(`tab-${tab}`).style.display = 'block';
+  const el = document.getElementById(`tab-${tab}`);
+  el.style.display = 'block';
+  el.classList.add('active');
   event.currentTarget.classList.add('active');
   fijarLimiteFechas();
 }

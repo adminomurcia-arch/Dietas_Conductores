@@ -3,12 +3,18 @@
 // =============================================
 
 // ---- HELPERS DE CALENDARIO ----
+function parseFecha(fecha) {
+  // Evita desfase de zona horaria interpretando siempre en local
+  const [y, m, d] = String(fecha).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function esDomingo(fecha) {
-  return new Date(fecha).getDay() === 0;
+  return parseFecha(fecha).getDay() === 0;
 }
 
 function esFestivoNacional(fecha) {
-  const d   = new Date(fecha);
+  const d   = parseFecha(fecha);
   const mes = d.getMonth() + 1;
   const dia = d.getDate();
   return [[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]]
@@ -16,16 +22,22 @@ function esFestivoNacional(fecha) {
 }
 
 function contarDomingos(inicio, fin) {
-  let n = 0, d = new Date(inicio), f = new Date(fin);
-  while (d <= f) { if (esDomingo(d)) n++; d.setDate(d.getDate() + 1); }
+  let n = 0;
+  const d = parseFecha(inicio);
+  const f = parseFecha(fin);
+  while (d <= f) { if (d.getDay() === 0) n++; d.setDate(d.getDate() + 1); }
   return n;
 }
 
 function contarFestivos(inicio, fin) {
   // Solo festivos que NO caen en domingo (para no duplicar)
-  let n = 0, d = new Date(inicio), f = new Date(fin);
+  const fest = [[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
+  let n = 0;
+  const d = parseFecha(inicio);
+  const f = parseFecha(fin);
   while (d <= f) {
-    if (esFestivoNacional(d) && !esDomingo(d)) n++;
+    const mes = d.getMonth() + 1, dia = d.getDate();
+    if (d.getDay() !== 0 && fest.some(([m, dd]) => m === mes && dd === dia)) n++;
     d.setDate(d.getDate() + 1);
   }
   return n;
@@ -142,7 +154,10 @@ function calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreo
 function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras }) {
   const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
 
-  const PLUS_EFICIENCIA = diasTrab * 8.75;
+  // Plus Eficiencia: días trabajados + 1 si hay horas restantes
+  const diasEfic        = diasTrab + (restoHoras > 0 ? 1 : 0);
+  const PLUS_EFICIENCIA = diasEfic * 8.75;
+
   const DISPONIBILIDAD  = (nDomingos + nFestivos) * tarDF
                         + nCarga    * getTarifa('CARGA/DESCARGAS', 'CAUDETE')
                         + nPalet    * getTarifa('MOV. PALETS',     'CAUDETE')
