@@ -228,7 +228,7 @@ function esFestivoNacional(fecha) {
   const mes = d.getMonth() + 1;
   const dia = d.getDate();
   const festivos = [
-    [1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]
+    [1,1],[6,1],[22,1],[19,3],[2,4],[3,4],[1,5],[9,6],[15,8],[21,9],[12,10],[1,11],[7,12],[8,12],[25,12]
   ];
   return festivos.some(([m, dd]) => m === mes && dd === dia);
 }
