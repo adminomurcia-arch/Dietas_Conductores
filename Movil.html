@@ -401,12 +401,19 @@ init();
 // ---- LOGIN ----
 window.mLogin = function() {
   const cod = document.getElementById('m-codigo').value.trim();
+  const input = document.getElementById('m-codigo');
+
   if (!cod) { mToast('Introduce tu código', 'error'); return; }
 
   getDocs(collection(_db, 'conductores')).then(snap => {
     const todos = snap.docs.map(d => d.data());
     const c = todos.find(x => String(x.Codigo) === String(cod));
-    if (!c) { mToast('Código no encontrado', 'error'); return; }
+    if (!c) {
+      input.style.borderColor = '#c0392b';
+      mToast('Código no encontrado. Comprueba el número.', 'error');
+      return;
+    }
+    input.style.borderColor = '';
     _conductor = c;
     document.getElementById('m-nombre').textContent = c.Nombre;
     document.getElementById('m-plat').textContent   = c.PLATAFORMA + ' · ' + c.CATEGORIA;
