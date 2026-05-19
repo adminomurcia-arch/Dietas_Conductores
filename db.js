@@ -1,13 +1,36 @@
 // =============================================
-// db.js — Base de datos (localStorage + Excel)
+// db.js — Base de datos Firebase Firestore
 // =============================================
 
-const DB_KEY_CONDUCTORES = 'dietas_conductores';
-const DB_KEY_TARIFAS     = 'dietas_tarifas';
-const DB_KEY_REGISTROS   = 'dietas_registros';
-const DB_KEY_VERSION     = 'dietas_export_version';
+// ---- FIREBASE CONFIG ----
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, getDoc,
+         setDoc, deleteDoc, addDoc, onSnapshot,
+         query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ---- TARIFAS (según hoja TARIFAS del Excel) ----
+const firebaseConfig = {
+  apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
+  authDomain:        "dietas-conductores.firebaseapp.com",
+  projectId:         "dietas-conductores",
+  storageBucket:     "dietas-conductores.firebasestorage.app",
+  messagingSenderId: "1024050278672",
+  appId:             "1:1024050278672:web:5ce9e2f86694cc6e86f595"
+};
+
+const _app = initializeApp(firebaseConfig);
+const db   = getFirestore(_app);
+
+// ---- COLECCIONES ----
+const COL_CONDUCTORES = 'conductores';
+const COL_TARIFAS     = 'tarifas';
+const COL_REGISTROS   = 'registros';
+
+// ---- SCHEMA VERSION (para seed inicial) ----
+const DB_SCHEMA_VERSION = 2;
+
+// ====================================================
+// TARIFAS DEFAULT
+// ====================================================
 const TARIFAS_DEFAULT = [
   { CONCEPTO: 'CARGA/DESCARGAS',   TJG: 10,   CAUDETE: 15.45, FILARDI: 0   },
   { CONCEPTO: 'MOV. PALETS',       TJG: 10,   CAUDETE: 5.15,  FILARDI: 0   },
@@ -23,7 +46,9 @@ const TARIFAS_DEFAULT = [
   { CONCEPTO: 'NACIONAL',          TJG: 0,    CAUDETE: 10.30, FILARDI: 0   },
 ];
 
-// ---- CONDUCTORES (131 registros del Excel) ----
+// ====================================================
+// CONDUCTORES DEFAULT (131 registros)
+// ====================================================
 const CONDUCTORES_DEFAULT = [
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10001', Nombre:'ENCHEV, TSVETAN IVANOV', NIF:'X4341880D', IBAN:'ES1400814238870001999302', PrecioKmt:0.14, Email:'ivanovenchev@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10004', Nombre:'ROMANOV, ANATOLIY', NIF:'X6524356S', IBAN:'ES8100811434140006320148', PrecioKmt:0.14, Email:'tellmy75@gmail.com' },
@@ -46,11 +71,11 @@ const CONDUCTORES_DEFAULT = [
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10037', Nombre:'YAAGOUBI FERHANE, EL HOUSSINE', NIF:'55142785D', IBAN:'ES5021037842960030074461', PrecioKmt:0.14, Email:'Yaagoubi82@hotmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10039', Nombre:'ENCHEV, VASIL IVANOV', NIF:'X4917662D', IBAN:'ES3900814238880001731083', PrecioKmt:0.14, Email:'vasiliveco@hotmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10040', Nombre:'MEDVEDIUC, DUMITRU', NIF:'Y4930646N', IBAN:'ES4230580235612720074279', PrecioKmt:0.14, Email:'dimamedvediuk@gmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10042', Nombre:'DIAZ MONTAÑEZ, ALFONSO', NIF:'52813900N', IBAN:'ES5700303016700387488273', PrecioKmt:0.0, Email:'alfonsodiazmonta1967@gmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10044', Nombre:'RODRIGUEZ AVILES, FRANCISCO', NIF:'26457581Z', IBAN:'ES4230670069301609049711', PrecioKmt:0.0, Email:'franrodriaviles@gmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10046', Nombre:'RAMIREZ ROLDAN, JOSE ERNESTO', NIF:'44388770N', IBAN:'ES9014650733611729629550', PrecioKmt:0.0, Email:'joseernestoramirez33@gmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10047', Nombre:'LARA LENDINEZ, SALVADOR', NIF:'26457571G', IBAN:'ES9404873125899000018484', PrecioKmt:0.0, Email:'salvadorisa86@gmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10048', Nombre:'GALLEGO JIMENEZ, FRANCISCO JAVIER', NIF:'75105793Y', IBAN:'ES7802370113309168642813', PrecioKmt:0.0, Email:'frjaviergj81@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10042', Nombre:'DIAZ MONTAÑEZ, ALFONSO', NIF:'52813900N', IBAN:'ES5700303016700387488273', PrecioKmt:0, Email:'alfonsodiazmonta1967@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10044', Nombre:'RODRIGUEZ AVILES, FRANCISCO', NIF:'26457581Z', IBAN:'ES4230670069301609049711', PrecioKmt:0, Email:'franrodriaviles@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10046', Nombre:'RAMIREZ ROLDAN, JOSE ERNESTO', NIF:'44388770N', IBAN:'ES9014650733611729629550', PrecioKmt:0, Email:'joseernestoramirez33@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10047', Nombre:'LARA LENDINEZ, SALVADOR', NIF:'26457571G', IBAN:'ES9404873125899000018484', PrecioKmt:0, Email:'salvadorisa86@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10048', Nombre:'GALLEGO JIMENEZ, FRANCISCO JAVIER', NIF:'75105793Y', IBAN:'ES7802370113309168642813', PrecioKmt:0, Email:'frjaviergj81@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10049', Nombre:'RADU IOAN, ANDREI', NIF:'Y1402541S', IBAN:'ES9830580248742810084492', PrecioKmt:0.14, Email:'andreiradu075@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10050', Nombre:'BOUCHBOUCH HADIR, ABDERRAZZAK', NIF:'04767355F', IBAN:'ES8421004579300100407988', PrecioKmt:0.14, Email:'abderrazzakbouchbouch@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10051', Nombre:'YAAGOUBI FERHANE, MOHAMMED', NIF:'60186210V', IBAN:'ES0421004981922100040805', PrecioKmt:0.14, Email:'mohameguapo-1987@hotmail.es' },
@@ -72,10 +97,10 @@ const CONDUCTORES_DEFAULT = [
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10071', Nombre:'EL GATTAOUI EL GHABI, CHARKAOUI', NIF:'29595360H', IBAN:'ES4321008741131300501769', PrecioKmt:0.12, Email:'charcaouielgattaoui002@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10072', Nombre:'ANDONOV, VLADIMIR IVANOV', NIF:'X5773977B', IBAN:'ES8801822980320201538967', PrecioKmt:0.14, Email:'vviiaa76@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10073', Nombre:'ZAYTOUNI CHLIMA, HICHAM', NIF:'49823541K', IBAN:'ES5000750284750700388376', PrecioKmt:0.12, Email:'hichamacharq@hotmail.es' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10076', Nombre:'JIMENEZ GARCIA, MARCOS', NIF:'26457319M', IBAN:'ES5321004872222100303719', PrecioKmt:0.0, Email:'marcosjimenezgarcia@hotmail.com' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10077', Nombre:'DE LA TORRE PEREZ, ALEJANDRO', NIF:'26240025S', IBAN:'ES2021001971691300082018', PrecioKmt:0.0, Email:'alejandrodelatorre83@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10076', Nombre:'JIMENEZ GARCIA, MARCOS', NIF:'26457319M', IBAN:'ES5321004872222100303719', PrecioKmt:0, Email:'marcosjimenezgarcia@hotmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10077', Nombre:'DE LA TORRE PEREZ, ALEJANDRO', NIF:'26240025S', IBAN:'ES2021001971691300082018', PrecioKmt:0, Email:'alejandrodelatorre83@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10078', Nombre:'LULOUSKI, GEORGI PETILOV', NIF:'X6632349T', IBAN:'ES3721001768310100568153', PrecioKmt:0.14, Email:'sanvisente1@abv.bg' },
-  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10079', Nombre:'PEREZ GUERRERO, FRANCISCO JOSE', NIF:'75108985R', IBAN:'ES3930670069333398230817', PrecioKmt:0.0, Email:'franciscojoseperezguerrero@gmail.com' },
+  { PLATAFORMA:'CAUDETE', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10079', Nombre:'PEREZ GUERRERO, FRANCISCO JOSE', NIF:'75108985R', IBAN:'ES3930670069333398230817', PrecioKmt:0, Email:'franciscojoseperezguerrero@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10080', Nombre:'LAIME QUIROZ, JHIMI', NIF:'77636656H', IBAN:'ES4221008278550200216280', PrecioKmt:0.14, Email:'jhimilq@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10081', Nombre:'MILAD MORHLI, HICHAM', NIF:'60113159Z', IBAN:'ES3400811088130006144925', PrecioKmt:0.12, Email:'hichammilad70@gmail.com' },
   { PLATAFORMA:'TJG', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'10082', Nombre:'ONISOR, GAVRILA', NIF:'X3864526C', IBAN:'ES9300495549812295367106', PrecioKmt:0.14, Email:'gavrilaonisor878@gmail.com' },
@@ -158,91 +183,147 @@ const CONDUCTORES_DEFAULT = [
   { PLATAFORMA:'FILARDI', CATEGORIA:'CONDUCTOR/MECANICO', Codigo:'110042', Nombre:'VILSAN, FLORIN', NIF:'X9778926Q', IBAN:'ES9801827611590201636005', PrecioKmt:0.125, Email:'vilsanflorin1973@gmail.com' },
 ];
 
-// ---- GETTERS ----
+// ====================================================
+// CACHÉ LOCAL (para no depender de la red en cada lectura)
+// ====================================================
+let _conductores = null;
+let _tarifas     = null;
+let _registros   = [];
+let _unsubRegistros = null; // listener tiempo real
+
+// ====================================================
+// INIT — carga datos y arranca listener de registros
+// ====================================================
+async function initDB() {
+  await Promise.all([cargarConductores(), cargarTarifas()]);
+  await cargarRegistros();
+  escucharRegistros();
+}
+
+// ====================================================
+// CONDUCTORES
+// ====================================================
+async function cargarConductores() {
+  try {
+    const snap = await getDocs(collection(db, COL_CONDUCTORES));
+    if (snap.empty) {
+      // Primera vez: sembrar datos
+      await seedConductores();
+    } else {
+      _conductores = snap.docs.map(d => d.data());
+    }
+  } catch (e) {
+    console.error('Error cargando conductores:', e);
+    _conductores = [...CONDUCTORES_DEFAULT];
+  }
+}
+
+async function seedConductores() {
+  const batch = [];
+  for (const c of CONDUCTORES_DEFAULT) {
+    batch.push(setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c));
+  }
+  await Promise.all(batch);
+  _conductores = [...CONDUCTORES_DEFAULT];
+}
+
 function getConductores() {
-  const raw = localStorage.getItem(DB_KEY_CONDUCTORES);
-  return raw ? JSON.parse(raw) : [...CONDUCTORES_DEFAULT];
+  return _conductores || [...CONDUCTORES_DEFAULT];
+}
+
+function buscarConductor(codigo) {
+  return getConductores().find(c => String(c.Codigo) === String(codigo).trim()) || null;
+}
+
+async function upsertConductor(conductor) {
+  await setDoc(doc(db, COL_CONDUCTORES, conductor.Codigo), conductor);
+  const idx = (_conductores||[]).findIndex(c => c.Codigo === conductor.Codigo);
+  if (idx >= 0) _conductores[idx] = conductor;
+  else _conductores.push(conductor);
+}
+
+async function eliminarConductor(codigo) {
+  await deleteDoc(doc(db, COL_CONDUCTORES, codigo));
+  _conductores = (_conductores||[]).filter(c => c.Codigo !== codigo);
+}
+
+// ====================================================
+// TARIFAS
+// ====================================================
+async function cargarTarifas() {
+  try {
+    const snap = await getDocs(collection(db, COL_TARIFAS));
+    if (snap.empty) {
+      await seedTarifas();
+    } else {
+      _tarifas = snap.docs.map(d => d.data());
+    }
+  } catch (e) {
+    console.error('Error cargando tarifas:', e);
+    _tarifas = [...TARIFAS_DEFAULT];
+  }
+}
+
+async function seedTarifas() {
+  await Promise.all(
+    TARIFAS_DEFAULT.map(t => setDoc(doc(db, COL_TARIFAS, t.CONCEPTO), t))
+  );
+  _tarifas = [...TARIFAS_DEFAULT];
 }
 
 function getTarifas() {
-  const raw = localStorage.getItem(DB_KEY_TARIFAS);
-  return raw ? JSON.parse(raw) : [...TARIFAS_DEFAULT];
+  return _tarifas || [...TARIFAS_DEFAULT];
 }
 
-function getRegistros() {
-  const raw = localStorage.getItem(DB_KEY_REGISTROS);
-  return raw ? JSON.parse(raw) : [];
-}
-
-// ---- SETTERS ----
-function saveConductores(data) {
-  localStorage.setItem(DB_KEY_CONDUCTORES, JSON.stringify(data));
-}
-
-function saveTarifas(data) {
-  localStorage.setItem(DB_KEY_TARIFAS, JSON.stringify(data));
-}
-
-function saveRegistros(data) {
-  localStorage.setItem(DB_KEY_REGISTROS, JSON.stringify(data));
-}
-
-// ---- CRUD CONDUCTORES ----
-function buscarConductor(codigo) {
-  return getConductores().find(c => String(c.Codigo) === String(codigo).trim());
-}
-
-function upsertConductor(conductor) {
-  const lista = getConductores();
-  const idx = lista.findIndex(c => String(c.Codigo) === String(conductor.Codigo));
-  if (idx >= 0) lista[idx] = conductor;
-  else lista.push(conductor);
-  saveConductores(lista);
-}
-
-function eliminarConductor(codigo) {
-  const lista = getConductores().filter(c => String(c.Codigo) !== String(codigo));
-  saveConductores(lista);
-}
-
-// ---- CRUD REGISTROS ----
-function addRegistro(reg) {
-  const lista = getRegistros();
-  reg.id = Date.now();
-  reg.fechaCreacion = new Date().toISOString();
-  lista.push(reg);
-  saveRegistros(lista);
-  return reg;
-}
-
-// ---- TARIFA por concepto y plataforma ----
 function getTarifa(concepto, plataforma) {
-  const tarifas = getTarifas();
-  const fila = tarifas.find(t => t.CONCEPTO === concepto);
+  const fila = getTarifas().find(t => t.CONCEPTO === concepto);
   return fila ? (fila[plataforma] || 0) : 0;
 }
 
-// ---- EXPORT VERSION ----
+// ====================================================
+// REGISTROS
+// ====================================================
+async function cargarRegistros() {
+  try {
+    const snap = await getDocs(query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')));
+    _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('Error cargando registros:', e);
+    _registros = [];
+  }
+}
+
+// Listener en tiempo real — actualiza historial automáticamente
+function escucharRegistros() {
+  if (_unsubRegistros) _unsubRegistros();
+  _unsubRegistros = onSnapshot(
+    query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
+    snap => {
+      _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (typeof renderHistorial === 'function') renderHistorial();
+    },
+    err => console.error('Listener error:', err)
+  );
+}
+
+function getRegistros() {
+  return _registros;
+}
+
+async function addRegistro(reg) {
+  reg.fechaCreacion = new Date().toISOString();
+  const ref = await addDoc(collection(db, COL_REGISTROS), reg);
+  reg.id = ref.id;
+  return reg;
+}
+
+// ====================================================
+// EXPORT / IMPORT JSON versionado
+// ====================================================
+const DB_KEY_VERSION = 'dietas_export_version';
+
 function getNextVersion() {
   const v = parseInt(localStorage.getItem(DB_KEY_VERSION) || '0') + 1;
   localStorage.setItem(DB_KEY_VERSION, String(v));
   return v;
-}
-
-// ---- INIT ----
-// DB_SCHEMA_VERSION: incrementar cada vez que cambien los datos por defecto
-const DB_SCHEMA_VERSION = 2;
-
-function initDB() {
-  const schemaGuardado = parseInt(localStorage.getItem('dietas_schema') || '0');
-
-  // Si el schema es antiguo, recargar conductores y tarifas desde defaults
-  // pero conservar los registros existentes
-  if (schemaGuardado < DB_SCHEMA_VERSION) {
-    saveConductores(CONDUCTORES_DEFAULT);
-    saveTarifas(TARIFAS_DEFAULT);
-    localStorage.setItem('dietas_schema', String(DB_SCHEMA_VERSION));
-  }
-
-  if (!localStorage.getItem(DB_KEY_REGISTROS)) saveRegistros([]);
 }
