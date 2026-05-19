@@ -115,7 +115,7 @@
         </div>
         <div class="field">
           <label>Coef. Nacional</label>
-          <input type="number" id="coefNacional" value="0" min="0" step="1" onchange="calcularDietas()">
+          <input type="number" id="coefNacional" value="0" min="0" step="0.01" onchange="calcularDietas()">
         </div>
         <div class="field">
           <label>Domingos & Festivos</label>
@@ -259,91 +259,109 @@
 
 <!-- ===== TAB INFORMES ===== -->
 <main id="tab-informes" class="tab-content" style="display:none">
-  <div class="informes-grid">
 
-    <div class="informe-card">
-      <div class="informe-icon">👤</div>
-      <h3>Informe Conductor</h3>
-      <p>Detalle de actividad individual o masivo por email</p>
-      <div class="field">
-        <label>Conductor (vacío = todos)</label>
-        <input type="text" id="inf-cod-conductor" placeholder="Código conductor">
+  <!-- FILTROS -->
+  <div class="inf-layout">
+    <aside class="inf-sidebar">
+
+      <div class="informe-card">
+        <div class="informe-icon">👤</div>
+        <h3>Conductor</h3>
+        <p>Detalle individual o masivo</p>
+        <div class="field">
+          <label>Código (vacío = todos)</label>
+          <input type="text" id="inf-cod-conductor" placeholder="Ej: 10001">
+        </div>
+        <div class="field">
+          <label>Período</label>
+          <div class="date-range">
+            <input type="date" id="inf-desde">
+            <span>—</span>
+            <input type="date" id="inf-hasta">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="previsualizarConductor()">🔍 Previsualizar</button>
       </div>
-      <div class="field">
-        <label>Período</label>
-        <div class="date-range">
-          <input type="date" id="inf-desde">
-          <span>—</span>
-          <input type="date" id="inf-hasta">
+
+      <div class="informe-card">
+        <div class="informe-icon">📑</div>
+        <h3>Gestoría</h3>
+        <p>TJG y FILARDI</p>
+        <div class="field">
+          <label>Plataforma</label>
+          <select id="inf-plataforma-gestoria">
+            <option value="TJG">TJG</option>
+            <option value="FILARDI">FILARDI</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Período</label>
+          <div class="date-range">
+            <input type="date" id="inf-gest-desde">
+            <span>—</span>
+            <input type="date" id="inf-gest-hasta">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="previsualizarGestoria()">🔍 Previsualizar</button>
+      </div>
+
+      <div class="informe-card">
+        <div class="informe-icon">📈</div>
+        <h3>RRHH</h3>
+        <p>Estadísticos y comparativos</p>
+        <div class="field">
+          <label>Plataforma</label>
+          <select id="inf-rrhh-plataforma">
+            <option value="">Todas</option>
+            <option value="TJG">TJG</option>
+            <option value="FILARDI">FILARDI</option>
+            <option value="CAUDETE">CAUDETE</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Formato</label>
+          <select id="inf-rrhh-formato">
+            <option value="detallado">Detallado</option>
+            <option value="resumido">Resumido</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Período</label>
+          <div class="date-range">
+            <input type="date" id="inf-rrhh-desde">
+            <span>—</span>
+            <input type="date" id="inf-rrhh-hasta">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="previsualizarRRHH()">🔍 Previsualizar</button>
+      </div>
+
+    </aside>
+
+    <!-- ÁREA DE PREVISUALIZACIÓN -->
+    <div class="inf-preview-area">
+      <div id="inf-preview-empty" class="inf-empty">
+        <div class="inf-empty-icon">📋</div>
+        <p>Selecciona un informe y pulsa <strong>Previsualizar</strong></p>
+      </div>
+
+      <div id="inf-preview-content" style="display:none">
+        <!-- Barra de acciones -->
+        <div class="inf-action-bar">
+          <span id="inf-preview-titulo" class="inf-preview-titulo"></span>
+          <div class="inf-action-btns">
+            <button class="btn btn-ghost" id="btn-inf-email" onclick="accionInformeEmail()">📧 Enviar Email</button>
+            <button class="btn btn-ghost" onclick="accionInformeImprimir()">🖨️ Imprimir</button>
+            <button class="btn btn-ghost" onclick="accionInformePDF()">📄 PDF</button>
+            <button class="btn btn-secondary" onclick="accionInformeExcel()">📊 Exportar Excel</button>
+          </div>
+        </div>
+        <!-- Tabla previsualización -->
+        <div class="inf-table-wrap">
+          <div id="inf-preview-tabla"></div>
         </div>
       </div>
-      <div class="informe-btns">
-        <button class="btn btn-secondary" onclick="informeConductorEmail()">📧 Enviar por Email</button>
-        <button class="btn btn-ghost" onclick="informeConductorPDF()">📄 PDF</button>
-        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimir</button>
-      </div>
     </div>
-
-    <div class="informe-card">
-      <div class="informe-icon">📑</div>
-      <h3>Informe Gestoría</h3>
-      <p>Para plataformas TJG y FILARDI</p>
-      <div class="field">
-        <label>Plataforma</label>
-        <select id="inf-plataforma-gestoria">
-          <option value="TJG">TJG</option>
-          <option value="FILARDI">FILARDI</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Período</label>
-        <div class="date-range">
-          <input type="date" id="inf-gest-desde">
-          <span>—</span>
-          <input type="date" id="inf-gest-hasta">
-        </div>
-      </div>
-      <div class="informe-btns">
-        <button class="btn btn-secondary" onclick="informeGestoria()">📊 Exportar Excel</button>
-        <button class="btn btn-ghost" onclick="informeGestoriaPDF()">📄 PDF</button>
-      </div>
-    </div>
-
-    <div class="informe-card">
-      <div class="informe-icon">📈</div>
-      <h3>Informe RRHH</h3>
-      <p>Estadísticos y comparativos con filtros</p>
-      <div class="field">
-        <label>Plataforma</label>
-        <select id="inf-rrhh-plataforma">
-          <option value="">Todas</option>
-          <option value="TJG">TJG</option>
-          <option value="FILARDI">FILARDI</option>
-          <option value="CAUDETE">CAUDETE</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Formato</label>
-        <select id="inf-rrhh-formato">
-          <option value="detallado">Detallado</option>
-          <option value="resumido">Resumido</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Período</label>
-        <div class="date-range">
-          <input type="date" id="inf-rrhh-desde">
-          <span>—</span>
-          <input type="date" id="inf-rrhh-hasta">
-        </div>
-      </div>
-      <div class="informe-btns">
-        <button class="btn btn-secondary" onclick="informeRRHH()">📊 Exportar Excel</button>
-        <button class="btn btn-ghost" onclick="informeRRHHPDF()">📄 PDF</button>
-        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimir</button>
-      </div>
-    </div>
-
   </div>
 </main>
 
@@ -416,6 +434,37 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarConductor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EMAIL MANUAL -->
+<div id="modal-email" class="modal" style="display:none">
+  <div class="modal-box" style="width:480px">
+    <div class="modal-header">
+      <h3>Enviar informe por Email</h3>
+      <button onclick="cerrarModalEmail()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:14px">
+        Introduce la dirección o direcciones de destino (separadas por coma).
+      </p>
+      <div class="field">
+        <label>Destinatario/s *</label>
+        <input type="text" id="email-destino" placeholder="email@ejemplo.com, otro@ejemplo.com">
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Asunto</label>
+        <input type="text" id="email-asunto" placeholder="Informe de dietas">
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Nota adicional (opcional)</label>
+        <textarea id="email-nota" rows="3" style="resize:vertical" placeholder="Adjunto el informe solicitado…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModalEmail()">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarEmailManual()">📧 Abrir en Outlook</button>
     </div>
   </div>
 </div>
