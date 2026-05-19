@@ -97,7 +97,7 @@ function previsualizarRRHH() {
       'PLATAFORMA': r.plataforma, 'CATEGORÍA': r.categoria,
       'SALIDA': r.fechaSalida, 'LLEGADA': r.fechaLlegada,
       'DÍAS': r.diasTrabajados, 'KM': r.totalKm,
-      'COEF_NAC': r.coefNacional, 'DOM_FEST': r.domingosFestivos,
+      'COEF_NAC': r.coefNacional, 'DOM_FEST': (r.nDomingos||0) + (r.nFestivos||0),
       'CARGA': r.nCarga, 'PALET': r.nPalet, 'REBOTE': r.nRebote,
       '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF,
       'ACARREOS': r.acarreos, 'VLISSINGEN': r.dietaVlissingen,
@@ -190,20 +190,16 @@ function accionInformeEmail() {
   }
 }
 
-function accionInformeImprimir() {
-  if (!_informe.filas?.length) return;
-  const win = window.open('', '_blank');
-  win.document.write(htmlParaImprimir(_informe.titulo, _informe.headers, _informe.filas));
-  win.document.close();
-  win.onload = () => win.print();
-}
+function accionInformeImprimir() { abrirVentanaImpresion(false); }
+function accionInformePDF()      { abrirVentanaImpresion(true);  }
 
-function accionInformePDF() {
+function abrirVentanaImpresion(esPDF) {
   if (!_informe.filas?.length) return;
   const win = window.open('', '_blank');
   win.document.write(htmlParaImprimir(_informe.titulo, _informe.headers, _informe.filas));
   win.document.close();
-  showToast('Usa "Guardar como PDF" en el diálogo de impresión', '');
+  if (esPDF) showToast('Usa "Guardar como PDF" en el diálogo de impresión', '');
+  else win.onload = () => win.print();
 }
 
 function accionInformeExcel() {
