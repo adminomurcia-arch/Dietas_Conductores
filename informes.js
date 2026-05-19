@@ -205,9 +205,9 @@ function abrirVentanaImpresion(esPDF) {
 function accionInformeExcel() {
   if (!_informe.filas?.length) return;
   const csv = arrayToCSV(_informe.headers, _informe.filas);
-  const v   = getNextVersion();
-  descargarCSV(csv, `${_informe.tipo}_v${v}.csv`);
-  showToast(`Exportado: ${_informe.tipo}_v${v}.csv ✓`, 'success');
+  const fecha = new Date().toISOString().slice(0, 10);
+  descargarCSV(csv, `${_informe.tipo}_${fecha}.csv`);
+  showToast(`Exportado: ${_informe.tipo}_${fecha}.csv ✓`, 'success');
 }
 
 // ============================================================
@@ -292,19 +292,18 @@ function generarCuerpoEmail(conductor, registros) {
 }
 
 // ============================================================
-// EXPORT / IMPORT DATOS (localStorage ↔ JSON versionado)
+// EXPORT / IMPORT DATOS (copia de seguridad con fecha)
 // ============================================================
 function exportarExcel() {
-  const v = getNextVersion();
+  const fecha = new Date().toISOString().slice(0, 10);
   const data = {
-    version:     v,
     exportado:   new Date().toISOString(),
     conductores: getConductores(),
     tarifas:     getTarifas(),
     registros:   getRegistros(),
   };
-  descargarJSON(data, `dietas_v${v}.json`);
-  showToast(`Exportado: dietas_v${v}.json ✓`, 'success');
+  descargarJSON(data, `dietas_backup_${fecha}.json`);
+  showToast(`Copia guardada: dietas_backup_${fecha}.json ✓`, 'success');
 }
 
 function importarExcel() {
