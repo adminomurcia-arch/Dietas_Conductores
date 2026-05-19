@@ -230,8 +230,19 @@ function getNextVersion() {
 }
 
 // ---- INIT ----
+// DB_SCHEMA_VERSION: incrementar cada vez que cambien los datos por defecto
+const DB_SCHEMA_VERSION = 2;
+
 function initDB() {
-  if (!localStorage.getItem(DB_KEY_CONDUCTORES)) saveConductores(CONDUCTORES_DEFAULT);
-  if (!localStorage.getItem(DB_KEY_TARIFAS))     saveTarifas(TARIFAS_DEFAULT);
-  if (!localStorage.getItem(DB_KEY_REGISTROS))   saveRegistros([]);
+  const schemaGuardado = parseInt(localStorage.getItem('dietas_schema') || '0');
+
+  // Si el schema es antiguo, recargar conductores y tarifas desde defaults
+  // pero conservar los registros existentes
+  if (schemaGuardado < DB_SCHEMA_VERSION) {
+    saveConductores(CONDUCTORES_DEFAULT);
+    saveTarifas(TARIFAS_DEFAULT);
+    localStorage.setItem('dietas_schema', String(DB_SCHEMA_VERSION));
+  }
+
+  if (!localStorage.getItem(DB_KEY_REGISTROS)) saveRegistros([]);
 }
