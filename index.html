@@ -316,7 +316,14 @@
       <div class="form-grid">
         <div class="field" id="field-acarreos"><label>Acarreos (nº)</label><input type="number" id="acarreos" min="0" value="0" onchange="calcularDietas()"></div>
         <div class="field" id="field-vlissingen"><label>Dieta Vlissingen (nº días)</label><input type="number" id="dietaVlissingen" min="0" value="0" onchange="calcularDietas()"></div>
-        <div class="field"><label>Extras / Gastos Viaje (€)</label><input type="number" id="extras" min="0" value="0" step="0.01" onchange="calcularDietas()"></div>
+        <div class="field">
+          <label>Extras (€) <small>se suma al cálculo</small></label>
+          <input type="number" id="extras" min="0" value="0" step="0.01" onchange="calcularDietas()">
+        </div>
+        <div class="field">
+          <label>Gastos de Viaje (€) <small>informativo, no entra en cálculo</small></label>
+          <input type="number" id="gastosViaje" min="0" value="0" step="0.01">
+        </div>
         <div class="field"><label>Anticipos (€) <small>solo gestoría</small></label><input type="number" id="anticipos" min="0" value="0" step="0.01"></div>
       </div>
     </section>
