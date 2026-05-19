@@ -222,55 +222,6 @@ function getTarifa(concepto, plataforma) {
   return fila ? (fila[plataforma] || 0) : 0;
 }
 
-// ---- FESTIVOS MOLINA DE SEGURA ----
-function esFestivoNacional(fecha) {
-  const d = new Date(fecha);
-  const mes = d.getMonth() + 1;
-  const dia = d.getDate();
-  const festivos = [
-    [1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]
-  ];
-  return festivos.some(([m, dd]) => m === mes && dd === dia);
-}
-
-function esDomingo(fecha) {
-  return new Date(fecha).getDay() === 0;
-}
-
-function contarDomingosFestivos(inicio, fin) {
-  let count = 0;
-  const d = new Date(inicio);
-  const fEnd = new Date(fin);
-  while (d <= fEnd) {
-    if (esDomingo(d) || esFestivoNacional(d)) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
-function contarDomingos(inicio, fin) {
-  let count = 0;
-  const d = new Date(inicio);
-  const fEnd = new Date(fin);
-  while (d <= fEnd) {
-    if (esDomingo(d)) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
-function contarFestivos(inicio, fin) {
-  let count = 0;
-  const d = new Date(inicio);
-  const fEnd = new Date(fin);
-  while (d <= fEnd) {
-    // Festivo: es festivo nacional pero NO domingo (para no duplicar)
-    if (esFestivoNacional(d) && !esDomingo(d)) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
 // ---- EXPORT VERSION ----
 function getNextVersion() {
   const v = parseInt(localStorage.getItem(DB_KEY_VERSION) || '0') + 1;
