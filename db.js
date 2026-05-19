@@ -194,7 +194,7 @@ let _unsubRegistros = null; // listener tiempo real
 // ====================================================
 // INIT — carga datos y arranca listener de registros
 // ====================================================
-async function initDB() {
+export async function initDB() {
   await Promise.all([cargarConductores(), cargarTarifas()]);
   await cargarRegistros();
   escucharRegistros();
@@ -227,22 +227,22 @@ async function seedConductores() {
   _conductores = [...CONDUCTORES_DEFAULT];
 }
 
-function getConductores() {
+export function getConductores() {
   return _conductores || [...CONDUCTORES_DEFAULT];
 }
 
-function buscarConductor(codigo) {
+export function buscarConductor(codigo) {
   return getConductores().find(c => String(c.Codigo) === String(codigo).trim()) || null;
 }
 
-async function upsertConductor(conductor) {
+export async function upsertConductor(conductor) {
   await setDoc(doc(db, COL_CONDUCTORES, conductor.Codigo), conductor);
   const idx = (_conductores||[]).findIndex(c => c.Codigo === conductor.Codigo);
   if (idx >= 0) _conductores[idx] = conductor;
   else _conductores.push(conductor);
 }
 
-async function eliminarConductor(codigo) {
+export async function eliminarConductor(codigo) {
   await deleteDoc(doc(db, COL_CONDUCTORES, codigo));
   _conductores = (_conductores||[]).filter(c => c.Codigo !== codigo);
 }
@@ -271,11 +271,11 @@ async function seedTarifas() {
   _tarifas = [...TARIFAS_DEFAULT];
 }
 
-function getTarifas() {
+export function getTarifas() {
   return _tarifas || [...TARIFAS_DEFAULT];
 }
 
-function getTarifa(concepto, plataforma) {
+export function getTarifa(concepto, plataforma) {
   const fila = getTarifas().find(t => t.CONCEPTO === concepto);
   return fila ? (fila[plataforma] || 0) : 0;
 }
@@ -306,11 +306,11 @@ function escucharRegistros() {
   );
 }
 
-function getRegistros() {
+export function getRegistros() {
   return _registros;
 }
 
-async function addRegistro(reg) {
+export async function addRegistro(reg) {
   reg.fechaCreacion = new Date().toISOString();
   const ref = await addDoc(collection(db, COL_REGISTROS), reg);
   reg.id = ref.id;
