@@ -189,6 +189,34 @@ function calcularTiempos() {
   const plataforma = document.getElementById('plataforma').value;
   const fs = document.getElementById('fechaSalida').value;
   const fl = document.getElementById('fechaLlegada').value;
+
+  const inFS = document.getElementById('fechaSalida');
+  const inFL = document.getElementById('fechaLlegada');
+  const hoy  = new Date().toISOString().slice(0, 10);
+
+  // Reset estilos
+  inFS.style.borderColor = '';
+  inFL.style.borderColor = '';
+
+  if (fs && fs > hoy) {
+    inFS.style.borderColor = '#c0392b';
+    showToast('La fecha de salida no puede ser futura', 'error');
+    document.getElementById('diasTrabajados').value = '';
+    return;
+  }
+  if (fl && fl > hoy) {
+    inFL.style.borderColor = '#c0392b';
+    showToast('La fecha de llegada no puede ser futura', 'error');
+    document.getElementById('diasTrabajados').value = '';
+    return;
+  }
+  if (fs && fl && fl <= fs) {
+    inFL.style.borderColor = '#c0392b';
+    showToast('La fecha de llegada debe ser posterior a la de salida', 'error');
+    document.getElementById('diasTrabajados').value = '';
+    return;
+  }
+
   if (!fs || !fl) return;
 
   let dias = 0, resto = 0;
@@ -214,10 +242,8 @@ function calcularTiempos() {
   }
 
   // Domingos y festivos
-  if (fs && fl) {
-    const df = contarDomingosFestivos(fs, fl);
-    document.getElementById('domingosFestivos').value = df;
-  }
+  const df = contarDomingosFestivos(fs, fl);
+  document.getElementById('domingosFestivos').value = df;
 
   calcularDietas();
 }
@@ -227,10 +253,24 @@ function calcularKms() {
   const categoria = document.getElementById('categoria').value.toUpperCase();
   if (categoria === 'COMODIN' || categoria === 'PESCADO') {
     document.getElementById('totalKm').value = 12000;
+    calcularDietas();
     return;
   }
   const sal  = parseFloat(document.getElementById('kmSalida').value)  || 0;
   const vuel = parseFloat(document.getElementById('kmVuelta').value)  || 0;
-  document.getElementById('totalKm').value = sal + vuel;
+
+  const inSalida  = document.getElementById('kmSalida');
+  const inVuelta  = document.getElementById('kmVuelta');
+
+  if (vuel && sal && vuel < sal) {
+    inVuelta.style.borderColor = '#c0392b';
+    inSalida.style.borderColor = '#c0392b';
+    showToast('Km Vuelta no puede ser inferior a Km Salida', 'error');
+    document.getElementById('totalKm').value = '';
+    return;
+  }
+  inSalida.style.borderColor = '';
+  inVuelta.style.borderColor = '';
+  document.getElementById('totalKm').value = vuel && sal ? vuel - sal : '';
   calcularDietas();
 }
