@@ -9,6 +9,61 @@
 </head>
 <body>
 
+<!-- PANTALLA DE ACCESO -->
+<div id="acceso-overlay" style="
+  position:fixed;inset:0;background:#f4f6f2;z-index:9999;
+  display:flex;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:36px 32px;
+              box-shadow:0 4px 24px rgba(44,51,40,.13);width:320px;text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">🚛</div>
+    <h2 style="font-size:18px;font-weight:600;color:#4a7c59;margin-bottom:6px">
+      Administración
+    </h2>
+    <p style="font-size:13px;color:#6b7566;margin-bottom:24px">
+      Introduce la contraseña de acceso
+    </p>
+    <input type="password" id="input-password"
+      placeholder="Contraseña"
+      style="width:100%;padding:10px 12px;border:1.5px solid #d8ddd4;
+             border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;
+             margin-bottom:12px;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter') verificarAcceso()">
+    <div id="acceso-error" style="color:#c0392b;font-size:12px;
+         margin-bottom:10px;display:none">
+      Contraseña incorrecta
+    </div>
+    <button onclick="verificarAcceso()" style="
+      width:100%;padding:12px;background:#4a7c59;color:#fff;border:none;
+      border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+      font-family:'DM Sans',sans-serif">
+      Entrar
+    </button>
+  </div>
+</div>
+
+<script>
+  // ---- CONTRASEÑA DE ADMINISTRADOR ----
+  // Cámbiala por la que quieras
+  const ADMIN_PASSWORD = 'dietas2026';
+
+  function verificarAcceso() {
+    const val = document.getElementById('input-password').value;
+    if (val === ADMIN_PASSWORD) {
+      document.getElementById('acceso-overlay').style.display = 'none';
+      sessionStorage.setItem('admin_ok', '1');
+    } else {
+      document.getElementById('acceso-error').style.display = 'block';
+      document.getElementById('input-password').value = '';
+      document.getElementById('input-password').focus();
+    }
+  }
+
+  // Si ya la introdujo en esta sesión, no volver a pedir
+  if (sessionStorage.getItem('admin_ok') === '1') {
+    document.getElementById('acceso-overlay').style.display = 'none';
+  }
+</script>
+
 <!-- OVERLAY DE CARGA -->
 <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(244,246,242,0.92);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="font-size:40px">🚛</div>
