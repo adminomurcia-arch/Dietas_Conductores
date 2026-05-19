@@ -359,9 +359,14 @@
       </div>
     </div>
     <div class="field">
-      <label>Extras / Gastos Viaje (€)</label>
+      <label>Extras (€) <span style="font-size:10px;color:var(--soft)">se suma al cálculo</span></label>
       <input type="number" id="m-extras" min="0" value="0"
              step="0.01" inputmode="decimal" onchange="mCalcDietas()">
+    </div>
+    <div class="field">
+      <label>Gastos de Viaje (€) <span style="font-size:10px;color:var(--soft)">informativo</span></label>
+      <input type="number" id="m-gastos" min="0" value="0"
+             step="0.01" inputmode="decimal">
     </div>
   </div>
 
@@ -621,8 +626,15 @@ window.mCalcDietas = function() {
   const nFest = plat==='CAUDETE' && document.getElementById('m-chk-fest').checked
     ? (parseFloat(document.getElementById('m-fest').value)||0) : 0;
 
+  const cat = (_conductor.CATEGORIA||'').toUpperCase();
+
   let res = {};
-  if (plat === 'TJG') {
+  if (cat === 'PESCADO') {
+    const total = km * precioKm;
+    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
+    const DN = coef*45.19;
+    res = { tipo:'PESCADO', total, HE, HP, NOC, DN };
+  } else if (plat === 'TJG') {
     const sumVar = nCarga*getTar('CARGA/DESCARGAS','TJG') + nPalet*getTar('MOV. PALETS','TJG')
                  + nRebote*getTar('REBOTE','TJG') + n24h*getTar('24HORAS_PAUSA','TJG')
                  + nPausa*getTar('24HORAS_PAUSA','TJG') + acar*getTar('ACARREOS','TJG')
@@ -663,7 +675,10 @@ function mostrarResultadoMovil(res) {
   sec.style.display = 'block';
   const f = v => `${(+v).toFixed(2)} €`;
   let filas = [];
-  if (res.tipo === 'TJG') {
+  if (res.tipo === 'PESCADO') {
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],
+             ['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)]];
+  } else if (res.tipo === 'TJG') {
     filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],
              ['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)]];
   } else if (res.tipo === 'FILARDI') {
@@ -727,6 +742,7 @@ window.mGuardar = async function() {
     acarreos:       parseFloat(document.getElementById('m-acarreos').value)|| 0,
     dietaVlissingen:parseFloat(document.getElementById('m-vliss').value)   || 0,
     extras:         parseFloat(document.getElementById('m-extras').value)  || 0,
+    gastosViaje:    parseFloat(document.getElementById('m-gastos').value)  || 0,
     anticipos:      0,
     modo:           'movil',
     origenMovil:    true,
@@ -764,7 +780,7 @@ window.mNuevoRegistro = function() {
 
 window.mLimpiar = function() {
   ['m-fsal','m-hsal','m-flleg','m-hlleg','m-dias','m-resto','m-coef',
-   'm-kmsal','m-kmvuel','m-kmtotal','m-acarreos','m-vliss','m-extras',
+   'm-kmsal','m-kmvuel','m-kmtotal','m-acarreos','m-vliss','m-extras','m-gastos',
    'm-dom','m-fest'].forEach(id => {
      const el = document.getElementById(id);
      if (el) el.value = '';
