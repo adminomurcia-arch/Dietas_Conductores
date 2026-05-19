@@ -316,14 +316,3 @@ async function addRegistro(reg) {
   reg.id = ref.id;
   return reg;
 }
-
-// ====================================================
-// EXPORT / IMPORT JSON versionado
-// ====================================================
-const DB_KEY_VERSION = 'dietas_export_version';
-
-function getNextVersion() {
-  const v = parseInt(localStorage.getItem(DB_KEY_VERSION) || '0') + 1;
-  localStorage.setItem(DB_KEY_VERSION, String(v));
-  return v;
-}
