@@ -206,11 +206,14 @@ export async function initDB() {
 async function cargarConductores() {
   try {
     const snap = await getDocs(collection(db, COL_CONDUCTORES));
-    if (snap.empty) {
-      // Primera vez: sembrar datos
+    console.log(`Firestore conductores encontrados: ${snap.size}`);
+    if (snap.size < CONDUCTORES_DEFAULT.length) {
+      // Faltan conductores — sembrar todos (setDoc no duplica)
+      console.log('Sembrando conductores...');
       await seedConductores();
     } else {
       _conductores = snap.docs.map(d => d.data());
+      console.log(`Conductores cargados: ${_conductores.length}`);
     }
   } catch (e) {
     console.error('Error cargando conductores:', e);
@@ -219,12 +222,11 @@ async function cargarConductores() {
 }
 
 async function seedConductores() {
-  const batch = [];
-  for (const c of CONDUCTORES_DEFAULT) {
-    batch.push(setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c));
-  }
-  await Promise.all(batch);
+  await Promise.all(
+    CONDUCTORES_DEFAULT.map(c => setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c))
+  );
   _conductores = [...CONDUCTORES_DEFAULT];
+  console.log(`Sembrados ${_conductores.length} conductores`);
 }
 
 export function getConductores() {
@@ -253,10 +255,12 @@ export async function eliminarConductor(codigo) {
 async function cargarTarifas() {
   try {
     const snap = await getDocs(collection(db, COL_TARIFAS));
-    if (snap.empty) {
+    console.log(`Firestore tarifas encontradas: ${snap.size}`);
+    if (snap.size < TARIFAS_DEFAULT.length) {
       await seedTarifas();
     } else {
       _tarifas = snap.docs.map(d => d.data());
+      console.log(`Tarifas cargadas: ${_tarifas.length}`);
     }
   } catch (e) {
     console.error('Error cargando tarifas:', e);
