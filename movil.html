@@ -372,8 +372,8 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs,
-         orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs,
+         addDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -392,18 +392,12 @@ let _tarifas   = [];
 let _tractoras = []; // matrículas válidas
 let _hoy       = new Date().toISOString().slice(0,10);
 
-// ---- Arranque ----
+// ---- Arranque — solo muestra login, no carga datos todavía ----
 async function init() {
-  try {
-    const snap = await getDocs(collection(_db, 'tarifas'));
-    _tarifas = snap.docs.map(d => d.data());
-  } catch(e) { console.error(e); }
-
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app-header').style.display = 'flex';
   document.getElementById('pantalla-login').style.display = 'block';
 
-  // Límite fechas
   document.querySelectorAll('input[type="date"]').forEach(el => {
     el.max = _hoy;
     el.addEventListener('focus', function(){ if(!this.value) this.value = _hoy; });
@@ -411,33 +405,43 @@ async function init() {
 }
 init();
 
-// ---- LOGIN ----
-window.mLogin = function() {
-  const cod = document.getElementById('m-codigo').value.trim();
+// ---- LOGIN — búsqueda directa por ID + carga paralela de tarifas y tractoras ----
+window.mLogin = async function() {
+  const cod   = document.getElementById('m-codigo').value.trim();
   const input = document.getElementById('m-codigo');
 
   if (!cod) { mToast('Introduce tu código', 'error'); return; }
 
-  getDocs(collection(_db, 'conductores')).then(snap => {
-    const todos = snap.docs.map(d => d.data());
-    const c = todos.find(x => String(x.Codigo) === String(cod));
-    if (!c) {
+  // Mostrar spinner en el botón
+  const btn = document.querySelector('#pantalla-login .btn-primary');
+  btn.textContent = 'Verificando…';
+  btn.disabled = true;
+
+  try {
+    // Búsqueda directa por ID (una sola lectura, sin traer todos)
+    const [conductorSnap, tarifasSnap, tractorasSnap] = await Promise.all([
+      getDoc(doc(_db, 'conductores', cod)),
+      getDocs(collection(_db, 'tarifas')),
+      getDocs(query(collection(_db, 'tractoras'), orderBy('matricula'))),
+    ]);
+
+    if (!conductorSnap.exists()) {
       input.style.borderColor = '#c0392b';
       mToast('Código no encontrado. Comprueba el número.', 'error');
       return;
     }
+
     input.style.borderColor = '';
-    _conductor = c;
-    document.getElementById('m-nombre').textContent = c.Nombre;
-    document.getElementById('m-plat').textContent   = c.PLATAFORMA + ' · ' + c.CATEGORIA;
-    document.getElementById('header-sub').textContent = c.Nombre;
+    _conductor = conductorSnap.data();
+    _tarifas   = tarifasSnap.docs.map(d => d.data());
+    _tractoras = tractorasSnap.docs.map(d => d.data().matricula.toUpperCase());
 
-    // Cargar lista de tractoras válidas en caché local
-    const tractSnap = await getDocs(collection(_db, 'tractoras'));
-    _tractoras = tractSnap.docs.map(d => d.data().matricula.toUpperCase());
+    document.getElementById('m-nombre').textContent   = _conductor.Nombre;
+    document.getElementById('m-plat').textContent     = _conductor.PLATAFORMA + ' · ' + _conductor.CATEGORIA;
+    document.getElementById('header-sub').textContent = _conductor.Nombre;
 
-    // Recordar última tractora usada por este conductor
-    const ultima = localStorage.getItem(`tractora_${c.Codigo}`);
+    // Recordar última tractora usada
+    const ultima = localStorage.getItem(`tractora_${_conductor.Codigo}`);
     if (ultima) {
       document.getElementById('m-tractora').value = ultima;
       mValidarTractora();
@@ -445,8 +449,15 @@ window.mLogin = function() {
 
     document.getElementById('pantalla-login').style.display    = 'none';
     document.getElementById('pantalla-registro').style.display = 'block';
-    mAdaptarPlataforma(c.PLATAFORMA, c.CATEGORIA);
-  });
+    mAdaptarPlataforma(_conductor.PLATAFORMA, _conductor.CATEGORIA);
+
+  } catch(e) {
+    console.error(e);
+    mToast('Error de conexión. Inténtalo de nuevo.', 'error');
+  } finally {
+    btn.textContent = 'Entrar';
+    btn.disabled = false;
+  }
 };
 
 window.mCerrar = function() {
