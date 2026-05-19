@@ -9,6 +9,12 @@
 </head>
 <body>
 
+<!-- OVERLAY DE CARGA -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(244,246,242,0.92);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:40px">🚛</div>
+  <div style="font-size:14px;color:#4a7c59;font-weight:500;font-family:'DM Sans',sans-serif">Conectando con la base de datos…</div>
+</div>
+
 <!-- SIDEBAR HISTORIAL -->
 <aside id="sidebar" class="sidebar closed">
   <div class="sidebar-header">
@@ -484,7 +490,31 @@
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
-<script src="db.js"></script>
+<script type="module">
+  // Importar db.js como módulo y exponer globalmente
+  import { initDB, getConductores, getTarifas, getRegistros, getTarifa,
+           buscarConductor, upsertConductor, eliminarConductor,
+           addRegistro, getNextVersion } from './db.js';
+
+  window.initDB          = initDB;
+  window.getConductores  = getConductores;
+  window.getTarifas      = getTarifas;
+  window.getRegistros    = getRegistros;
+  window.getTarifa       = getTarifa;
+  window.buscarConductor = buscarConductor;
+  window.upsertConductor = upsertConductor;
+  window.eliminarConductor = eliminarConductor;
+  window.addRegistro     = addRegistro;
+  window.getNextVersion  = getNextVersion;
+
+  // Arrancar app una vez que el módulo está listo
+  document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('loading-overlay').style.display = 'flex';
+    await initDB();
+    document.getElementById('loading-overlay').style.display = 'none';
+    if (typeof window._appReady === 'function') window._appReady();
+  });
+</script>
 <script src="calculos.js"></script>
 <script src="informes.js"></script>
 <script src="app.js"></script>
