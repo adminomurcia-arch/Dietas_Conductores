@@ -27,7 +27,7 @@ function previsualizarConductor() {
   const regs  = filtrarRegistros(desde, hasta, '', cod);
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['Código', 'Nombre', 'Plataforma', 'Salida', 'Llegada', 'Días', 'Total Km', 'Total Dietas'];
+  const headers = ['Código', 'Nombre', 'Plataforma', 'Salida', 'Llegada', 'Días', 'Total Km', 'Total Dietas', 'Gastos Viaje'];
   const filas = regs.map(r => ({
     'Código':       r.codigoConductor,
     'Nombre':       r.nombreConductor,
@@ -37,6 +37,7 @@ function previsualizarConductor() {
     'Días':         r.diasTrabajados,
     'Total Km':     r.totalKm,
     'Total Dietas': fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
+    'Gastos Viaje': r.gastosViaje ? fmt2(r.gastosViaje) + ' €' : '—',
   }));
 
   _informe = { tipo: 'conductor', datos: regs, headers, filas, titulo: 'Informe Conductor' };
@@ -88,7 +89,7 @@ function previsualizarRRHH() {
     headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','TRACTORA','SALIDA','LLEGADA',
                'DÍAS','KM','COEF_NAC','DOM_FEST',
                'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF',
-               'ACARREOS','VLISSINGEN','EXTRAS','ANTICIPOS',
+               'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
                'SUM_DIETAS','H_EXTRA','H_PRESEN','NOCTURNO',
                'DIET_NAC','DIET_INTER','MEJORA',
                'PLUS_EFIC','DISPONIB','DIETAS_CAU'];
@@ -102,7 +103,7 @@ function previsualizarRRHH() {
       'CARGA': r.nCarga, 'PALET': r.nPalet, 'REBOTE': r.nRebote,
       '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF,
       'ACARREOS': r.acarreos, 'VLISSINGEN': r.dietaVlissingen,
-      'EXTRAS': fmt2(r.extras), 'ANTICIPOS': fmt2(r.anticipos),
+      'EXTRAS': fmt2(r.extras), 'GASTOS_VIAJE': fmt2(r.gastosViaje), 'ANTICIPOS': fmt2(r.anticipos),
       'SUM_DIETAS': fmt2(r.resultado?.sumDietas),
       'H_EXTRA': fmt2(r.resultado?.H_EXTRA), 'H_PRESEN': fmt2(r.resultado?.H_PRESEN),
       'NOCTURNO': fmt2(r.resultado?.NOCTURNO), 'DIET_NAC': fmt2(r.resultado?.DIET_NAC),
@@ -282,8 +283,9 @@ function generarCuerpoEmail(conductor, registros) {
         txt += `H. Presencia:       ${fmt2(r.resultado.H_PRESEN)} €\n`;
         txt += `Nocturno:           ${fmt2(r.resultado.NOCTURNO)} €\n`;
         txt += `Dieta Nacional:     ${fmt2(r.resultado.DIET_NAC)} €\n`;
-        txt += `Dieta Internacional:${fmt2(r.resultado.DIET_INTER)} €\n`;
+        if (r.resultado.DIET_INTER) txt += `Dieta Internacional:${fmt2(r.resultado.DIET_INTER)} €\n`;
         if (r.resultado.MEJORA !== undefined) txt += `Mejora:             ${fmt2(r.resultado.MEJORA)} €\n`;
+        if (r.gastosViaje) txt += `Gastos de Viaje:    ${fmt2(r.gastosViaje)} €\n`;
       }
     }
     txt += '\n';
