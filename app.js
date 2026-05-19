@@ -121,6 +121,17 @@ function adaptarPlataforma(plataforma, categoria) {
   document.getElementById('field-acarreos').style.display   = plataforma === 'CAUDETE' ? 'none' : 'flex';
   document.getElementById('field-vlissingen').style.display = plataforma === 'CAUDETE' ? 'none' : 'flex';
 
+  // Domingos y Festivos: solo CAUDETE, separados con check
+  document.getElementById('field-domingos').style.display = esCaudete ? 'flex' : 'none';
+  document.getElementById('field-festivos').style.display = esCaudete ? 'flex' : 'none';
+  // Resetear checks al cambiar plataforma
+  if (!esCaudete) {
+    document.getElementById('chk-festivos').checked = false;
+    document.getElementById('numDomingos').value    = '';
+    document.getElementById('numFestivos').value    = '';
+    document.getElementById('domingosFestivos').value = 0;
+  }
+
   // Ocultar resultado anterior
   document.getElementById('section-resultado').style.display = 'none';
 }
@@ -162,6 +173,9 @@ function guardarRegistro(e) {
     restoHoras:       parseFloat(document.getElementById('restoHoras').value)     || 0,
     coefNacional:     parseFloat(document.getElementById('coefNacional').value)   || 0,
     domingosFestivos: parseFloat(document.getElementById('domingosFestivos').value) || 0,
+    numDomingos:      parseFloat(document.getElementById('numDomingos').value) || 0,
+    numFestivos:      parseFloat(document.getElementById('numFestivos').value) || 0,
+    chkFestivos:      document.getElementById('chk-festivos').checked,
     kmSalida:         parseFloat(document.getElementById('kmSalida').value)       || 0,
     kmVuelta:         parseFloat(document.getElementById('kmVuelta').value)       || 0,
     totalKm:          parseFloat(document.getElementById('totalKm').value)        || 0,
@@ -194,7 +208,6 @@ function calcularYObtener() {
   const diasTrab    = parseFloat(document.getElementById('diasTrabajados').value) || 0;
   const restoHoras  = parseFloat(document.getElementById('restoHoras').value)    || 0;
   const coefNac     = parseFloat(document.getElementById('coefNacional').value)  || 0;
-  const domFest     = parseFloat(document.getElementById('domingosFestivos').value) || 0;
   const extras      = parseFloat(document.getElementById('extras').value)        || 0;
   const nCarga      = getCount('carga');
   const nPalet      = getCount('palet');
@@ -204,12 +217,19 @@ function calcularYObtener() {
   const nNacional   = getCount('nacional');
   const nUK         = getCount('uk');
   const nNDLF       = getCount('ndlf');
-  const nAcarreos   = parseFloat(document.getElementById('acarreos').value)         || 0;
-  const nVlissingen = parseFloat(document.getElementById('dietaVlissingen').value)  || 0;
+  const nAcarreos   = parseFloat(document.getElementById('acarreos').value)        || 0;
+  const nVlissingen = parseFloat(document.getElementById('dietaVlissingen').value) || 0;
+
+  let nDomingos = 0, nFestivos = 0;
+  if (plataforma === 'CAUDETE') {
+    nDomingos = parseFloat(document.getElementById('numDomingos').value) || 0;
+    nFestivos = document.getElementById('chk-festivos').checked
+      ? (parseFloat(document.getElementById('numFestivos').value) || 0) : 0;
+  }
 
   if (plataforma === 'TJG')     return calcTJG({ totalKm, coefNac, nCarga, nPalet, nRebote, n24h, nPausa, nAcarreos, nVlissingen, extras });
   if (plataforma === 'FILARDI') return calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreos, nVlissingen, extras });
-  if (plataforma === 'CAUDETE') return calcCAUDETE({ diasTrab, restoHoras, domFest, nCarga, nPalet, nRebote, nNacional, extras });
+  if (plataforma === 'CAUDETE') return calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras });
   return {};
 }
 
