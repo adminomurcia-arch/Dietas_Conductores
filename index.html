@@ -37,7 +37,7 @@
     <button class="btn btn-ghost" onclick="toggleSidebar()">📋 Historial</button>
     <button class="btn btn-ghost" onclick="importarExcel()">📂 Importar</button>
     <button class="btn btn-primary" onclick="exportarExcel()">💾 Exportar</button>
-    <input type="file" id="inputImport" accept=".xlsx" style="display:none" onchange="cargarExcel(event)">
+    <input type="file" id="inputImport" accept=".json" style="display:none" onchange="cargarExcel(event)">
   </div>
 </header>
 
@@ -133,8 +133,6 @@
           </div>
         </div>
 
-        <!-- Campo oculto combinado para compatibilidad interna -->
-        <input type="hidden" id="domingosFestivos" value="0">
       </div>
     </section>
 
