@@ -168,6 +168,28 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 input.readonly { background: var(--surface2); color: var(--text-soft); cursor: default; }
 input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: var(--font-mono); font-weight: 500; }
 
+.check-incluir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.check-incluir input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.check-incluir label {
+  font-size: 11px;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* ---- OPERACIONES ---- */
 .operacion-bloque {
   border: 1px solid var(--border);
