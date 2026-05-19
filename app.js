@@ -5,13 +5,13 @@
 let modoActual = 'detallado';
 
 // ---- INIT ----
-document.addEventListener('DOMContentLoaded', () => {
-  initDB();
+// Se llama desde index.html tras initDB() de Firebase
+window._appReady = function() {
   renderTablas();
   renderHistorial();
   setModo('detallado');
   fijarLimiteFechas();
-});
+};
 
 // ---- FECHAS: máximo = hoy, pre-rellenar al hacer foco ----
 function fijarLimiteFechas() {
