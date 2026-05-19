@@ -22,12 +22,20 @@ function calcularDietas() {
   const plataforma = document.getElementById('plataforma').value.trim();
   if (!plataforma) return;
 
-  const totalKm     = parseFloat(document.getElementById('totalKm').value)      || 0;
-  const diasTrab    = parseFloat(document.getElementById('diasTrabajados').value)|| 0;
-  const restoHoras  = parseFloat(document.getElementById('restoHoras').value)    || 0;
-  const coefNac     = parseFloat(document.getElementById('coefNacional').value)  || 0;
-  const domFest     = parseFloat(document.getElementById('domingosFestivos').value) || 0;
-  const extras      = parseFloat(document.getElementById('extras').value)        || 0;
+  const totalKm     = parseFloat(document.getElementById('totalKm').value)       || 0;
+  const diasTrab    = parseFloat(document.getElementById('diasTrabajados').value) || 0;
+  const restoHoras  = parseFloat(document.getElementById('restoHoras').value)     || 0;
+  const coefNac     = parseFloat(document.getElementById('coefNacional').value)   || 0;
+  const extras      = parseFloat(document.getElementById('extras').value)         || 0;
+
+  // Domingos siempre incluidos; Festivos solo si el check está activado
+  let nDomingos = 0, nFestivos = 0;
+  if (plataforma === 'CAUDETE') {
+    nDomingos = parseFloat(document.getElementById('numDomingos').value) || 0;
+    nFestivos = document.getElementById('chk-festivos').checked
+      ? (parseFloat(document.getElementById('numFestivos').value) || 0) : 0;
+    document.getElementById('domingosFestivos').value = nDomingos + nFestivos;
+  }
 
   const nCarga      = getCount('carga');
   const nPalet      = getCount('palet');
@@ -37,8 +45,8 @@ function calcularDietas() {
   const nNacional   = getCount('nacional');
   const nUK         = getCount('uk');
   const nNDLF       = getCount('ndlf');
-  const nAcarreos   = parseFloat(document.getElementById('acarreos').value)         || 0;
-  const nVlissingen = parseFloat(document.getElementById('dietaVlissingen').value)  || 0;
+  const nAcarreos   = parseFloat(document.getElementById('acarreos').value)        || 0;
+  const nVlissingen = parseFloat(document.getElementById('dietaVlissingen').value) || 0;
 
   let resultado = {};
 
@@ -47,7 +55,7 @@ function calcularDietas() {
   } else if (plataforma === 'FILARDI') {
     resultado = calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreos, nVlissingen, extras });
   } else if (plataforma === 'CAUDETE') {
-    resultado = calcCAUDETE({ diasTrab, restoHoras, domFest, nCarga, nPalet, nRebote, nNacional, extras });
+    resultado = calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras });
   }
 
   mostrarResultado(resultado, plataforma);
@@ -115,9 +123,10 @@ function calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreo
 }
 
 // ---- CAUDETE ----
-function calcCAUDETE({ diasTrab, restoHoras, domFest, nCarga, nPalet, nRebote, nNacional, extras }) {
+function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras }) {
   const PLUS_EFICIENCIA = diasTrab * 8.75;
-  const DISPONIBILIDAD  = (domFest   * getTarifa('DOMINGO_FESTIVOS', 'CAUDETE'))
+  const DISPONIBILIDAD  = (nDomingos  * getTarifa('DOMINGO_FESTIVOS', 'CAUDETE'))
+                        + (nFestivos  * getTarifa('DOMINGO_FESTIVOS', 'CAUDETE'))
                         + (nCarga    * getTarifa('CARGA/DESCARGAS',  'CAUDETE'))
                         + (nPalet    * getTarifa('MOV. PALETS',      'CAUDETE'))
                         + (nNacional * 10.3);
@@ -127,7 +136,7 @@ function calcCAUDETE({ diasTrab, restoHoras, domFest, nCarga, nPalet, nRebote, n
                         + extras;
   const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
 
-  return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+  return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL, nDomingos, nFestivos };
 }
 
 // ---- MOSTRAR RESULTADO ----
@@ -241,9 +250,16 @@ function calcularTiempos() {
     document.getElementById('restoHoras').value = resto.toFixed(2);
   }
 
-  // Domingos y festivos
-  const df = contarDomingosFestivos(fs, fl);
-  document.getElementById('domingosFestivos').value = df;
+  // Domingos y festivos — separados para CAUDETE, oculto para el resto
+  if (plataforma === 'CAUDETE') {
+    const nDom  = contarDomingos(fs, fl);
+    const nFest = contarFestivos(fs, fl);
+    document.getElementById('numDomingos').value = nDom;
+    document.getElementById('numFestivos').value = nFest;
+    // El campo oculto combinado se actualiza al calcular, según los checks
+  } else {
+    document.getElementById('domingosFestivos').value = 0;
+  }
 
   calcularDietas();
 }
