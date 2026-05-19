@@ -43,10 +43,25 @@ function setModo(modo) {
 
 // ---- AUTOCOMPLETAR POR CÓDIGO ----
 function autocompletar() {
-  const c = buscarConductor(document.getElementById('codConductor').value.trim());
+  const cod = document.getElementById('codConductor').value.trim();
+  const c = buscarConductor(cod);
+
   document.getElementById('nombreConductor').value = c?.Nombre    || '';
   document.getElementById('plataforma').value      = c?.PLATAFORMA|| '';
   document.getElementById('categoria').value       = c?.CATEGORIA || '';
+
+  // Bloquear/desbloquear el resto del formulario
+  const bloqueado = cod.length > 0 && !c;
+  document.querySelectorAll('#formRegistro input:not(#codConductor), #formRegistro select, #formRegistro button[type="submit"]')
+    .forEach(el => el.disabled = bloqueado);
+
+  if (bloqueado) {
+    document.getElementById('codConductor').style.borderColor = '#c0392b';
+    showToast('Código de conductor no encontrado', 'error');
+  } else {
+    document.getElementById('codConductor').style.borderColor = '';
+  }
+
   adaptarPlataforma(c?.PLATAFORMA || '', c?.CATEGORIA || '');
 }
 
