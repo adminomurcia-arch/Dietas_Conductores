@@ -79,6 +79,17 @@
       accent-color:var(--primary); flex-shrink:0; }
     .check-row label { font-size:12px; color:var(--soft); }
 
+    /* Sugerencias tractora */
+    .sug-item {
+      padding:10px 14px;
+      font-size:14px;
+      font-family:var(--mono);
+      cursor:pointer;
+      border-bottom:1px solid var(--border);
+    }
+    .sug-item:last-child { border-bottom:none; }
+    .sug-item:active, .sug-item.hover { background:var(--calc-bg); color:var(--calc-text); }
+
     /* OPERACIONES */
     .op-bloque { border:1px solid var(--border); border-radius:8px;
                  margin-bottom:10px; overflow:hidden; }
@@ -189,12 +200,20 @@
   <!-- TRACTORA -->
   <div class="section">
     <div class="section-title">Tractora</div>
-    <div class="field">
+    <div class="field" style="position:relative">
       <label>Matrícula de la tractora *</label>
-      <input type="text" id="m-tractora" placeholder="Ej: 1234ABC"
-             style="text-transform:uppercase" autocomplete="off"
-             oninput="this.value=this.value.toUpperCase()" onblur="mValidarTractora()">
+      <input type="text" id="m-tractora" placeholder="Escribe para buscar…"
+             autocomplete="off"
+             oninput="mFiltrarTractoras()"
+             onblur="setTimeout(mCerrarSugerencias, 200)">
       <div id="m-tractora-estado" style="font-size:12px;margin-top:4px;display:none"></div>
+      <!-- Lista de sugerencias -->
+      <div id="m-tractora-sugerencias" style="
+        display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
+        background:#fff;border:1.5px solid var(--primary);border-top:none;
+        border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;
+        box-shadow:0 4px 12px rgba(44,51,40,.15)">
+      </div>
     </div>
   </div>
 
@@ -758,18 +777,59 @@ window.mLimpiar = function() {
   document.getElementById('m-section-resultado').style.display = 'none';
 };
 
-// ---- VALIDAR TRACTORA ----
-window.mValidarTractora = function() {
-  const input  = document.getElementById('m-tractora');
-  const estado = document.getElementById('m-tractora-estado');
-  const val    = input.value.trim().toUpperCase();
-  input.value  = val;
+// ---- AUTOCOMPLETE TRACTORA ----
+window.mFiltrarTractoras = function() {
+  const input = document.getElementById('m-tractora');
+  const lista = document.getElementById('m-tractora-sugerencias');
+  const estado= document.getElementById('m-tractora-estado');
+  const val   = input.value.toUpperCase();
+  input.value = val;
+  estado.style.display = 'none';
 
-  if (!val) {
-    input.style.borderColor = '';
-    estado.style.display = 'none';
+  if (!val) { lista.style.display = 'none'; return; }
+
+  const coincidencias = _tractoras.filter(m => m.includes(val));
+
+  if (!coincidencias.length) {
+    lista.style.display = 'none';
     return;
   }
+
+  lista.innerHTML = coincidencias.map(m => {
+    // Resaltar la parte que coincide
+    const idx = m.indexOf(val);
+    const html = idx >= 0
+      ? m.slice(0,idx) + `<strong>${m.slice(idx, idx+val.length)}</strong>` + m.slice(idx+val.length)
+      : m;
+    return `<div class="sug-item" onmousedown="mSeleccionarTractora('${m}')">${html}</div>`;
+  }).join('');
+
+  lista.style.display = 'block';
+};
+
+window.mSeleccionarTractora = function(matricula) {
+  const input  = document.getElementById('m-tractora');
+  const lista  = document.getElementById('m-tractora-sugerencias');
+  const estado = document.getElementById('m-tractora-estado');
+
+  input.value          = matricula;
+  lista.style.display  = 'none';
+  estado.style.display = 'block';
+  estado.style.color   = '#3d7a5c';
+  estado.textContent   = '✓ Matrícula válida';
+  input.style.borderColor = '#3d7a5c';
+};
+
+window.mCerrarSugerencias = function() {
+  const lista  = document.getElementById('m-tractora-sugerencias');
+  const input  = document.getElementById('m-tractora');
+  const estado = document.getElementById('m-tractora-estado');
+  lista.style.display = 'none';
+
+  // Validar lo que quedó escrito
+  const val = input.value.trim().toUpperCase();
+  if (!val) { input.style.borderColor = ''; estado.style.display = 'none'; return; }
+
   if (_tractoras.includes(val)) {
     input.style.borderColor = '#3d7a5c';
     estado.style.display    = 'block';
@@ -779,9 +839,12 @@ window.mValidarTractora = function() {
     input.style.borderColor = '#c0392b';
     estado.style.display    = 'block';
     estado.style.color      = '#c0392b';
-    estado.textContent      = '✗ Matrícula no encontrada. Comprueba el número.';
+    estado.textContent      = '✗ Matrícula no encontrada';
   }
 };
+
+// mValidarTractora sigue usándose al pre-rellenar con la última tractora
+window.mValidarTractora = window.mCerrarSugerencias;
 function parseFecha(fecha) {
   const [y, m, d] = String(fecha).split('-').map(Number);
   return new Date(y, m - 1, d);
