@@ -201,6 +201,7 @@ async function guardarRegistro(e) {
     acarreos:        parseFloat(document.getElementById('acarreos').value)         || 0,
     dietaVlissingen: parseFloat(document.getElementById('dietaVlissingen').value)  || 0,
     extras:          parseFloat(document.getElementById('extras').value)           || 0,
+    gastosViaje:     parseFloat(document.getElementById('gastosViaje').value)      || 0,
     anticipos:       parseFloat(document.getElementById('anticipos').value)        || 0,
     modo:            modoActual,
     resultado,
