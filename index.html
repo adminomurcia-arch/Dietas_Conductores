@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Dietas — Conductores</title>
+  <link rel="stylesheet" href="estilos.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- SIDEBAR HISTORIAL -->
+<aside id="sidebar" class="sidebar closed">
+  <div class="sidebar-header">
+    <span>Historial de Registros</span>
+    <button onclick="toggleSidebar()" class="btn-icon">✕</button>
+  </div>
+  <div class="sidebar-filtros">
+    <input type="text" id="filtroHistorial" placeholder="Buscar conductor…" oninput="renderHistorial()">
+  </div>
+  <div id="listaHistorial" class="lista-historial"></div>
+</aside>
+
+<!-- OVERLAY -->
+<div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">🚛</div>
+    <div>
+      <h1>Dietas Conductores</h1>
+      <span class="subtitle">Gestión y cálculo de dietas</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-ghost" onclick="toggleSidebar()">📋 Historial</button>
+    <button class="btn btn-ghost" onclick="importarExcel()">📂 Importar</button>
+    <button class="btn btn-primary" onclick="exportarExcel()">💾 Exportar</button>
+    <input type="file" id="inputImport" accept=".xlsx" style="display:none" onchange="cargarExcel(event)">
+  </div>
+</header>
+
+<!-- TABS PRINCIPALES -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" onclick="showTab('registro')">✏️ Registro</button>
+  <button class="tab-btn" onclick="showTab('informes')">📊 Informes</button>
+  <button class="tab-btn" onclick="showTab('basedatos')">🗄️ Base de Datos</button>
+</nav>
+
+<!-- ===== TAB REGISTRO ===== -->
+<main id="tab-registro" class="tab-content active">
+
+  <!-- Modo registro -->
+  <div class="modo-selector">
+    <span class="modo-label">Modo de registro:</span>
+    <div class="toggle-group">
+      <button id="btn-detallado" class="toggle-btn active" onclick="setModo('detallado')">Detallado</button>
+      <button id="btn-resumido" class="toggle-btn" onclick="setModo('resumido')">Resumido</button>
+    </div>
+  </div>
+
+  <form id="formRegistro" class="form-registro" onsubmit="guardarRegistro(event)">
+
+    <!-- SECCIÓN: CONDUCTOR -->
+    <section class="form-section">
+      <h2 class="section-title">Conductor</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>Código Conductor *</label>
+          <input type="text" id="codConductor" placeholder="Ej: 10001" oninput="autocompletar()" required>
+        </div>
+        <div class="field">
+          <label>Nombre Completo</label>
+          <input type="text" id="nombreConductor" readonly class="readonly">
+        </div>
+        <div class="field">
+          <label>Plataforma</label>
+          <input type="text" id="plataforma" readonly class="readonly">
+        </div>
+        <div class="field">
+          <label>Categoría</label>
+          <input type="text" id="categoria" readonly class="readonly">
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: FECHAS Y TIEMPOS -->
+    <section class="form-section">
+      <h2 class="section-title">Fechas y Tiempos</h2>
+      <div class="form-grid">
+        <div class="field" id="field-fechaSalida">
+          <label>Fecha Salida *</label>
+          <input type="date" id="fechaSalida" onchange="calcularTiempos()" required>
+        </div>
+        <div class="field" id="field-horaSalida" style="display:none">
+          <label>Hora Salida *</label>
+          <input type="time" id="horaSalida" onchange="calcularTiempos()">
+        </div>
+        <div class="field" id="field-fechaLlegada">
+          <label>Fecha Llegada *</label>
+          <input type="date" id="fechaLlegada" onchange="calcularTiempos()" required>
+        </div>
+        <div class="field" id="field-horaLlegada" style="display:none">
+          <label>Hora Llegada *</label>
+          <input type="time" id="horaLlegada" onchange="calcularTiempos()">
+        </div>
+        <div class="field">
+          <label>Días Trabajados</label>
+          <input type="number" id="diasTrabajados" readonly class="readonly calc">
+        </div>
+        <div class="field" id="field-restoHoras" style="display:none">
+          <label>Resto Horas</label>
+          <input type="number" id="restoHoras" readonly class="readonly calc" step="0.01">
+        </div>
+        <div class="field">
+          <label>Coef. Nacional</label>
+          <input type="number" id="coefNacional" value="0" min="0" step="1" onchange="calcularDietas()">
+        </div>
+        <div class="field">
+          <label>Domingos & Festivos</label>
+          <input type="number" id="domingosFestivos" readonly class="readonly calc">
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: KILÓMETROS -->
+    <section class="form-section" id="section-kms">
+      <h2 class="section-title">Kilómetros</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>Km Salida</label>
+          <input type="number" id="kmSalida" min="0" oninput="calcularKms()">
+        </div>
+        <div class="field">
+          <label>Km Vuelta</label>
+          <input type="number" id="kmVuelta" min="0" oninput="calcularKms()">
+        </div>
+        <div class="field">
+          <label>Total Km</label>
+          <input type="number" id="totalKm" readonly class="readonly calc">
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: OPERACIONES (DETALLADO) -->
+    <section class="form-section" id="section-operaciones-detallado">
+      <h2 class="section-title">Operaciones <span class="badge">Detallado</span></h2>
+
+      <div id="bloque-carga" class="operacion-bloque">
+        <div class="operacion-header">
+          <span>Carga / Descarga</span>
+          <button type="button" class="btn-add" onclick="addOperacion('carga')">+ Añadir</button>
+        </div>
+        <div id="lista-carga" class="operacion-lista"></div>
+      </div>
+
+      <div id="bloque-palet" class="operacion-bloque">
+        <div class="operacion-header">
+          <span>Mov. de Palet</span>
+          <button type="button" class="btn-add" onclick="addOperacion('palet')">+ Añadir</button>
+        </div>
+        <div id="lista-palet" class="operacion-lista"></div>
+      </div>
+
+      <div id="bloque-rebote" class="operacion-bloque">
+        <div class="operacion-header">
+          <span>Rebote</span>
+          <button type="button" class="btn-add" onclick="addOperacion('rebote')">+ Añadir</button>
+        </div>
+        <div id="lista-rebote" class="operacion-lista"></div>
+      </div>
+
+      <!-- TJG exclusivo -->
+      <div id="bloque-24horas" class="operacion-bloque plat-TJG" style="display:none">
+        <div class="operacion-header">
+          <span>24 Horas</span>
+          <button type="button" class="btn-add" onclick="addOperacion('24horas')">+ Añadir</button>
+        </div>
+        <div id="lista-24horas" class="operacion-lista"></div>
+      </div>
+
+      <div id="bloque-pausa" class="operacion-bloque plat-TJG" style="display:none">
+        <div class="operacion-header">
+          <span>Pausa</span>
+          <button type="button" class="btn-add" onclick="addOperacion('pausa')">+ Añadir</button>
+        </div>
+        <div id="lista-pausa" class="operacion-lista"></div>
+      </div>
+
+      <!-- CAUDETE exclusivo -->
+      <div id="bloque-nacional" class="operacion-bloque plat-CAUDETE" style="display:none">
+        <div class="operacion-header">
+          <span>Nacional (servicios)</span>
+          <button type="button" class="btn-add" onclick="addOperacion('nacional')">+ Añadir</button>
+        </div>
+        <div id="lista-nacional" class="operacion-lista"></div>
+      </div>
+
+      <!-- FILARDI exclusivo -->
+      <div id="bloque-uk" class="operacion-bloque plat-FILARDI" style="display:none">
+        <div class="operacion-header">
+          <span>UK</span>
+          <button type="button" class="btn-add" onclick="addOperacion('uk')">+ Añadir</button>
+        </div>
+        <div id="lista-uk" class="operacion-lista"></div>
+      </div>
+
+      <div id="bloque-ndlf" class="operacion-bloque plat-FILARDI" style="display:none">
+        <div class="operacion-header">
+          <span>NDLF</span>
+          <button type="button" class="btn-add" onclick="addOperacion('ndlf')">+ Añadir</button>
+        </div>
+        <div id="lista-ndlf" class="operacion-lista"></div>
+      </div>
+
+    </section>
+
+    <!-- SECCIÓN: OPERACIONES (RESUMIDO) -->
+    <section class="form-section" id="section-operaciones-resumido" style="display:none">
+      <h2 class="section-title">Operaciones <span class="badge badge-green">Resumido</span></h2>
+      <div class="form-grid">
+        <div class="field" id="res-carga"><label>Carga / Descarga (nº)</label><input type="number" id="r-carga" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field" id="res-palet"><label>Mov. de Palet (nº)</label><input type="number" id="r-palet" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field" id="res-rebote"><label>Rebote (nº)</label><input type="number" id="r-rebote" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field res-TJG" id="res-24horas" style="display:none"><label>24 Horas (días)</label><input type="number" id="r-24horas" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field res-TJG" id="res-pausa" style="display:none"><label>Pausa (días)</label><input type="number" id="r-pausa" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field res-CAUDETE" id="res-nacional" style="display:none"><label>Nacional (nº servicios)</label><input type="number" id="r-nacional" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field res-FILARDI" id="res-uk" style="display:none"><label>UK (nº)</label><input type="number" id="r-uk" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field res-FILARDI" id="res-ndlf" style="display:none"><label>NDLF (nº)</label><input type="number" id="r-ndlf" min="0" value="0" onchange="calcularDietas()"></div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: OTROS CONCEPTOS -->
+    <section class="form-section">
+      <h2 class="section-title">Otros Conceptos</h2>
+      <div class="form-grid">
+        <div class="field" id="field-acarreos"><label>Acarreos (nº)</label><input type="number" id="acarreos" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field" id="field-vlissingen"><label>Dieta Vlissingen (nº días)</label><input type="number" id="dietaVlissingen" min="0" value="0" onchange="calcularDietas()"></div>
+        <div class="field"><label>Extras / Gastos Viaje (€)</label><input type="number" id="extras" min="0" value="0" step="0.01" onchange="calcularDietas()"></div>
+        <div class="field"><label>Anticipos (€) <small>solo gestoría</small></label><input type="number" id="anticipos" min="0" value="0" step="0.01"></div>
+      </div>
+    </section>
+
+    <!-- RESULTADO CÁLCULO -->
+    <section class="form-section resultado-section" id="section-resultado" style="display:none">
+      <h2 class="section-title">Resultado del Cálculo</h2>
+      <div id="resultado-dietas" class="resultado-grid"></div>
+    </section>
+
+    <!-- BOTONES -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-ghost" onclick="limpiarFormulario()">🗑️ Limpiar</button>
+      <button type="submit" class="btn btn-primary">💾 Guardar Registro</button>
+    </div>
+
+  </form>
+</main>
+
+<!-- ===== TAB INFORMES ===== -->
+<main id="tab-informes" class="tab-content" style="display:none">
+  <div class="informes-grid">
+
+    <div class="informe-card">
+      <div class="informe-icon">👤</div>
+      <h3>Informe Conductor</h3>
+      <p>Detalle de actividad individual o masivo por email</p>
+      <div class="field">
+        <label>Conductor (vacío = todos)</label>
+        <input type="text" id="inf-cod-conductor" placeholder="Código conductor">
+      </div>
+      <div class="field">
+        <label>Período</label>
+        <div class="date-range">
+          <input type="date" id="inf-desde">
+          <span>—</span>
+          <input type="date" id="inf-hasta">
+        </div>
+      </div>
+      <div class="informe-btns">
+        <button class="btn btn-secondary" onclick="informeConductorEmail()">📧 Enviar por Email</button>
+        <button class="btn btn-ghost" onclick="informeConductorPDF()">📄 PDF</button>
+        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimir</button>
+      </div>
+    </div>
+
+    <div class="informe-card">
+      <div class="informe-icon">📑</div>
+      <h3>Informe Gestoría</h3>
+      <p>Para plataformas TJG y FILARDI</p>
+      <div class="field">
+        <label>Plataforma</label>
+        <select id="inf-plataforma-gestoria">
+          <option value="TJG">TJG</option>
+          <option value="FILARDI">FILARDI</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Período</label>
+        <div class="date-range">
+          <input type="date" id="inf-gest-desde">
+          <span>—</span>
+          <input type="date" id="inf-gest-hasta">
+        </div>
+      </div>
+      <div class="informe-btns">
+        <button class="btn btn-secondary" onclick="informeGestoria()">📊 Exportar Excel</button>
+        <button class="btn btn-ghost" onclick="informeGestoriaPDF()">📄 PDF</button>
+      </div>
+    </div>
+
+    <div class="informe-card">
+      <div class="informe-icon">📈</div>
+      <h3>Informe RRHH</h3>
+      <p>Estadísticos y comparativos con filtros</p>
+      <div class="field">
+        <label>Plataforma</label>
+        <select id="inf-rrhh-plataforma">
+          <option value="">Todas</option>
+          <option value="TJG">TJG</option>
+          <option value="FILARDI">FILARDI</option>
+          <option value="CAUDETE">CAUDETE</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Formato</label>
+        <select id="inf-rrhh-formato">
+          <option value="detallado">Detallado</option>
+          <option value="resumido">Resumido</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Período</label>
+        <div class="date-range">
+          <input type="date" id="inf-rrhh-desde">
+          <span>—</span>
+          <input type="date" id="inf-rrhh-hasta">
+        </div>
+      </div>
+      <div class="informe-btns">
+        <button class="btn btn-secondary" onclick="informeRRHH()">📊 Exportar Excel</button>
+        <button class="btn btn-ghost" onclick="informeRRHHPDF()">📄 PDF</button>
+        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimir</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ===== TAB BASE DE DATOS ===== -->
+<main id="tab-basedatos" class="tab-content" style="display:none">
+  <div class="bd-tabs">
+    <button class="bd-tab-btn active" onclick="showBDTab('conductores')">Conductores</button>
+    <button class="bd-tab-btn" onclick="showBDTab('tarifas')">Tarifas</button>
+  </div>
+
+  <div id="bd-conductores" class="bd-content active">
+    <div class="bd-toolbar">
+      <h3>Conductores</h3>
+      <button class="btn btn-primary" onclick="nuevoConductor()">+ Nuevo</button>
+    </div>
+    <div class="table-wrap">
+      <table id="tabla-conductores" class="data-table">
+        <thead>
+          <tr>
+            <th>Plataforma</th><th>Categoría</th><th>Código</th><th>Nombre</th>
+            <th>NIF</th><th>IBAN</th><th>Precio Kmt</th><th>Email</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-conductores"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="bd-tarifas" class="bd-content" style="display:none">
+    <div class="bd-toolbar">
+      <h3>Tarifas</h3>
+    </div>
+    <div class="table-wrap">
+      <table id="tabla-tarifas" class="data-table">
+        <thead>
+          <tr><th>Concepto</th><th>TJG</th><th>CAUDETE</th><th>FILARDI</th></tr>
+        </thead>
+        <tbody id="tbody-tarifas"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL CONDUCTOR -->
+<div id="modal-conductor" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Conductor</h3>
+      <button onclick="cerrarModal()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="m-codigo-original">
+      <div class="form-grid">
+        <div class="field"><label>Plataforma *</label>
+          <select id="m-plataforma">
+            <option value="TJG">TJG</option>
+            <option value="CAUDETE">CAUDETE</option>
+            <option value="FILARDI">FILARDI</option>
+          </select>
+        </div>
+        <div class="field"><label>Categoría *</label><input type="text" id="m-categoria" required></div>
+        <div class="field"><label>Código *</label><input type="text" id="m-codigo" required></div>
+        <div class="field"><label>Nombre *</label><input type="text" id="m-nombre" required></div>
+        <div class="field"><label>NIF</label><input type="text" id="m-nif"></div>
+        <div class="field"><label>IBAN</label><input type="text" id="m-iban"></div>
+        <div class="field"><label>Precio Kmt</label><input type="number" id="m-precio" step="0.001"></div>
+        <div class="field"><label>Email</label><input type="email" id="m-email"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConductor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script src="db.js"></script>
+<script src="calculos.js"></script>
+<script src="informes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
