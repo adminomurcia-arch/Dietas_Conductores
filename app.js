@@ -145,7 +145,7 @@ function addOperacion(tipo) {
 }
 
 // ---- GUARDAR REGISTRO ----
-function guardarRegistro(e) {
+async function guardarRegistro(e) {
   e.preventDefault();
   const plataforma = document.getElementById('plataforma').value;
   if (!plataforma) { showToast('Introduce un código de conductor válido', 'error'); return; }
@@ -156,7 +156,7 @@ function guardarRegistro(e) {
   const nDomingos = parseFloat(document.getElementById('numDomingos').value) || 0;
   const nFestivos = parseFloat(document.getElementById('numFestivos').value) || 0;
 
-  addRegistro({
+  await addRegistro({
     codigoConductor: document.getElementById('codConductor').value.trim(),
     nombreConductor: document.getElementById('nombreConductor').value,
     plataforma,
@@ -293,7 +293,7 @@ function editarConductor(codigo) {
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
-function guardarConductor() {
+async function guardarConductor() {
   const conductor = {
     PLATAFORMA: document.getElementById('m-plataforma').value,
     CATEGORIA:  document.getElementById('m-categoria').value,
@@ -307,15 +307,15 @@ function guardarConductor() {
   if (!conductor.Codigo || !conductor.Nombre) {
     showToast('Código y Nombre son obligatorios', 'error'); return;
   }
-  upsertConductor(conductor);
+  await upsertConductor(conductor);
   renderTablas();
   cerrarModal();
   showToast('Conductor guardado ✓', 'success');
 }
 
-function confirmarEliminar(codigo) {
+async function confirmarEliminar(codigo) {
   if (confirm(`¿Eliminar conductor ${codigo}?`)) {
-    eliminarConductor(codigo);
+    await eliminarConductor(codigo);
     renderTablas();
     showToast('Conductor eliminado');
   }
