@@ -10,7 +10,23 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTablas();
   renderHistorial();
   setModo('detallado');
+  fijarLimiteFechas();
 });
+
+// ---- FIJAR LÍMITE Y AÑO ACTUAL EN TODOS LOS INPUTS DATE ----
+function fijarLimiteFechas() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const añoActual = new Date().getFullYear();
+  const primerDiaAño = `${añoActual}-01-01`;
+
+  document.querySelectorAll('input[type="date"]').forEach(el => {
+    el.max = hoy;
+    // Al hacer clic, si está vacío pre-rellena con hoy
+    el.addEventListener('focus', function () {
+      if (!this.value) this.value = hoy;
+    });
+  });
+}
 
 // ---- TABS PRINCIPALES ----
 function showTab(tab) {
@@ -18,6 +34,8 @@ function showTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).style.display = 'block';
   event.currentTarget.classList.add('active');
+  // Re-aplicar límites de fechas por si hay inputs nuevos visibles
+  fijarLimiteFechas();
 }
 
 // ---- MODO REGISTRO ----
