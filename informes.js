@@ -15,7 +15,7 @@ function filtrarRegistros(desde, hasta, plataforma, conductorCod) {
   return regs;
 }
 
-function fmt2(n) { return parseFloat(n || 0).toFixed(2); }
+function fmt2(n) { return parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // ============================================================
 // PREVISUALIZACIÓN — Conductor
