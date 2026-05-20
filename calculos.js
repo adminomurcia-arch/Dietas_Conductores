@@ -68,7 +68,7 @@ function leerFormulario() {
     categoria,
     fechaSalida:  document.getElementById('fechaSalida').value,
     fechaLlegada: document.getElementById('fechaLlegada').value,
-    totalKm:      parseFloat(document.getElementById('totalKm').value)        || 0,
+    totalKm:      parseKm(document.getElementById('totalKm').value),
     diasTrab:     parseFloat(document.getElementById('diasTrabajados').value)  || 0,
     restoHoras:   parseFloat(document.getElementById('restoHoras').value)      || 0,
     coefNac:      parseFloat(document.getElementById('coefNacional').value)    || 0,
@@ -296,16 +296,27 @@ function calcularTiempos() {
   calcularDietas();
 }
 
+// ---- FORMATEAR KM CON SEPARADOR DE MILES ----
+function formatKm(input) {
+  const val = parseKm(input.value);
+  if (val) input.value = val.toLocaleString('es-ES');
+}
+
+function parseKm(str) {
+  // Elimina puntos de miles y convierte coma decimal
+  return parseFloat(String(str).replace(/\./g, '').replace(',', '.')) || 0;
+}
+
 // ---- CALCULAR KMs ----
 function calcularKms() {
   const cat = document.getElementById('categoria').value.toUpperCase();
   if (cat === 'COMODIN' || cat === 'PESCADO') {
-    document.getElementById('totalKm').value = 12000;
+    document.getElementById('totalKm').value = (12000).toLocaleString('es-ES');
     calcularDietas();
     return;
   }
-  const sal  = parseFloat(document.getElementById('kmSalida').value)  || 0;
-  const vuel = parseFloat(document.getElementById('kmVuelta').value)  || 0;
+  const sal  = parseKm(document.getElementById('kmSalida').value);
+  const vuel = parseKm(document.getElementById('kmVuelta').value);
   const inS  = document.getElementById('kmSalida');
   const inV  = document.getElementById('kmVuelta');
 
@@ -318,6 +329,7 @@ function calcularKms() {
   }
   inS.style.borderColor = '';
   inV.style.borderColor = '';
-  document.getElementById('totalKm').value = sal && vuel ? vuel - sal : '';
+  const total = sal && vuel ? vuel - sal : 0;
+  document.getElementById('totalKm').value = total ? total.toLocaleString('es-ES') : '';
   calcularDietas();
 }
