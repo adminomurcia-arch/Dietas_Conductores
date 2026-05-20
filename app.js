@@ -72,6 +72,11 @@ function autocompletar() {
     if (ultimaTractora && sel.querySelector(`option[value="${ultimaTractora}"]`)) {
       sel.value = ultimaTractora;
     }
+    // Coef. Nacional: recuperar último valor usado por este conductor
+    const ultimoCoef = localStorage.getItem(`coef_${cod}`);
+    if (ultimoCoef !== null) {
+      document.getElementById('coefNacional').value = ultimoCoef;
+    }
   }
 
   adaptarPlataforma(c?.PLATAFORMA || '', c?.CATEGORIA || '');
@@ -98,8 +103,13 @@ function adaptarPlataforma(plataforma, categoria) {
     kmS.value = ''; kmV.value = '';
     document.getElementById('totalKm').value = 12000;
     kmS.readOnly = kmV.readOnly = true;
+    // Ocultar campos de entrada — no tiene sentido para PESCADO/COMODIN
+    kmS.closest('.field').style.display = 'none';
+    kmV.closest('.field').style.display = 'none';
   } else {
     kmS.readOnly = kmV.readOnly = false;
+    kmS.closest('.field').style.display = '';
+    kmV.closest('.field').style.display = '';
     if (!plataforma) document.getElementById('totalKm').value = '';
   }
 
@@ -170,8 +180,10 @@ async function guardarRegistro(e) {
   const nFestivos = parseFloat(document.getElementById('numFestivos').value) || 0;
 
   const tractora = document.getElementById('tractora').value;
-  // Recordar última tractora para este conductor
-  if (tractora) localStorage.setItem(`tractora_${document.getElementById('codConductor').value.trim()}`, tractora);
+  const coefNac  = document.getElementById('coefNacional').value;
+  const cod      = document.getElementById('codConductor').value.trim();
+  if (tractora) localStorage.setItem(`tractora_${cod}`, tractora);
+  if (coefNac)  localStorage.setItem(`coef_${cod}`, coefNac);
 
   await addRegistro({
     codigoConductor: document.getElementById('codConductor').value.trim(),
@@ -249,7 +261,7 @@ function actualizarTotalGastos() {
   const div = document.getElementById('gastos-total');
   if (rows.length > 0) {
     div.style.display = 'block';
-    div.textContent   = `Total Gastos: ${total.toFixed(2)} €`;
+    div.textContent   = `Total Gastos: ${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
   } else {
     div.style.display = 'none';
   }
@@ -306,8 +318,8 @@ function renderHistorial() {
   }
   lista.innerHTML = regs.map(r => {
     const total = r.plataforma === 'CAUDETE'
-      ? `${(r.resultado?.TOTAL || 0).toFixed(2)} €`
-      : `${(r.resultado?.sumDietas || 0).toFixed(2)} €`;
+      ? `${(r.resultado?.TOTAL || 0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`
+      : `${(r.resultado?.sumDietas || 0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
     const edDietas = r.estadoDietas || 'pendiente';
     const edGastos = r.estadoGastos || 'pendiente';
     return `<div class="hist-item">
@@ -650,7 +662,7 @@ function cargarLiqDietas() {
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
       <td>${r.diasTrabajados}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${total.toFixed(2)} €</td>
+      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge estado-${r.estadoDietas||'pendiente'}">${r.estadoDietas||'pendiente'}</span></td>
       <td><button class="btn-icon" onclick="abrirModalEstado('${r.id}','dietas','${r.estadoDietas||'pendiente'}')">✏️</button></td>
     </tr>`;
@@ -662,7 +674,7 @@ function cargarLiqDietas() {
 function actualizarTotalLiqDietas() {
   const total = Array.from(document.querySelectorAll('.chk-liq-d:checked'))
     .reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
-  document.getElementById('liq-d-total').textContent = `${total.toFixed(2)} €`;
+  document.getElementById('liq-d-total').textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
 }
 
 function liqDietasToggleTodos() {
@@ -714,7 +726,7 @@ function cargarLiqGastos() {
       <td>${r.nombreConductor}<br><small>${r.codigoConductor}</small></td>
       <td style="font-size:11px;font-family:monospace">${c?.IBAN||'—'}</td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${total.toFixed(2)} €</td>
+      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge estado-${r.estadoGastos||'pendiente'}">${r.estadoGastos||'pendiente'}</span></td>
       <td><button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')">✏️</button></td>
     </tr>`;
@@ -726,7 +738,7 @@ function cargarLiqGastos() {
 function actualizarTotalLiqGastos() {
   const total = Array.from(document.querySelectorAll('.chk-liq-g:checked'))
     .reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
-  document.getElementById('liq-g-total').textContent = `${total.toFixed(2)} €`;
+  document.getElementById('liq-g-total').textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
 }
 
 function liqGastosToggleTodos() {
@@ -848,7 +860,7 @@ function cargarLiqValidacion() {
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
       <td>${r.diasTrabajados}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${total.toFixed(2)} €</td>
+      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge" style="background:#fce7f3;color:#9d174d">📱 Móvil</span></td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-primary" style="padding:4px 10px;font-size:12px"
