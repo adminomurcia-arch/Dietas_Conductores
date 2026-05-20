@@ -128,11 +128,20 @@ function calcTJG({ totalKm, diasTrab, coefNac, nCarga, nPalet, nRebote, n24h, nP
                      + extras;
 
   const sumDietas = totalKm * precioKm + sumVariables;
-  const H_EXTRA   = 0.02926 * 0.4 * totalKm;
-  const H_PRESEN  = 0.02926 * 0.5 * totalKm;
-  const NOCTURNO  = 0.02926 * 0.1 * totalKm;
-  const DIET_NAC  = coefNac * 45.19;
-  const DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
+  const H_EXTRA  = 0.02926 * 0.4 * totalKm;
+  const H_PRESEN = 0.02926 * 0.5 * totalKm;
+  const NOCTURNO = 0.02926 * 0.1 * totalKm;
+
+  let DIET_NAC, DIET_INTER;
+  if (coefNac >= diasTrab) {
+    // Todo nacional — sin días internacionales
+    DIET_INTER = 0;
+    DIET_NAC   = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO);
+  } else {
+    // Hay días internacionales
+    DIET_NAC   = coefNac * 45.19;
+    DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
+  }
 
   return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
 }
@@ -192,7 +201,7 @@ function mostrarResultado(res, plataforma, categoria) {
   document.getElementById('section-resultado').style.display = 'block';
   grid.innerHTML = '';
 
-  const fmt       = v => `${(+v).toFixed(2)} €`;
+  const fmt = v => (+v).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   const esPescado = (categoria || '').toUpperCase() === 'PESCADO';
 
   const items =
