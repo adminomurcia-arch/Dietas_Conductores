@@ -231,7 +231,10 @@ async function cargarConductores() {
       console.log('Sembrando conductores...');
       await seedConductores();
     } else {
-      _conductores = snap.docs.map(d => d.data());
+      _conductores = snap.docs.map(d => {
+        const c = d.data();
+        return { ...c, Codigo: padCodigo(c.Codigo) };
+      });
       console.log(`Conductores cargados: ${_conductores.length}`);
     }
   } catch (e) {
@@ -241,10 +244,13 @@ async function cargarConductores() {
 }
 
 async function seedConductores() {
+  const normalizados = CONDUCTORES_DEFAULT.map(c => ({
+    ...c, Codigo: padCodigo(c.Codigo)
+  }));
   await Promise.all(
-    CONDUCTORES_DEFAULT.map(c => setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c))
+    normalizados.map(c => setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c))
   );
-  _conductores = [...CONDUCTORES_DEFAULT];
+  _conductores = normalizados;
   console.log(`Sembrados ${_conductores.length} conductores`);
 }
 
@@ -252,11 +258,18 @@ export function getConductores() {
   return _conductores || [...CONDUCTORES_DEFAULT];
 }
 
+// ---- NORMALIZAR CÓDIGO A 6 DÍGITOS ----
+function padCodigo(codigo) {
+  return String(codigo).trim().padStart(6, '0');
+}
+
 export function buscarConductor(codigo) {
-  return getConductores().find(c => String(c.Codigo) === String(codigo).trim()) || null;
+  const cod = padCodigo(codigo);
+  return getConductores().find(c => padCodigo(c.Codigo) === cod) || null;
 }
 
 export async function upsertConductor(conductor) {
+  conductor.Codigo = padCodigo(conductor.Codigo);
   await setDoc(doc(db, COL_CONDUCTORES, conductor.Codigo), conductor);
   const idx = (_conductores||[]).findIndex(c => c.Codigo === conductor.Codigo);
   if (idx >= 0) _conductores[idx] = conductor;
