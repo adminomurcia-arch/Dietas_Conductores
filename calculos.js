@@ -132,14 +132,7 @@ function calcTJG({ totalKm, diasTrab, coefNac, nCarga, nPalet, nRebote, n24h, nP
   const H_PRESEN  = 0.02926 * 0.5 * totalKm;
   const NOCTURNO  = 0.02926 * 0.1 * totalKm;
   const DIET_NAC  = coefNac * 45.19;
-
-  let DIET_INTER = (diasTrab - coefNac) * 59;
-  // Si la suma de componentes supera el total, DIET_INTER es la diferencia
-  if (H_EXTRA + H_PRESEN + NOCTURNO + DIET_NAC + DIET_INTER > sumDietas) {
-    DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC;
-  }
-  // Nunca negativo
-  if (DIET_INTER < 0) DIET_INTER = 0;
+  const DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
 
   return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
 }
