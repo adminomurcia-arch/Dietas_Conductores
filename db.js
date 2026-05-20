@@ -276,6 +276,7 @@ async function cargarTarifas() {
     const snap = await getDocs(collection(db, COL_TARIFAS));
     console.log(`Firestore tarifas encontradas: ${snap.size}`);
     if (snap.size < TARIFAS_DEFAULT.length) {
+      // Sembrar siempre desde cero con IDs corregidos
       await seedTarifas();
     } else {
       _tarifas = snap.docs.map(d => d.data());
@@ -283,13 +284,21 @@ async function cargarTarifas() {
     }
   } catch (e) {
     console.error('Error cargando tarifas:', e);
+    // Usar defaults en memoria si Firestore falla
     _tarifas = [...TARIFAS_DEFAULT];
+    // Intentar sembrar en segundo plano
+    try { await seedTarifas(); } catch {}
   }
+}
+
+// ID seguro para Firestore — sin barras ni espacios
+function tarifaId(concepto) {
+  return concepto.replace(/[\/.\\s]/g, '_');
 }
 
 async function seedTarifas() {
   await Promise.all(
-    TARIFAS_DEFAULT.map(t => setDoc(doc(db, COL_TARIFAS, t.CONCEPTO), t))
+    TARIFAS_DEFAULT.map(t => setDoc(doc(db, COL_TARIFAS, tarifaId(t.CONCEPTO)), t))
   );
   _tarifas = [...TARIFAS_DEFAULT];
 }
@@ -308,8 +317,7 @@ export async function upsertTarifa(concepto, plataforma, valor) {
   const fila = tarifas.find(t => t.CONCEPTO === concepto);
   if (!fila) return;
   fila[plataforma] = parseFloat(valor) || 0;
-  await setDoc(doc(db, COL_TARIFAS, concepto), fila);
-  // actualizar caché
+  await setDoc(doc(db, COL_TARIFAS, tarifaId(concepto)), fila);
   const idx = _tarifas.findIndex(t => t.CONCEPTO === concepto);
   if (idx >= 0) _tarifas[idx] = { ..._tarifas[idx], [plataforma]: fila[plataforma] };
 }
