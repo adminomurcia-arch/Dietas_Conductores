@@ -662,7 +662,15 @@ window.mCalcDietas = function() {
     if (MEJ < 0) { DI = total-HE-HP-NOC-DN; MEJ = 0; }
     res = { tipo:'FILARDI', total, HE, HP, NOC, DN, DI, MEJ };
   } else if (plat === 'CAUDETE') {
-    const diasEfic = dias + (resto > 0 ? 1 : 0);
+    const fs = document.getElementById('m-fsal').value;
+    const fl = document.getElementById('m-flleg').value;
+    let diasEfic = dias;
+    if (fs && fl) {
+      const d1 = new Date(fs.split('-').map(Number).reduce((a,v,i)=>i===1?new Date(a,v-1,1):a,0));
+      const [y,m,d] = fs.split('-').map(Number);
+      const [y2,m2,d2] = fl.split('-').map(Number);
+      diasEfic = Math.round((new Date(y2,m2-1,d2) - new Date(y,m-1,d)) / 86400000) + 1;
+    }
     const PE = diasEfic * 8.75;
     const DISP = (nDom+nFest)*getTar('DOMINGO_FESTIVOS','CAUDETE')
                + nCarga*getTar('CARGA/DESCARGAS','CAUDETE')
