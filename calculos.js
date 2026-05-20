@@ -115,7 +115,7 @@ function calcPESCADO({ totalKm, coefNac }) {
 }
 
 // ---- TJG ----
-function calcTJG({ totalKm, coefNac, nCarga, nPalet, nRebote, n24h, nPausa, nAcarreos, nVlissingen, extras }) {
+function calcTJG({ totalKm, diasTrab, coefNac, nCarga, nPalet, nRebote, n24h, nPausa, nAcarreos, nVlissingen, extras }) {
   const precioKm = buscarConductorActual()?.PrecioKmt || 0;
 
   const sumVariables = nCarga      * getTarifa('CARGA/DESCARGAS', 'TJG')
@@ -132,7 +132,14 @@ function calcTJG({ totalKm, coefNac, nCarga, nPalet, nRebote, n24h, nPausa, nAca
   const H_PRESEN  = 0.02926 * 0.5 * totalKm;
   const NOCTURNO  = 0.02926 * 0.1 * totalKm;
   const DIET_NAC  = coefNac * 45.19;
-  const DIET_INTER= sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC;
+
+  let DIET_INTER = (diasTrab - coefNac) * 59;
+  // Si la suma de componentes supera el total, DIET_INTER es la diferencia
+  if (H_EXTRA + H_PRESEN + NOCTURNO + DIET_NAC + DIET_INTER > sumDietas) {
+    DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC;
+  }
+  // Nunca negativo
+  if (DIET_INTER < 0) DIET_INTER = 0;
 
   return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
 }
