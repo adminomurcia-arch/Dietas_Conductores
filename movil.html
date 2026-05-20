@@ -642,9 +642,7 @@ window.mCalcDietas = function() {
     const total = km*precioKm + sumVar;
     const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
     const DN = coef*45.19;
-    let DI = (dias-coef)*59;
-    if (HE+HP+NOC+DN+DI > total) DI = total-HE-HP-NOC-DN;
-    if (DI < 0) DI = 0;
+    const DI = Math.max(0, total-HE-HP-NOC-DN);
     res = { tipo:'TJG', total, HE, HP, NOC, DN, DI };
   } else if (plat === 'FILARDI') {
     const sumVar = nRebote*getTar('REBOTE','FILARDI') + nUK*getTar('UK','FILARDI')
