@@ -443,10 +443,13 @@ window.mLogin = async function() {
   btn.textContent = 'Verificando…';
   btn.disabled = true;
 
+  // Normalizar código a 6 dígitos
+  const codNorm = cod.padStart(6, '0');
+
   try {
-    // Búsqueda directa por ID (una sola lectura, sin traer todos)
+    // Búsqueda directa por ID normalizado
     const [conductorSnap, tarifasSnap, tractorasSnap] = await Promise.all([
-      getDoc(doc(_db, 'conductores', cod)),
+      getDoc(doc(_db, 'conductores', codNorm)),
       getDocs(collection(_db, 'tarifas')),
       getDocs(query(collection(_db, 'tractoras'), orderBy('matricula'))),
     ]);
