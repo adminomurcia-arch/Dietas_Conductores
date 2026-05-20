@@ -597,6 +597,9 @@
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
+<script src="calculos.js"></script>
+<script src="informes.js"></script>
+<script src="app.js"></script>
 <script type="module">
   import { initDB, getConductores, getTarifas, getRegistros, getTarifa,
            buscarConductor, upsertConductor, eliminarConductor,
@@ -617,15 +620,19 @@
   window.eliminarTractora  = eliminarTractora;
   window.upsertTarifa      = upsertTarifa;
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  // Esperar a que el DOM y los scripts normales estén listos
+  async function arrancar() {
     document.getElementById('loading-overlay').style.display = 'flex';
     await initDB();
     document.getElementById('loading-overlay').style.display = 'none';
     if (typeof window._appReady === 'function') window._appReady();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', arrancar);
+  } else {
+    arrancar();
+  }
 </script>
-<script src="calculos.js"></script>
-<script src="informes.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
