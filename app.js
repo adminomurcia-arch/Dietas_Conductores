@@ -54,6 +54,9 @@ function autocompletar() {
   const cod = document.getElementById('codConductor').value.trim();
   const c   = buscarConductor(cod);
 
+  // Normalizar a 6 dígitos en el campo
+  if (c) document.getElementById('codConductor').value = c.Codigo;
+
   document.getElementById('nombreConductor').value = c?.Nombre    || '';
   document.getElementById('plataforma').value      = c?.PLATAFORMA|| '';
   document.getElementById('categoria').value       = c?.CATEGORIA || '';
