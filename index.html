@@ -210,15 +210,17 @@
       <div class="form-grid">
         <div class="field">
           <label>Km Salida</label>
-          <input type="number" id="kmSalida" min="0" oninput="calcularKms()">
+          <input type="text" id="kmSalida" inputmode="numeric" placeholder="0"
+            oninput="calcularKms()" onblur="formatKm(this)">
         </div>
         <div class="field">
           <label>Km Vuelta</label>
-          <input type="number" id="kmVuelta" min="0" oninput="calcularKms()">
+          <input type="text" id="kmVuelta" inputmode="numeric" placeholder="0"
+            oninput="calcularKms()" onblur="formatKm(this)">
         </div>
         <div class="field">
           <label>Total Km</label>
-          <input type="number" id="totalKm" readonly class="readonly calc">
+          <input type="text" id="totalKm" readonly class="readonly calc">
         </div>
       </div>
     </section>
