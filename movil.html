@@ -641,8 +641,14 @@ window.mCalcDietas = function() {
                  + vliss*getTar('DIETA_VLISSINGEN','TJG') + ext;
     const total = km*precioKm + sumVar;
     const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
-    const DN = coef*45.19;
-    const DI = Math.max(0, total-HE-HP-NOC-DN);
+    let DN, DI;
+    if (coef >= dias) {
+      DI = 0;
+      DN = Math.max(0, total-HE-HP-NOC);
+    } else {
+      DN = coef*45.19;
+      DI = Math.max(0, total-HE-HP-NOC-DN);
+    }
     res = { tipo:'TJG', total, HE, HP, NOC, DN, DI };
   } else if (plat === 'FILARDI') {
     const sumVar = nRebote*getTar('REBOTE','FILARDI') + nUK*getTar('UK','FILARDI')
