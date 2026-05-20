@@ -66,6 +66,8 @@ function leerFormulario() {
   return {
     plataforma,
     categoria,
+    fechaSalida:  document.getElementById('fechaSalida').value,
+    fechaLlegada: document.getElementById('fechaLlegada').value,
     totalKm:      parseFloat(document.getElementById('totalKm').value)        || 0,
     diasTrab:     parseFloat(document.getElementById('diasTrabajados').value)  || 0,
     restoHoras:   parseFloat(document.getElementById('restoHoras').value)      || 0,
@@ -175,11 +177,16 @@ function calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreo
 }
 
 // ---- CAUDETE ----
-function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras }) {
+function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras, fechaSalida, fechaLlegada }) {
   const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
 
-  // Plus Eficiencia: días trabajados + 1 si hay horas restantes
-  const diasEfic        = diasTrab + (restoHoras > 0 ? 1 : 0);
+  // Plus Eficiencia = (fecha llegada - fecha salida + 1) × 8,75
+  let diasEfic = diasTrab;
+  if (fechaSalida && fechaLlegada) {
+    const fs = parseFecha(fechaSalida);
+    const fl = parseFecha(fechaLlegada);
+    diasEfic = Math.round((fl - fs) / 86400000) + 1;
+  }
   const PLUS_EFICIENCIA = diasEfic * 8.75;
 
   const DISPONIBILIDAD  = (nDomingos + nFestivos) * tarDF
