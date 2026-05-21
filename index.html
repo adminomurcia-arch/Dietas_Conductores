@@ -150,6 +150,10 @@
             <option value="">— Seleccionar —</option>
           </select>
         </div>
+        <div class="field">
+          <label>Equipaje</label>
+          <input type="text" id="equipaje" readonly class="readonly">
+        </div>
       </div>
     </section>
 
@@ -357,7 +361,8 @@
     <!-- BOTONES -->
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="limpiarFormulario()">🗑️ Limpiar</button>
-      <button type="submit" class="btn btn-primary">💾 Guardar Registro</button>
+      <button type="button" id="btn-cancelar-edicion" class="btn btn-ghost" style="display:none;color:#c0392b" onclick="cancelarEdicion()">✕ Cancelar</button>
+      <button type="submit" id="btn-guardar" class="btn btn-primary">💾 Guardar Registro</button>
     </div>
 
   </form>
@@ -375,10 +380,8 @@
         <h3>Conductor</h3>
         <p>Detalle individual o masivo</p>
         <div class="field">
-          <label>Conductor (vacío = todos)</label>
-          <select id="inf-cod-conductor">
-            <option value="">— Todos los conductores —</option>
-          </select>
+          <label>Código (vacío = todos)</label>
+          <input type="text" id="inf-cod-conductor" placeholder="Ej: 10001">
         </div>
         <div class="field">
           <label>Período</label>
@@ -596,7 +599,7 @@
         <thead>
           <tr>
             <th>Plataforma</th><th>Categoría</th><th>Código</th><th>Nombre</th>
-            <th>NIF</th><th>IBAN</th><th>Precio Kmt</th><th>Email</th><th>Acciones</th>
+            <th>NIF</th><th>IBAN</th><th>Precio Kmt</th><th>Email</th><th>Equipaje</th><th>Acciones</th>
           </tr>
         </thead>
         <tbody id="tbody-conductores"></tbody>
@@ -692,6 +695,13 @@
         <div class="field"><label>IBAN</label><input type="text" id="m-iban"></div>
         <div class="field"><label>Precio Kmt</label><input type="number" id="m-precio" step="0.001"></div>
         <div class="field"><label>Email</label><input type="email" id="m-email"></div>
+        <div class="field"><label>Equipaje</label>
+          <select id="m-equipaje">
+            <option value="">— Sin asignar —</option>
+            <option value="SIMPLE">SIMPLE</option>
+            <option value="DOBLE">DOBLE</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -827,7 +837,8 @@
            addRegistro, updateRegistro, deleteRegistro,
            setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros,
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
-           getConceptos, upsertConcepto, eliminarConcepto } from './db.js';
+           getConceptos, upsertConcepto, eliminarConcepto,
+           updateTractoraConductor } from './db.js';
 
   window.initDB               = initDB;
   window.getConductores       = getConductores;
@@ -850,26 +861,8 @@
   window.upsertTarifa         = upsertTarifa;
   window.getConceptos         = getConceptos;
   window.upsertConcepto       = upsertConcepto;
-  window.eliminarConcepto     = eliminarConcepto;
-
-  // Poblar el desplegable de conductores en el informe Conductor
-  window.poblarSelectConductoresInforme = function() {
-    const sel = document.getElementById('inf-cod-conductor');
-    if (!sel) return;
-    const conductores = getConductores();
-    // Conservar opción "Todos"
-    sel.innerHTML = '<option value="">— Todos los conductores —</option>';
-    // Ordenar por código
-    conductores
-      .slice()
-      .sort((a, b) => String(a.Codigo).localeCompare(String(b.Codigo), 'es', { numeric: true }))
-      .forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.Codigo;
-        opt.textContent = `${c.Codigo} — ${c.Nombre}`;
-        sel.appendChild(opt);
-      });
-  };
+  window.eliminarConcepto        = eliminarConcepto;
+  window.updateTractoraConductor = updateTractoraConductor;
 
   // Esperar a que el DOM y los scripts normales estén listos
   async function arrancar() {
@@ -877,8 +870,6 @@
     await initDB();
     document.getElementById('loading-overlay').style.display = 'none';
     if (typeof window._appReady === 'function') window._appReady();
-    // Poblar desplegable conductores informe tras inicializar
-    if (typeof window.poblarSelectConductoresInforme === 'function') window.poblarSelectConductoresInforme();
   }
 
   if (document.readyState === 'loading') {
