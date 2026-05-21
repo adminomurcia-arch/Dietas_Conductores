@@ -241,6 +241,7 @@ async function guardarRegistro() {
   const plataforma = document.getElementById('plataforma').value;
   if (!plataforma) { showToast('Introduce un código de conductor válido', 'error'); return; }
 
+  const editId    = document.getElementById('formRegistro').dataset.editId || '';
   const categoria = document.getElementById('categoria').value.toUpperCase();
   const sinKmVal  = ['COMODIN','PESCADO'].includes(categoria);
 
@@ -316,8 +317,6 @@ async function guardarRegistro() {
     updateTractoraConductor(cod, tractora);             // guardar en Firestore
   }
   if (coefNac)  localStorage.setItem(`coef_${cod}`, coefNac);
-
-  const editId = document.getElementById('formRegistro').dataset.editId || '';
 
   const datosRegistro = {
     codigoConductor: document.getElementById('codConductor').value.trim(),
