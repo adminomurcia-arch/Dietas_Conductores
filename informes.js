@@ -48,7 +48,7 @@ function previsualizarConductor() {
     'Días Trabajados':   r.diasTrabajados,
     'Total Dietas':      fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
     'Km Salida':         fmtKm(r.kmSalida),
-    'Km Llegada':        fmtKm(r.kmLlegada),
+    'Km Llegada':        fmtKm(r.kmVuelta),
     'Total Km':          fmtKm(r.totalKm),
     '24H/Días':          (r.n24h || 0) + (r.diasTrabajados || 0),
     'Cargas/Descargas':  r.nCarga || 0,
