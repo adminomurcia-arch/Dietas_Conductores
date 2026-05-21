@@ -68,12 +68,28 @@ function autocompletar() {
   document.getElementById('codConductor').style.borderColor = bloqueado ? '#c0392b' : '';
   if (bloqueado) { showToast('Código de conductor no encontrado', 'error'); }
 
-  // Tractora: recuperar última usada por este conductor
+  // Equipaje: mostrar valor del conductor y ajustar coefNacional por defecto
+  const equipaje = c?.EQUIPAJE || '';
+  document.getElementById('equipaje').value = equipaje;
+  if (equipaje === 'SIMPLE') {
+    document.getElementById('coefNacional').value = 2.7;
+  } else if (equipaje === 'DOBLE') {
+    document.getElementById('coefNacional').value = 1.30;
+  }
+
+  // Tractora: recuperar la asignada en Firestore (con fallback a localStorage)
   if (c) {
-    const ultimaTractora = localStorage.getItem(`tractora_${cod}`) || '';
+    const ultimaTractora = c.tractoraAsignada || localStorage.getItem(`tractora_${cod}`) || '';
     const sel = document.getElementById('tractora');
-    if (ultimaTractora && sel.querySelector(`option[value="${ultimaTractora}"]`)) {
-      sel.value = ultimaTractora;
+    if (ultimaTractora) {
+      if (sel.querySelector(`option[value="${ultimaTractora}"]`)) {
+        sel.value = ultimaTractora;
+      } else {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = ultimaTractora;
+        sel.appendChild(opt);
+        sel.value = ultimaTractora;
+      }
     }
     // Coef. Nacional: recuperar último valor usado por este conductor
     const ultimoCoef = localStorage.getItem(`coef_${cod}`);
@@ -185,13 +201,19 @@ async function guardarRegistro(e) {
   const tractora = document.getElementById('tractora').value;
   const coefNac  = document.getElementById('coefNacional').value;
   const cod      = document.getElementById('codConductor').value.trim();
-  if (tractora) localStorage.setItem(`tractora_${cod}`, tractora);
+  if (tractora) {
+    localStorage.setItem(`tractora_${cod}`, tractora); // fallback local
+    updateTractoraConductor(cod, tractora);             // guardar en Firestore
+  }
   if (coefNac)  localStorage.setItem(`coef_${cod}`, coefNac);
 
-  await addRegistro({
+  const editId = document.getElementById('formRegistro').dataset.editId || '';
+
+  const datosRegistro = {
     codigoConductor: document.getElementById('codConductor').value.trim(),
     nombreConductor: document.getElementById('nombreConductor').value,
     tractora,
+    equipaje:        document.getElementById('equipaje').value,
     plataforma,
     categoria:       document.getElementById('categoria').value,
     fechaSalida:     document.getElementById('fechaSalida').value,
@@ -223,10 +245,17 @@ async function guardarRegistro(e) {
     anticipos:       parseFloat(document.getElementById('anticipos').value)        || 0,
     modo:            modoActual,
     resultado,
-  });
+  };
+
+  if (editId) {
+    await updateRegistro(editId, datosRegistro);
+    showToast('Registro actualizado ✓', 'success');
+  } else {
+    await addRegistro(datosRegistro);
+    showToast('Registro guardado ✓', 'success');
+  }
 
   renderHistorial();
-  showToast('Registro guardado ✓', 'success');
   limpiarFormulario();
 }
 
@@ -291,7 +320,7 @@ function leerGastosDetallados(comoArray = false) {
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
-  ['nombreConductor','plataforma','categoria'].forEach(id =>
+  ['nombreConductor','plataforma','categoria','equipaje'].forEach(id =>
     document.getElementById(id).value = '');
   document.getElementById('section-resultado').style.display = 'none';
   document.getElementById('lista-gastos').innerHTML = '';
@@ -299,6 +328,15 @@ function limpiarFormulario() {
   ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
     document.getElementById(`lista-${tipo}`).innerHTML = '');
   adaptarPlataforma('', '');
+  // Restaurar modo nuevo registro
+  delete document.getElementById('formRegistro').dataset.editId;
+  document.getElementById('btn-guardar').textContent = '💾 Guardar Registro';
+  document.getElementById('btn-cancelar-edicion').style.display = 'none';
+}
+
+function cancelarEdicion() {
+  limpiarFormulario();
+  showToast('Edición cancelada');
 }
 
 // ---- SIDEBAR HISTORIAL ----
@@ -349,7 +387,12 @@ function renderHistorial() {
         <span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span>
         ${origenBadge}
       </div>
-      <div class="hist-meta">${r.fechaSalida} → ${r.fechaLlegada} · ${r.diasTrabajados} días</div>
+      <div class="hist-meta"><strong>${r.codigoConductor}</strong> · ${r.fechaSalida} → ${r.fechaLlegada} · ${r.diasTrabajados} días</div>
+      <div class="hist-meta" style="font-family:monospace;font-size:11px;color:#6b7566">
+        ${r.kmSalida ? 'Sal: ' + Number(r.kmSalida).toLocaleString('es-ES') : ''}
+        ${r.kmVuelta ? ' · Vuel: ' + Number(r.kmVuelta).toLocaleString('es-ES') : ''}
+        ${r.totalKm  ? ' · Total: ' + Number(r.totalKm).toLocaleString('es-ES') + ' km' : ''}
+      </div>
       ${esPendVal
         ? `<div class="hist-meta" style="color:#9d174d;font-weight:500;margin-top:3px">⏳ Pendiente de validación</div>`
         : `<div class="hist-meta" style="margin-top:3px;font-weight:500;color:#4a7c59">${total}</div>`
@@ -381,6 +424,7 @@ function renderTablas() {
       <td>${c.Nombre}</td><td>${c.NIF||''}</td>
       <td style="font-size:11px;font-family:monospace">${c.IBAN||''}</td>
       <td>${c.PrecioKmt}</td><td>${c.Email||''}</td>
+      <td>${c.EQUIPAJE||'—'}</td>
       <td>
         <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
@@ -420,7 +464,7 @@ function showBDTab(tab) {
 function nuevoConductor() {
   document.getElementById('modal-title').textContent = 'Nuevo Conductor';
   document.getElementById('m-codigo-original').value = '';
-  ['m-plataforma','m-categoria','m-codigo','m-nombre','m-nif','m-iban','m-precio','m-email']
+  ['m-plataforma','m-categoria','m-codigo','m-nombre','m-nif','m-iban','m-precio','m-email','m-equipaje']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('modal-conductor').style.display = 'flex';
 }
@@ -437,7 +481,8 @@ function editarConductor(codigo) {
   document.getElementById('m-nif').value               = c.NIF    || '';
   document.getElementById('m-iban').value              = c.IBAN   || '';
   document.getElementById('m-precio').value            = c.PrecioKmt || '';
-  document.getElementById('m-email').value             = c.Email  || '';
+  document.getElementById('m-email').value             = c.Email    || '';
+  document.getElementById('m-equipaje').value           = c.EQUIPAJE || '';
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
@@ -451,6 +496,7 @@ async function guardarConductor() {
     IBAN:       document.getElementById('m-iban').value.trim(),
     PrecioKmt:  parseFloat(document.getElementById('m-precio').value) || 0,
     Email:      document.getElementById('m-email').value.trim(),
+    EQUIPAJE:   document.getElementById('m-equipaje').value,
   };
   if (!conductor.Codigo || !conductor.Nombre) {
     showToast('Código y Nombre son obligatorios', 'error'); return;
@@ -589,27 +635,78 @@ function cerrarModalConcepto() {
 async function editarRegistro(id) {
   const r = getRegistros().find(x => x.id === id);
   if (!r) return;
-  // Cargar datos en formulario
+
+  // Modo del formulario
+  if (r.modo && r.modo !== modoActual) setModo(r.modo);
+
+  // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
   autocompletar();
+  // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
+  document.getElementById('coefNacional').value    = r.coefNacional || 0;
+
+  // Fechas y tiempos
   document.getElementById('fechaSalida').value     = r.fechaSalida;
   document.getElementById('fechaLlegada').value    = r.fechaLlegada;
   document.getElementById('horaSalida').value      = r.horaSalida  || '';
   document.getElementById('horaLlegada').value     = r.horaLlegada || '';
-  document.getElementById('coefNacional').value    = r.coefNacional || 0;
+
+  // Kilómetros
   document.getElementById('kmSalida').value        = r.kmSalida    || '';
   document.getElementById('kmVuelta').value        = r.kmVuelta    || '';
   document.getElementById('totalKm').value         = r.totalKm     || '';
+
+  // Otros conceptos
   document.getElementById('acarreos').value        = r.acarreos    || 0;
   document.getElementById('dietaVlissingen').value = r.dietaVlissingen || 0;
   document.getElementById('extras').value          = r.extras      || 0;
   document.getElementById('anticipos').value       = r.anticipos   || 0;
-  // Marcar el registro que se está editando
+
+  // Domingos / festivos (CAUDETE)
+  document.getElementById('numDomingos').value     = r.nDomingos   || '';
+  document.getElementById('numFestivos').value     = r.nFestivos   || '';
+  if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
+
+  // Operaciones detalladas — reconstruir filas
+  ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
+    document.getElementById(`lista-${tipo}`).innerHTML = '');
+
+  const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                    n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                    nUK:'uk', nNDLF:'ndlf' };
+  Object.entries(tipoMap).forEach(([campo, tipo]) => {
+    const n = r[campo] || 0;
+    for (let i = 0; i < n; i++) addOperacion(tipo);
+  });
+
+  // Gastos de viaje detallados
+  document.getElementById('lista-gastos').innerHTML = '';
+  if (r.gastosDetalle && r.gastosDetalle.length) {
+    r.gastosDetalle.forEach(g => {
+      addGasto();
+      const rows = document.querySelectorAll('#lista-gastos .gasto-row');
+      const row  = rows[rows.length - 1];
+      const inputs  = row.querySelectorAll('input');
+      const selects = row.querySelectorAll('select');
+      inputs[0].value  = g.fecha    || '';
+      selects[0].value = g.concepto || '';
+      inputs[1].value  = g.lugar    || '';
+      selects[1].value = g.moneda   || '€';
+      inputs[2].value  = g.importe  || 0;
+    });
+    actualizarTotalGastos();
+  } else if (r.gastosViaje && !r.gastosDetalle?.length) {
+    // Registro antiguo sin detalle: mostrar importe total en resumido
+    document.getElementById('gastosViaje').value = r.gastosViaje || 0;
+  }
+
+  // Marcar modo edición
   document.getElementById('formRegistro').dataset.editId = id;
-  document.getElementById('formRegistro').querySelector('button[type="submit"]').textContent = '💾 Actualizar Registro';
-  // Recalcular
+  document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
+  document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
+
+  // Recalcular y navegar
   calcularTiempos();
-  // Cerrar sidebar y hacer scroll al formulario
   if (!document.getElementById('sidebar').classList.contains('closed')) toggleSidebar();
   document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
   showToast('Registro cargado para editar', '');
