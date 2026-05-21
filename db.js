@@ -226,9 +226,9 @@ async function cargarConductores() {
   try {
     const snap = await getDocs(collection(db, COL_CONDUCTORES));
     console.log(`Firestore conductores encontrados: ${snap.size}`);
-    if (snap.size < CONDUCTORES_DEFAULT.length) {
-      // Faltan conductores — sembrar todos (setDoc no duplica)
-      console.log('Sembrando conductores...');
+    if (snap.size === 0) {
+      // Solo sembrar si la colección está completamente vacía
+      console.log('Colección vacía — sembrando conductores por defecto...');
       await seedConductores();
     } else {
       _conductores = snap.docs.map(d => {
