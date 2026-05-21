@@ -29,19 +29,23 @@ function previsualizarConductor() {
   const regs  = filtrarRegistros(desde, hasta, '', cod);
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['Código', 'Nombre', 'Plataforma', 'Salida', 'Llegada', 'Días', 'Km Salida', 'Km Vuelta', 'Total Km', 'Total Dietas', 'Gastos Viaje'];
+  const headers = ['Código', 'Nombre', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
   const fmtKm = v => (v && Number(v) > 0) ? Number(v).toLocaleString('es-ES') : '—';
+  const fmtN  = v => (v && Number(v) > 0) ? Number(v) : '—';
   const filas = regs.map(r => ({
     'Código':       r.codigoConductor,
     'Nombre':       r.nombreConductor,
-    'Plataforma':   r.plataforma,
     'Salida':       r.fechaSalida,
     'Llegada':      r.fechaLlegada,
     'Días':         r.diasTrabajados,
+    'Total Dietas': fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
+    '24H/PAUSA':    fmtN((r.n24h || 0) + (r.nPausa || 0)),
+    'Cargas/Desc.': fmtN(r.nCarga),
+    'Mov. Palets':  fmtN(r.nPalet),
+    'Rebote':       fmtN(r.nRebote),
     'Km Salida':    fmtKm(r.kmSalida),
     'Km Vuelta':    fmtKm(r.kmVuelta),
     'Total Km':     fmtKm(r.totalKm),
-    'Total Dietas': fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
     'Gastos Viaje': r.gastosViaje ? fmt2(r.gastosViaje) + ' €' : '—',
   }));
 
@@ -152,7 +156,7 @@ function previsualizarRRHH() {
 // ============================================================
 // MOSTRAR PREVIEW EN PANTALLA
 // ============================================================
-const NUM_COLS = new Set(['Días','Total Km','Km Salida','Km Vuelta','KM','DÍAS','TOTAL',
+const NUM_COLS = new Set(['Días','Total Km','Km Salida','Km Vuelta','24H/PAUSA','Cargas/Desc.','Mov. Palets','Rebote','KM','DÍAS','TOTAL',
   'H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','ANTICIPOS',
   'SUM_DIETAS','PLUS_EFIC','DISPONIB','DIETAS_CAU','EXTRAS','COEF_NAC','DOM_FEST',
   'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','ACARREOS','VLISSINGEN',
