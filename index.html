@@ -375,8 +375,10 @@
         <h3>Conductor</h3>
         <p>Detalle individual o masivo</p>
         <div class="field">
-          <label>Código (vacío = todos)</label>
-          <input type="text" id="inf-cod-conductor" placeholder="Ej: 10001">
+          <label>Conductor (vacío = todos)</label>
+          <select id="inf-cod-conductor">
+            <option value="">— Todos los conductores —</option>
+          </select>
         </div>
         <div class="field">
           <label>Período</label>
@@ -850,12 +852,33 @@
   window.upsertConcepto       = upsertConcepto;
   window.eliminarConcepto     = eliminarConcepto;
 
+  // Poblar el desplegable de conductores en el informe Conductor
+  window.poblarSelectConductoresInforme = function() {
+    const sel = document.getElementById('inf-cod-conductor');
+    if (!sel) return;
+    const conductores = getConductores();
+    // Conservar opción "Todos"
+    sel.innerHTML = '<option value="">— Todos los conductores —</option>';
+    // Ordenar por código
+    conductores
+      .slice()
+      .sort((a, b) => String(a.Codigo).localeCompare(String(b.Codigo), 'es', { numeric: true }))
+      .forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.Codigo;
+        opt.textContent = `${c.Codigo} — ${c.Nombre}`;
+        sel.appendChild(opt);
+      });
+  };
+
   // Esperar a que el DOM y los scripts normales estén listos
   async function arrancar() {
     document.getElementById('loading-overlay').style.display = 'flex';
     await initDB();
     document.getElementById('loading-overlay').style.display = 'none';
     if (typeof window._appReady === 'function') window._appReady();
+    // Poblar desplegable conductores informe tras inicializar
+    if (typeof window.poblarSelectConductoresInforme === 'function') window.poblarSelectConductoresInforme();
   }
 
   if (document.readyState === 'loading') {
