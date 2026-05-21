@@ -26,20 +26,35 @@ function previsualizarConductor() {
   const cod   = document.getElementById('inf-cod-conductor').value.trim();
   const desde = document.getElementById('inf-desde').value;
   const hasta = document.getElementById('inf-hasta').value;
-  const regs  = filtrarRegistros(desde, hasta, '', cod);
+  const regs  = filtrarRegistros(desde, hasta, '', cod)
+    .sort((a, b) => {
+      const codCmp = String(a.codigoConductor).localeCompare(String(b.codigoConductor), 'es', { numeric: true });
+      if (codCmp !== 0) return codCmp;
+      return String(a.fechaSalida).localeCompare(String(b.fechaSalida));
+    });
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['Código', 'Nombre', 'Plataforma', 'Salida', 'Llegada', 'Días', 'Total Km', 'Total Dietas', 'Gastos Viaje'];
+  const fmtKm = n => Number(n || 0).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+
+  const headers = ['Código', 'Nombre', 'Salida', 'Llegada', 'Días Trabajados', 'Total Dietas',
+                   'Km Salida', 'Km Llegada', 'Total Km',
+                   '24H/Días', 'Cargas/Descargas', 'Mov. Palets', 'Rebote',
+                   'Gastos Viaje'];
   const filas = regs.map(r => ({
-    'Código':       r.codigoConductor,
-    'Nombre':       r.nombreConductor,
-    'Plataforma':   r.plataforma,
-    'Salida':       r.fechaSalida,
-    'Llegada':      r.fechaLlegada,
-    'Días':         r.diasTrabajados,
-    'Total Km':     r.totalKm,
-    'Total Dietas': fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
-    'Gastos Viaje': r.gastosViaje ? fmt2(r.gastosViaje) + ' €' : '—',
+    'Código':            r.codigoConductor,
+    'Nombre':            r.nombreConductor,
+    'Salida':            r.fechaSalida,
+    'Llegada':           r.fechaLlegada,
+    'Días Trabajados':   r.diasTrabajados,
+    'Total Dietas':      fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
+    'Km Salida':         fmtKm(r.kmSalida),
+    'Km Llegada':        fmtKm(r.kmLlegada),
+    'Total Km':          fmtKm(r.totalKm),
+    '24H/Días':          (r.n24h || 0) + (r.diasTrabajados || 0),
+    'Cargas/Descargas':  r.nCarga || 0,
+    'Mov. Palets':       r.nPalet || 0,
+    'Rebote':            r.nRebote || 0,
+    'Gastos Viaje':      r.gastosViaje ? fmt2(r.gastosViaje) + ' €' : '—',
   }));
 
   _informe = { tipo: 'conductor', datos: regs, headers, filas, titulo: 'Informe Conductor' };
@@ -149,7 +164,8 @@ function previsualizarRRHH() {
 // ============================================================
 // MOSTRAR PREVIEW EN PANTALLA
 // ============================================================
-const NUM_COLS = new Set(['Días','Total Km','KM','DÍAS','TOTAL',
+const NUM_COLS = new Set(['Días','Días Trabajados','Total Km','Km Salida','Km Llegada','KM','DÍAS','TOTAL',
+  '24H/Días','Cargas/Descargas','Mov. Palets','Rebote',
   'H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','ANTICIPOS',
   'SUM_DIETAS','PLUS_EFIC','DISPONIB','DIETAS_CAU','EXTRAS','COEF_NAC','DOM_FEST',
   'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','ACARREOS','VLISSINGEN',
