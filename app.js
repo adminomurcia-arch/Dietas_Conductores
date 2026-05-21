@@ -91,12 +91,17 @@ function autocompletar() {
         sel.value = ultimaTractora;
       }
     }
-    // Coef. Nacional: recuperar último valor usado por este conductor
-    const ultimoCoef = localStorage.getItem(`coef_${cod}`);
-    if (ultimoCoef !== null) {
-      document.getElementById('coefNacional').value = ultimoCoef;
+    // Coef. Nacional: equipaje tiene prioridad; localStorage solo si no hay equipaje definido
+    if (!equipaje) {
+      const ultimoCoef = localStorage.getItem(`coef_${cod}`);
+      if (ultimoCoef !== null) {
+        document.getElementById('coefNacional').value = ultimoCoef;
+      }
     }
   }
+
+  // Pareja
+  document.getElementById('pareja').value = c?.PAREJA || ''
 
   adaptarPlataforma(c?.PLATAFORMA || '', c?.CATEGORIA || '');
 }
@@ -172,16 +177,26 @@ function adaptarPlataforma(plataforma, categoria) {
 }
 
 // ---- AÑADIR FILA DE OPERACIÓN (DETALLADO) ----
+function renumerarOperaciones(tipo) {
+  document.querySelectorAll(`#lista-${tipo} .operacion-row`).forEach((row, i) => {
+    const span = row.querySelector('.op-num');
+    if (span) span.textContent = i + 1;
+  });
+}
+
 function addOperacion(tipo) {
+  const lista = document.getElementById(`lista-${tipo}`);
+  const n = lista.querySelectorAll('.operacion-row').length + 1;
   const row = document.createElement('div');
   row.className = 'operacion-row';
   row.innerHTML = `
-    <input type="number" placeholder="Nº" min="1" value="1" onchange="calcularDietas()">
+    <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
+      color:var(--primary);font-size:13px;align-self:center">${n}</span>
     <input type="date">
-    <input type="text" placeholder="Lugar">
-    <button type="button" class="btn-del" onclick="this.parentElement.remove();calcularDietas()">🗑</button>
+    <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
+    <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
   `;
-  document.getElementById(`lista-${tipo}`).appendChild(row);
+  lista.appendChild(row);
   fijarLimiteFechas();
   calcularDietas();
 }
@@ -213,6 +228,7 @@ async function guardarRegistro() {
     nombreConductor: document.getElementById('nombreConductor').value,
     tractora,
     equipaje:        document.getElementById('equipaje').value,
+    pareja:          document.getElementById('pareja').value,
     plataforma,
     categoria:       document.getElementById('categoria').value,
     fechaSalida:     document.getElementById('fechaSalida').value,
@@ -273,7 +289,7 @@ function addGasto() {
   row.innerHTML = `
     <input type="date" value="${hoy}" max="${hoy}">
     <select>${opts}</select>
-    <input type="text" placeholder="Lugar">
+    <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
     <select><option value="€">€ EUR</option><option value="£">£ GBP</option>
       <option value="$">$ USD</option><option value="Otro">Otro</option></select>
     <input type="number" min="0" step="0.01" value="0" placeholder="Importe"
@@ -319,7 +335,7 @@ function leerGastosDetallados(comoArray = false) {
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
-  ['nombreConductor','plataforma','categoria','equipaje'].forEach(id =>
+  ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
     document.getElementById(id).value = '');
   document.getElementById('section-resultado').style.display = 'none';
   document.getElementById('lista-gastos').innerHTML = '';
@@ -666,39 +682,6 @@ async function editarRegistro(id) {
   document.getElementById('numFestivos').value     = r.nFestivos   || '';
   if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
 
-  // Operaciones detalladas — reconstruir filas
-  ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
-    document.getElementById(`lista-${tipo}`).innerHTML = '');
-
-  const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
-                    n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
-                    nUK:'uk', nNDLF:'ndlf' };
-  Object.entries(tipoMap).forEach(([campo, tipo]) => {
-    const n = r[campo] || 0;
-    for (let i = 0; i < n; i++) addOperacion(tipo);
-  });
-
-  // Gastos de viaje detallados
-  document.getElementById('lista-gastos').innerHTML = '';
-  if (r.gastosDetalle && r.gastosDetalle.length) {
-    r.gastosDetalle.forEach(g => {
-      addGasto();
-      const rows = document.querySelectorAll('#lista-gastos .gasto-row');
-      const row  = rows[rows.length - 1];
-      const inputs  = row.querySelectorAll('input');
-      const selects = row.querySelectorAll('select');
-      inputs[0].value  = g.fecha    || '';
-      selects[0].value = g.concepto || '';
-      inputs[1].value  = g.lugar    || '';
-      selects[1].value = g.moneda   || '€';
-      inputs[2].value  = g.importe  || 0;
-    });
-    actualizarTotalGastos();
-  } else if (r.gastosViaje && !r.gastosDetalle?.length) {
-    // Registro antiguo sin detalle: mostrar importe total en resumido
-    document.getElementById('gastosViaje').value = r.gastosViaje || 0;
-  }
-
   // Marcar modo edición
   document.getElementById('formRegistro').dataset.editId = id;
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
@@ -707,8 +690,45 @@ async function editarRegistro(id) {
   // Navegar al formulario
   if (!document.getElementById('sidebar').classList.contains('closed')) toggleSidebar();
   document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
-  // Calcular después de que el DOM esté actualizado
-  setTimeout(() => calcularTiempos(), 50);
+
+  // Operaciones y gastos DESPUÉS de adaptarPlataforma (que se llama en autocompletar)
+  setTimeout(() => {
+    calcularTiempos();
+
+    // Reconstruir operaciones
+    ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
+      document.getElementById(`lista-${tipo}`).innerHTML = '');
+    const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                      n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                      nUK:'uk', nNDLF:'ndlf' };
+    Object.entries(tipoMap).forEach(([campo, tipo]) => {
+      const n = r[campo] || 0;
+      for (let i = 0; i < n; i++) addOperacion(tipo);
+    });
+
+    // Reconstruir gastos de viaje
+    document.getElementById('lista-gastos').innerHTML = '';
+    if (r.gastosDetalle && r.gastosDetalle.length) {
+      r.gastosDetalle.forEach(g => {
+        addGasto();
+        const rows = document.querySelectorAll('#lista-gastos .gasto-row');
+        const row  = rows[rows.length - 1];
+        const inputs  = row.querySelectorAll('input');
+        const selects = row.querySelectorAll('select');
+        inputs[0].value  = g.fecha    || '';
+        selects[0].value = g.concepto || '';
+        inputs[1].value  = g.lugar    || '';
+        selects[1].value = g.moneda   || '€';
+        inputs[2].value  = g.importe  || 0;
+      });
+      actualizarTotalGastos();
+    } else if (r.gastosViaje && !r.gastosDetalle?.length) {
+      document.getElementById('gastosViaje').value = r.gastosViaje || 0;
+    }
+
+    calcularDietas();
+  }, 100);
+
   showToast('Registro cargado para editar', '');
 }
 
