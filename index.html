@@ -154,6 +154,10 @@
           <label>Equipaje</label>
           <input type="text" id="equipaje" readonly class="readonly">
         </div>
+        <div class="field">
+          <label>Pareja</label>
+          <input type="text" id="pareja" readonly class="readonly">
+        </div>
       </div>
     </section>
 
@@ -688,11 +692,11 @@
             <option value="FILARDI">FILARDI</option>
           </select>
         </div>
-        <div class="field"><label>Categoría *</label><input type="text" id="m-categoria" required></div>
+        <div class="field"><label>Categoría *</label><input type="text" id="m-categoria" required oninput="this.value=this.value.toUpperCase()"></div>
         <div class="field"><label>Código *</label><input type="text" id="m-codigo" required></div>
-        <div class="field"><label>Nombre *</label><input type="text" id="m-nombre" required></div>
-        <div class="field"><label>NIF</label><input type="text" id="m-nif"></div>
-        <div class="field"><label>IBAN</label><input type="text" id="m-iban"></div>
+        <div class="field"><label>Nombre *</label><input type="text" id="m-nombre" required oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="field"><label>NIF</label><input type="text" id="m-nif" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="field"><label>IBAN</label><input type="text" id="m-iban" oninput="this.value=this.value.toUpperCase()"></div>
         <div class="field"><label>Precio Kmt</label><input type="number" id="m-precio" step="0.001"></div>
         <div class="field"><label>Email</label><input type="email" id="m-email"></div>
         <div class="field"><label>Equipaje</label>
@@ -723,7 +727,7 @@
       <div class="field">
         <label>Matrícula *</label>
         <input type="text" id="t-matricula" placeholder="Ej: 1234ABC"
-               style="text-transform:uppercase">
+               style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
       </div>
     </div>
     <div class="modal-footer">
