@@ -332,3 +332,103 @@ function calcularKms() {
   document.getElementById('totalKm').value = total ? total.toLocaleString('es-ES') : '';
   calcularDietas();
 }
+
+
+// ---- CALCULAR DIETAS PARA UN CONDUCTOR ESPECÍFICO (sin usar el formulario) ----
+function calcularDietasParaConductor(conductor, datos) {
+  const f = {
+    plataforma:   datos.plataforma,
+    categoria:    (datos.categoria || '').toUpperCase(),
+    totalKm:      datos.totalKm      || 0,
+    diasTrab:     datos.diasTrabajados || 0,
+    restoHoras:   datos.restoHoras   || 0,
+    coefNac:      datos.coefNacional  || 0,
+    extras:       datos.extras        || 0,
+    nAcarreos:    datos.acarreos      || 0,
+    nVlissingen:  datos.dietaVlissingen || 0,
+    nCarga:       datos.nCarga   || 0,
+    nPalet:       datos.nPalet   || 0,
+    nRebote:      datos.nRebote  || 0,
+    n24h:         datos.n24h     || 0,
+    nPausa:       datos.nPausa   || 0,
+    nNacional:    datos.nNacional || 0,
+    nUK:          datos.nUK      || 0,
+    nNDLF:        datos.nNDLF    || 0,
+    nDomingos:    datos.nDomingos || 0,
+    nFestivos:    datos.nFestivos || 0,
+    fechaSalida:  datos.fechaSalida  || '',
+    fechaLlegada: datos.fechaLlegada || '',
+  };
+
+  // Sobreescribir precioKm con el del conductor de la pareja
+  const precioKm = conductor?.PrecioKmt || 0;
+
+  let res = {};
+  if (f.categoria === 'PESCADO') {
+    const sumDietas = f.totalKm * precioKm;
+    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
+    const DIET_NAC  = f.coefNac * 45.19;
+    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER: 0 };
+  } else if (f.plataforma === 'TJG') {
+    const sumVariables = f.nCarga    * getTarifa('CARGA/DESCARGAS', 'TJG')
+                       + f.nPalet    * getTarifa('MOV. PALETS',     'TJG')
+                       + f.nRebote   * getTarifa('REBOTE',          'TJG')
+                       + f.n24h      * getTarifa('24HORAS_PAUSA',   'TJG')
+                       + f.nPausa    * getTarifa('24HORAS_PAUSA',   'TJG')
+                       + f.nAcarreos * getTarifa('ACARREOS',        'TJG')
+                       + f.nVlissingen * getTarifa('DIETA_VLISSINGEN','TJG')
+                       + f.extras;
+    const sumDietas = f.totalKm * precioKm + sumVariables;
+    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
+    let DIET_NAC, DIET_INTER;
+    if (f.coefNac >= f.diasTrab) {
+      DIET_INTER = 0;
+      DIET_NAC   = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO);
+    } else {
+      DIET_NAC   = f.coefNac * 45.19;
+      DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
+    }
+    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
+  } else if (f.plataforma === 'FILARDI') {
+    const sumVariables = f.nRebote     * getTarifa('REBOTE',           'FILARDI')
+                       + f.nUK         * getTarifa('UK',               'FILARDI')
+                       + f.nNDLF       * getTarifa('NDLF',             'FILARDI')
+                       + f.nAcarreos   * getTarifa('ACARREOS',         'FILARDI')
+                       + f.nVlissingen * getTarifa('DIETA_VLISSINGEN', 'FILARDI')
+                       + f.extras;
+    const sumDietas = f.totalKm * precioKm + sumVariables;
+    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
+    const DIET_NAC  = f.coefNac * 45.19;
+    let DIET_INTER  = (f.diasTrab - f.coefNac) * 59;
+    let MEJORA      = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC - DIET_INTER;
+    if (MEJORA < 0) { DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC; MEJORA = 0; }
+    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER, MEJORA };
+  } else if (f.plataforma === 'CAUDETE') {
+    const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
+    let diasEfic = f.diasTrab;
+    if (f.fechaSalida && f.fechaLlegada) {
+      const fs = parseFecha(f.fechaSalida);
+      const fl = parseFecha(f.fechaLlegada);
+      diasEfic = Math.round((fl - fs) / 86400000) + 1;
+    }
+    const PLUS_EFICIENCIA = diasEfic * 8.75;
+    const DISPONIBILIDAD  = (f.nDomingos + f.nFestivos) * tarDF
+                          + f.nCarga    * getTarifa('CARGA/DESCARGAS', 'CAUDETE')
+                          + f.nPalet    * getTarifa('MOV. PALETS',     'CAUDETE')
+                          + f.nNacional * 10.3;
+    const DIETAS = f.diasTrab   * getTarifa('DIA',    'CAUDETE')
+                 + f.restoHoras * getTarifa('HORAS',  'CAUDETE')
+                 + f.nRebote    * getTarifa('REBOTE', 'CAUDETE')
+                 + f.extras;
+    const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
+    res = { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+  }
+
+  return res;
+}
