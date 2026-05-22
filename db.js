@@ -3,7 +3,7 @@
 // =============================================
 
 // ---- FIREBASE CONFIG ----
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs,
          setDoc, deleteDoc, addDoc, onSnapshot,
          query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -17,7 +17,7 @@ const firebaseConfig = {
   appId:             "1:1024050278672:web:5ce9e2f86694cc6e86f595"
 };
 
-const _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const _app = initializeApp(firebaseConfig);
 const db   = getFirestore(_app);
 
 // ---- COLECCIONES ----
@@ -395,9 +395,7 @@ export async function eliminarTractora(matricula) {
 async function cargarRegistros() {
   try {
     const snap = await getDocs(collection(db, COL_REGISTROS));
-    _registros = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
+    _registros = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.fechaCreacion||'').localeCompare(a.fechaCreacion||''));
   } catch (e) {
     console.error('Error cargando registros:', e);
     _registros = [];
@@ -413,10 +411,9 @@ function escucharRegistros() {
   _unsubRegistros = onSnapshot(
     collection(db, COL_REGISTROS),
     snap => {
-      _registros = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
+      _registros = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.fechaCreacion||'').localeCompare(a.fechaCreacion||''));
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
+      // Fallback por si acaso
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
     err => console.error('Listener error:', err)
