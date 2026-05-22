@@ -3,7 +3,7 @@
 // =============================================
 
 // ---- FIREBASE CONFIG ----
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs,
          setDoc, deleteDoc, addDoc, onSnapshot,
          query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -17,8 +17,9 @@ const firebaseConfig = {
   appId:             "1:1024050278672:web:5ce9e2f86694cc6e86f595"
 };
 
-const _app = initializeApp(firebaseConfig);
+const _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db   = getFirestore(_app);
+console.log('Firebase app name:', _app.name, '| DB:', !!db);
 
 // ---- COLECCIONES ----
 const COL_CONDUCTORES  = 'conductores';
@@ -410,27 +411,22 @@ async function cargarRegistros() {
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 
-// Pausa el listener durante borrados para evitar que onSnapshot restaure el registro
 let _listenerPausado = false;
-export function pausarListener()   { _listenerPausado = true;  }
-export function reanudarListener() { _listenerPausado = false; }
+export function pausarListener()   { _listenerPausado = true;  console.log('Listener PAUSADO'); }
+export function reanudarListener() { _listenerPausado = false; console.log('Listener REANUDADO'); }
 
-// IDs recién borrados — se filtran del snapshot hasta que Firestore los elimine
 const _pendienteBorrado = new Set();
 export function marcarPendienteBorrado(id) { _pendienteBorrado.add(id); }
 
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
+  console.log('Iniciando onSnapshot con db:', !!db);
   _unsubRegistros = onSnapshot(
     collection(db, COL_REGISTROS),
     snap => {
-      if (_listenerPausado) {
-        console.log('onSnapshot ignorado — listener pausado');
-        return;
-      }
-      console.log(`onSnapshot: ${snap.size} registros`);
+      if (_listenerPausado) { console.log('onSnapshot ignorado — pausado'); return; }
+      console.log(`onSnapshot RECIBIDO: ${snap.size} docs`);
       const ids = snap.docs.map(d => d.id);
-      // Limpiar del set los IDs que ya desaparecieron de Firestore
       _pendienteBorrado.forEach(id => { if (!ids.includes(id)) _pendienteBorrado.delete(id); });
       _registros = snap.docs
         .filter(d => !_pendienteBorrado.has(d.id))
@@ -439,7 +435,7 @@ function escucharRegistros() {
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
-    err => console.error('Listener error:', err)
+    err => console.error('Listener ERROR:', err)
   );
 }
 
