@@ -391,6 +391,13 @@ async function guardarRegistro() {
       const regPareja = getRegistros().find(r => r.id === idPareja);
       const nombrePareja = regPareja?.nombreConductor || `ID: ${idPareja}`;
       if (confirm(`¿Aplicar los mismos cambios al registro de la pareja (${nombrePareja})?`)) {
+        // DOBLE editar: cargas y palets se dividen exactamente entre 2
+        const nCargaEditMitad = datosRegistro.nCarga / 2;
+        const nPaletEditMitad = datosRegistro.nPalet / 2;
+
+        // Actualizar registro principal con su mitad exacta
+        await updateRegistro(editId, { nCarga: nCargaEditMitad, nPalet: nPaletEditMitad });
+
         const datosPareja = {
           codigoConductor:  regPareja?.codigoConductor  || datosRegistro.codigoConductor,
           nombreConductor:  regPareja?.nombreConductor  || datosRegistro.nombreConductor,
@@ -411,8 +418,8 @@ async function guardarRegistro() {
           kmSalida:         datosRegistro.kmSalida,
           kmVuelta:         datosRegistro.kmVuelta,
           totalKm:          datosRegistro.totalKm,
-          nCarga:           datosRegistro.nCarga,
-          nPalet:           datosRegistro.nPalet,
+          nCarga:           nCargaEditMitad,
+          nPalet:           nPaletEditMitad,
           nRebote:          datosRegistro.nRebote,
           n24h:             datosRegistro.n24h,
           nPausa:           datosRegistro.nPausa,
@@ -423,11 +430,21 @@ async function guardarRegistro() {
           dietaVlissingen:  datosRegistro.dietaVlissingen,
           extras:           datosRegistro.extras,
           extrasConcepto:   datosRegistro.extrasConcepto,
-          gastosViaje:      datosRegistro.gastosViaje,
-          gastosDetalle:    datosRegistro.gastosDetalle,
-          anticipos:        datosRegistro.anticipos,
+          // Gastos NO se copian a la pareja
+          gastosViaje:      regPareja?.gastosViaje  || 0,
+          gastosDetalle:    regPareja?.gastosDetalle || [],
+          anticipos:        regPareja?.anticipos     || 0,
           modo:             datosRegistro.modo,
           resultado:        datosRegistro.resultado,
+          // Copiar detalles de operaciones
+          opCarga:          datosRegistro.opCarga   || [],
+          opPalet:          datosRegistro.opPalet   || [],
+          opRebote:         datosRegistro.opRebote  || [],
+          op24h:            datosRegistro.op24h     || [],
+          opPausa:          datosRegistro.opPausa   || [],
+          opNacional:       datosRegistro.opNacional || [],
+          opUK:             datosRegistro.opUK      || [],
+          opNDLF:           datosRegistro.opNDLF    || [],
           registroPareja:   editId,
           modificadoPor:    'admin',
           fechaModificacion: ahora,
@@ -454,6 +471,13 @@ async function guardarRegistro() {
       const codPareja  = condActual?.PAREJA ? String(condActual.PAREJA).trim().padStart(6,'0') : null;
       const condPareja = codPareja ? buscarConductor(codPareja) : null;
       if (condPareja && confirm(`¿Crear también el registro para la pareja ${condPareja.Nombre}?`)) {
+        // DOBLE: cargas y palets se dividen exactamente entre 2
+        const nCargaMitad = datosRegistro.nCarga / 2;
+        const nPaletMitad = datosRegistro.nPalet / 2;
+
+        // Actualizar el registro principal con su mitad exacta
+        await updateRegistro(regGuardado.id, { nCarga: nCargaMitad, nPalet: nPaletMitad });
+
         const datosPareja = {
           codigoConductor: condPareja.Codigo,
           nombreConductor: condPareja.Nombre,
@@ -474,8 +498,8 @@ async function guardarRegistro() {
           kmSalida:        datosRegistro.kmSalida,
           kmVuelta:        datosRegistro.kmVuelta,
           totalKm:         datosRegistro.totalKm,
-          nCarga:          datosRegistro.nCarga,
-          nPalet:          datosRegistro.nPalet,
+          nCarga:          nCargaMitad,
+          nPalet:          nPaletMitad,
           nRebote:         datosRegistro.nRebote,
           n24h:            datosRegistro.n24h,
           nPausa:          datosRegistro.nPausa,
@@ -486,11 +510,21 @@ async function guardarRegistro() {
           dietaVlissingen: datosRegistro.dietaVlissingen,
           extras:          datosRegistro.extras,
           extrasConcepto:  datosRegistro.extrasConcepto,
-          gastosViaje:     datosRegistro.gastosViaje,
-          gastosDetalle:   datosRegistro.gastosDetalle,
-          anticipos:       datosRegistro.anticipos,
+          // Gastos NO se copian a la pareja
+          gastosViaje:     0,
+          gastosDetalle:   [],
+          anticipos:       0,
           modo:            datosRegistro.modo,
           resultado:       datosRegistro.resultado,
+          // Copiar detalles de operaciones
+          opCarga:         datosRegistro.opCarga   || [],
+          opPalet:         datosRegistro.opPalet   || [],
+          opRebote:        datosRegistro.opRebote  || [],
+          op24h:           datosRegistro.op24h     || [],
+          opPausa:         datosRegistro.opPausa   || [],
+          opNacional:      datosRegistro.opNacional || [],
+          opUK:            datosRegistro.opUK      || [],
+          opNDLF:          datosRegistro.opNDLF    || [],
           registroPareja:  regGuardado.id,
           creadoPor:       'admin',
           creadoEn:        ahora,
@@ -1352,6 +1386,8 @@ function cargarLiqValidacion() {
       <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge" style="background:#fce7f3;color:#9d174d">📱 Móvil</span></td>
       <td style="display:flex;gap:4px">
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px"
+          onclick="editarRegistro('${r.id}')">✏️ Editar</button>
         <button class="btn btn-primary" style="padding:4px 10px;font-size:12px"
           onclick="aprobarRegistro('${r.id}')">✅ Aprobar</button>
         <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:#c0392b"
