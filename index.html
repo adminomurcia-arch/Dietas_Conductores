@@ -963,7 +963,7 @@
            setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros,
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
            getConceptos, upsertConcepto, eliminarConcepto,
-           updateTractoraConductor } from './db.js';
+           updateTractoraConductor, setOnRegistrosChange } from './db.js';
 
   window.initDB               = initDB;
   window.getConductores       = getConductores;
@@ -989,12 +989,24 @@
   window.eliminarConcepto        = eliminarConcepto;
   window.updateTractoraConductor = updateTractoraConductor;
 
+  // Exponer renderHistorial para el listener onSnapshot de db.js
+  setTimeout(() => {
+    if (typeof renderHistorial === 'function') window.renderHistorial = renderHistorial;
+  }, 500);
+
   // Esperar a que el DOM y los scripts normales estén listos
   async function arrancar() {
     document.getElementById('loading-overlay').style.display = 'flex';
     await initDB();
     document.getElementById('loading-overlay').style.display = 'none';
     if (typeof window._appReady === 'function') window._appReady();
+    // Registrar callback para actualizar historial en tiempo real
+    setTimeout(() => {
+      if (typeof renderHistorial === 'function') {
+        window.renderHistorial = renderHistorial;
+        setOnRegistrosChange(renderHistorial);
+      }
+    }, 200);
   }
 
   if (document.readyState === 'loading') {
