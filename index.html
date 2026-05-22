@@ -960,6 +960,7 @@
   import { initDB, getConductores, getTarifas, getRegistros, getTarifa,
            buscarConductor, upsertConductor, eliminarConductor,
            addRegistro, updateRegistro, deleteRegistro, marcarPendienteBorrado,
+           pausarListener, reanudarListener,
            setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros,
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
            getConceptos, upsertConcepto, eliminarConcepto,
@@ -977,6 +978,8 @@
   window.updateRegistro       = updateRegistro;
   window.deleteRegistro          = deleteRegistro;
   window.marcarPendienteBorrado  = marcarPendienteBorrado;
+  window.pausarListener          = pausarListener;
+  window.reanudarListener        = reanudarListener;
   window.setEstadoDietas      = setEstadoDietas;
   window.setEstadoGastos      = setEstadoGastos;
   window.liquidarRegistros    = liquidarRegistros;
