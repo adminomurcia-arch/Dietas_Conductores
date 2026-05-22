@@ -843,6 +843,18 @@ window.mGuardar = async function() {
 
     const ref = await addDoc(collection(_db, 'registros'), reg);
     const regId = ref.id;
+    
+    // Enviar aviso por email
+    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbynyhc76VAjyI6SyGlAxBWFH3g_tssO0HBBELP_7iUOmHq9R-L4zTh6XD7x3XQpOQvAQw/exec';
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...reg,
+        id: regId,
+        totalDietas: resultado.total ? resultado.total.toFixed(2) + ' €' : '—'
+      })
+    }).catch(err => console.warn('Aviso email no enviado:', err));
 
     // Si es DOBLE y NO es duplicado, duplicar para la pareja
     if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA && !reg.esDuplicado) {
