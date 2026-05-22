@@ -953,7 +953,8 @@ async function borrarRegistro(id) {
   } else {
     showToast('Registro eliminado');
   }
-  renderHistorial();
+  // Pequeño delay para que onSnapshot procese el cambio antes de re-renderizar
+  setTimeout(() => renderHistorial(), 300);
 }
 
 // ---- ESTADOS ----
