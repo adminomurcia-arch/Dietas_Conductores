@@ -653,6 +653,14 @@ function mGetCount(tipo) {
   return document.querySelectorAll(`#m-lista-${tipo} .op-row`).length;
 }
 
+function mGetDetalle(tipo) {
+  const rows = document.querySelectorAll(`#m-lista-${tipo} .op-row`);
+  return Array.from(rows).map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { fecha: inputs[0]?.value || '', lugar: inputs[1]?.value || '' };
+  });
+}
+
 // ---- TARIFA ----
 function getTar(concepto, plat) {
   const f = _tarifas.find(t => t.CONCEPTO === concepto);
@@ -811,6 +819,14 @@ window.mGuardar = async function() {
     nRebote: mGetCount('rebote'), n24h:  mGetCount('24h'),
     nPausa:  mGetCount('pausa'), nNacional: mGetCount('nac'),
     nUK:     mGetCount('uk'),   nNDLF:  mGetCount('ndlf'),
+    opCarga:   mGetDetalle('carga'),
+    opPalet:   mGetDetalle('palet'),
+    opRebote:  mGetDetalle('rebote'),
+    op24h:     mGetDetalle('24h'),
+    opPausa:   mGetDetalle('pausa'),
+    opNacional:mGetDetalle('nac'),
+    opUK:      mGetDetalle('uk'),
+    opNDLF:    mGetDetalle('ndlf'),
     acarreos:       parseFloat(document.getElementById('m-acarreos').value)|| 0,
     dietaVlissingen:parseFloat(document.getElementById('m-vliss').value)   || 0,
     extras:         parseFloat(document.getElementById('m-extras').value)  || 0,
