@@ -945,8 +945,9 @@ async function borrarRegistro(id) {
     return;
   }
 
-  if (idPareja && reg?.equipaje === 'DOBLE' && nombrePareja) {
-    if (confirm(`¿Eliminar también el registro vinculado de ${nombrePareja}?`)) {
+  if (idPareja && reg?.equipaje === 'DOBLE') {
+    const textoPareja = nombrePareja || `ID: ${idPareja}`;
+    if (confirm(`¿Eliminar también el registro vinculado de ${textoPareja}?`)) {
       try {
         await deleteRegistro(idPareja);
         showToast('Ambos registros eliminados');
