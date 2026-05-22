@@ -347,14 +347,6 @@ async function guardarRegistro() {
     nNacional:       getCount('nacional'),
     nUK:             getCount('uk'),
     nNDLF:           getCount('ndlf'),
-    opCarga:         leerDetallesOperacion('carga'),
-    opPalet:         leerDetallesOperacion('palet'),
-    opRebote:        leerDetallesOperacion('rebote'),
-    op24h:           leerDetallesOperacion('24horas'),
-    opPausa:         leerDetallesOperacion('pausa'),
-    opNacional:      leerDetallesOperacion('nacional'),
-    opUK:            leerDetallesOperacion('uk'),
-    opNDLF:          leerDetallesOperacion('ndlf'),
     acarreos:        parseFloat(document.getElementById('acarreos').value)         || 0,
     dietaVlissingen: parseFloat(document.getElementById('dietaVlissingen').value)  || 0,
     extrasConcepto:  document.getElementById('extrasConcepto')?.value || '',
@@ -412,33 +404,34 @@ async function guardarRegistro() {
     showToast('Registro guardado ✓', 'success');
 
     // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja
-    // Usamos bandera _duplicandoAhora para evitar doble disparo por onSnapshot
-    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado && !window._duplicandoAhora) {
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
-      if (condPareja) {
-        window._duplicandoAhora = true;
-        const confirmar = confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`);
-        if (confirmar) {
-          // Extraer solo los campos de datos, sin estadoDietas/estadoGastos/fechaCreacion
-          const { estadoDietas, estadoGastos, fechaCreacion, id: _id, ...datosBase } = datosRegistro;
-          const datosPareja = {
-            ...datosBase,
-            codigoConductor: condPareja.Codigo,
-            nombreConductor: condPareja.Nombre,
-            tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
-            equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
-            pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-            registroPareja:  regGuardado.id,
-            creadoPor:       'admin',
-            creadoEn:        ahora,
-            esDuplicado:     true,
-          };
-          const regPareja = await addRegistro(datosPareja);
-          await window.updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
-          showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
-        }
-        window._duplicandoAhora = false;
+      if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
+        const datosPareja = {
+          ...datosRegistro,
+          codigoConductor: condPareja.Codigo,
+          nombreConductor: condPareja.Nombre,
+          tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
+          equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
+          pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
+          registroPareja:  regGuardado.id,
+          creadoPor:       'admin',
+          creadoEn:        ahora,
+          esDuplicado:     true,   // evita bucle de duplicación
+          // Copiar conteos de operaciones del registro original
+          nCarga:    datosRegistro.nCarga,
+          nPalet:    datosRegistro.nPalet,
+          nRebote:   datosRegistro.nRebote,
+          n24h:      datosRegistro.n24h,
+          nPausa:    datosRegistro.nPausa,
+          nNacional: datosRegistro.nNacional,
+          nUK:       datosRegistro.nUK,
+          nNDLF:     datosRegistro.nNDLF,
+        };
+        const regPareja = await addRegistro(datosPareja);
+        await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
+        showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
     }
   }
@@ -505,35 +498,6 @@ function leerGastosDetallados(comoArray = false) {
   return gastos.reduce((s, g) => s + g.importe, 0);
 }
 
-// ---- LEER DETALLES DE OPERACIONES ----
-function leerDetallesOperacion(tipo) {
-  const rows = document.querySelectorAll(`#lista-${tipo} .operacion-row`);
-  return Array.from(rows).map(row => {
-    const inputs = row.querySelectorAll('input');
-    return { fecha: inputs[0]?.value || '', lugar: inputs[1]?.value || '' };
-  });
-}
-
-function restaurarDetallesOperacion(tipo, detalles) {
-  if (!detalles || !detalles.length) return;
-  const lista = document.getElementById(`lista-${tipo}`);
-  lista.innerHTML = '';
-  detalles.forEach((d, i) => {
-    const n = i + 1;
-    const row = document.createElement('div');
-    row.className = 'operacion-row';
-    row.innerHTML = `
-      <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
-        color:var(--primary);font-size:13px;align-self:center">${n}</span>
-      <input type="date" value="${d.fecha}">
-      <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()" value="${d.lugar}">
-      <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
-    `;
-    lista.appendChild(row);
-  });
-  fijarLimiteFechas();
-}
-
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
@@ -582,7 +546,7 @@ function renderHistorial() {
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
 
-  let regs = getRegistros().slice().sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
+  let regs = getRegistros().slice(); // ya ordenado por fechaCreacion desc en db.js
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
     String(r.codigoConductor).includes(filtro));
@@ -915,7 +879,7 @@ async function editarRegistro(id) {
   document.getElementById('numFestivos').value     = r.nFestivos   || '';
   if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
 
-  // Marcar modo edición — se pone ANTES del setTimeout para que guardarRegistro lo lea
+  // Marcar modo edición
   document.getElementById('formRegistro').dataset.editId = id;
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
@@ -926,44 +890,17 @@ async function editarRegistro(id) {
 
   // Operaciones y gastos DESPUÉS de adaptarPlataforma (que se llama en autocompletar)
   setTimeout(() => {
-    // Reforzar editId por si algún reset lo borró durante autocompletar
-    document.getElementById('formRegistro').dataset.editId = id;
     calcularTiempos();
 
-    // Reconstruir operaciones (modo detallado con fecha+lugar si están guardados)
+    // Reconstruir operaciones
     ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
       document.getElementById(`lista-${tipo}`).innerHTML = '');
-    const tipoMapDetalle = {
-      carga:'opCarga', palet:'opPalet', rebote:'opRebote',
-      '24horas':'op24h', pausa:'opPausa', nacional:'opNacional',
-      uk:'opUK', ndlf:'opNDLF'
-    };
-    const tipoMapCount = {
-      carga:'nCarga', palet:'nPalet', rebote:'nRebote',
-      '24horas':'n24h', pausa:'nPausa', nacional:'nNacional',
-      uk:'nUK', ndlf:'nNDLF'
-    };
-    Object.entries(tipoMapDetalle).forEach(([tipo, campoDetalle]) => {
-      const detalles = r[campoDetalle];
-      if (detalles && detalles.length) {
-        // Restaurar con fecha y lugar
-        restaurarDetallesOperacion(tipo, detalles);
-      } else {
-        // Sin detalles — solo recrear filas vacías por conteo
-        const n = r[tipoMapCount[tipo]] || 0;
-        for (let i = 0; i < n; i++) addOperacion(tipo);
-      }
-    });
-
-    // Modo resumido: restaurar conteos en inputs r-*
-    const resumidoMap = {
-      'r-carga':'nCarga', 'r-palet':'nPalet', 'r-rebote':'nRebote',
-      'r-24horas':'n24h', 'r-pausa':'nPausa', 'r-nacional':'nNacional',
-      'r-uk':'nUK', 'r-ndlf':'nNDLF'
-    };
-    Object.entries(resumidoMap).forEach(([inputId, campo]) => {
-      const el = document.getElementById(inputId);
-      if (el) el.value = r[campo] || 0;
+    const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                      n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                      nUK:'uk', nNDLF:'ndlf' };
+    Object.entries(tipoMap).forEach(([campo, tipo]) => {
+      const n = r[campo] || 0;
+      for (let i = 0; i < n; i++) addOperacion(tipo);
     });
 
     // Reconstruir gastos de viaje
@@ -996,7 +933,7 @@ async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
 
-  // Pausar onSnapshot durante el borrado para evitar que restaure el registro
+  // Pausar onSnapshot y marcar ID para que no reaparezca
   if (typeof window.pausarListener === 'function') window.pausarListener();
   if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(id);
 
@@ -1023,8 +960,8 @@ async function borrarRegistro(id) {
     showToast('Registro eliminado');
   }
 
-  // Actualizar historial y reanudar listener tras breve delay
   renderHistorial();
+  // Reanudar listener tras 2s (tiempo para que Firestore confirme el borrado)
   setTimeout(() => {
     if (typeof window.reanudarListener === 'function') window.reanudarListener();
   }, 2000);
