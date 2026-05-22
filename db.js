@@ -6,7 +6,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs,
          setDoc, deleteDoc, addDoc, onSnapshot,
-         query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+         query, orderBy, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -214,6 +214,7 @@ let _unsubRegistros = null;
 // INIT — carga datos y arranca listener de registros
 // ====================================================
 export async function initDB() {
+  await enableNetwork(db);
   await Promise.all([cargarConductores(), cargarTarifas(), cargarTractoras(), cargarConceptos()]);
   await cargarRegistros();
   escucharRegistros();
