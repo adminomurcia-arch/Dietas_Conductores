@@ -869,6 +869,7 @@ window.mGuardar = async function() {
             pareja:          `${_conductor.Codigo} — ${_conductor.Nombre}`,
             registroPareja:  regId,
             esDuplicado:     true,
+            origenMovil:     false,  // no disparar aviso duplicado
             creadoEn:        new Date().toISOString(),
           };
           const refP = await addDoc(collection(_db, 'registros'), regPareja);
