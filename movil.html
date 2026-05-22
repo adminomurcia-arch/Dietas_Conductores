@@ -835,7 +835,52 @@ window.mGuardar = async function() {
   };
 
   try {
-    await addDoc(collection(_db, 'registros'), reg);
+    reg.estadoDietas = 'pendiente_validacion';
+    reg.estadoGastos = 'pendiente';
+    reg.creadoPor    = 'movil';
+    reg.creadoEn     = new Date().toISOString();
+    reg.esDuplicado  = false;
+
+    const ref = await addDoc(collection(_db, 'registros'), reg);
+    const regId = ref.id;
+
+    // Si es DOBLE y NO es duplicado, duplicar para la pareja
+    if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA && !reg.esDuplicado) {
+      const codPareja = String(_conductor.PAREJA).split('—')[0].trim().padStart(6, '0');
+      try {
+        // Buscar conductor pareja en Firestore
+        let condPareja = null;
+        const snapP = await getDoc(doc(_db, 'conductores', codPareja));
+        if (snapP.exists()) {
+          condPareja = snapP.data();
+        } else {
+          const q = query(collection(_db, 'conductores'), where('Codigo', '==', codPareja));
+          const sq = await getDocs(q);
+          if (!sq.empty) condPareja = sq.docs[0].data();
+        }
+
+        if (condPareja) {
+          const regPareja = {
+            ...reg,
+            codigoConductor: condPareja.Codigo,
+            nombreConductor: condPareja.Nombre,
+            tractora:        condPareja.tractoraAsignada || reg.tractora,
+            equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
+            pareja:          `${_conductor.Codigo} — ${_conductor.Nombre}`,
+            registroPareja:  regId,
+            esDuplicado:     true,
+            creadoEn:        new Date().toISOString(),
+          };
+          const refP = await addDoc(collection(_db, 'registros'), regPareja);
+          // Vincular registro original con el de la pareja
+          const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await updateDoc(ref, { registroPareja: refP.id });
+        }
+      } catch(ep) {
+        console.warn('No se pudo duplicar para la pareja:', ep);
+      }
+    }
+
     document.getElementById('pantalla-registro').style.display = 'none';
     document.getElementById('pantalla-ok').style.display       = 'flex';
   } catch(e) {
