@@ -433,6 +433,11 @@ async function guardarRegistro() {
           fechaModificacion: ahora,
           esDuplicado:      true,
         };
+        // Recalcular resultado con el PrecioKmt de la pareja
+        const condParejaObj = buscarConductor(datosPareja.codigoConductor);
+        const resultadoParejaEdit = calcularDietasParaConductor(condParejaObj, datosPareja);
+        datosPareja.resultado = resultadoParejaEdit;
+
         await updateRegistro(idPareja, datosPareja);
         showToast(`Registro de ${nombrePareja} actualizado también ✓`, 'success');
       }
@@ -491,6 +496,10 @@ async function guardarRegistro() {
           creadoEn:        ahora,
           esDuplicado:     true,
         };
+        // Recalcular resultado con el PrecioKmt de la pareja
+        const resultadoPareja = calcularDietasParaConductor(condPareja, datosPareja);
+        datosPareja.resultado = resultadoPareja;
+
         const regPareja = await addRegistro(datosPareja);
         await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
         showToast(`Registro creado también para ${condPareja.Nombre} ✓`, 'success');
