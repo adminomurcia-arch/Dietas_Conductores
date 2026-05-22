@@ -394,8 +394,8 @@ export async function eliminarTractora(matricula) {
 // ====================================================
 async function cargarRegistros() {
   try {
-    const snap = await getDocs(collection(db, COL_REGISTROS));
-    _registros = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.fechaCreacion||'').localeCompare(a.fechaCreacion||''));
+    const snap = await getDocs(query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')));
+    _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error('Error cargando registros:', e);
     _registros = [];
@@ -409,9 +409,9 @@ export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
   _unsubRegistros = onSnapshot(
-    collection(db, COL_REGISTROS),
+    query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
     snap => {
-      _registros = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.fechaCreacion||'').localeCompare(a.fechaCreacion||''));
+      _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
       // Fallback por si acaso
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
