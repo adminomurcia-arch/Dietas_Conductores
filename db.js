@@ -406,20 +406,28 @@ async function cargarRegistros() {
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 
-// IDs que acaban de borrarse — los ignoramos en el próximo snapshot
+// IDs que acaban de borrarse — los ignoramos hasta que desaparezcan del snapshot
 const _pendienteBorrado = new Set();
 export function marcarPendienteBorrado(id) { _pendienteBorrado.add(id); }
+
+// Pausa/reanuda el listener para evitar que onSnapshot machaque borrados en curso
+let _listenerPausado = false;
+export function pausarListener()   { _listenerPausado = true;  }
+export function reanudarListener() { _listenerPausado = false; }
 
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
   _unsubRegistros = onSnapshot(
     query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
     snap => {
-      // Filtrar registros que acabamos de borrar pero Firestore aún no confirmó
+      // Si el listener está pausado (borrado en curso), ignorar este snapshot
+      if (_listenerPausado) return;
+      // Filtrar IDs pendientes de borrado (puede que Firestore aún no los haya eliminado)
+      const ids = snap.docs.map(d => d.id);
+      _pendienteBorrado.forEach(id => { if (!ids.includes(id)) _pendienteBorrado.delete(id); });
       _registros = snap.docs
         .filter(d => !_pendienteBorrado.has(d.id))
         .map(d => ({ id: d.id, ...d.data() }));
-      _pendienteBorrado.clear();
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
