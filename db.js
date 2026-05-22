@@ -399,24 +399,41 @@ async function cargarRegistros() {
     _registros = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
-    console.log(`Registros cargados y ordenados: ${_registros.length}`);
+    console.log(`Registros cargados: ${_registros.length}`);
   } catch (e) {
     console.error('Error cargando registros:', e);
     _registros = [];
   }
 }
 
-// Listener en tiempo real — actualiza historial automáticamente
+// Listener en tiempo real
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
+
+// Pausa el listener durante borrados para evitar que onSnapshot restaure el registro
+let _listenerPausado = false;
+export function pausarListener()   { _listenerPausado = true;  }
+export function reanudarListener() { _listenerPausado = false; }
+
+// IDs recién borrados — se filtran del snapshot hasta que Firestore los elimine
+const _pendienteBorrado = new Set();
+export function marcarPendienteBorrado(id) { _pendienteBorrado.add(id); }
 
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
   _unsubRegistros = onSnapshot(
     collection(db, COL_REGISTROS),
     snap => {
-      console.log(`onSnapshot: ${snap.size} registros recibidos`);
+      if (_listenerPausado) {
+        console.log('onSnapshot ignorado — listener pausado');
+        return;
+      }
+      console.log(`onSnapshot: ${snap.size} registros`);
+      const ids = snap.docs.map(d => d.id);
+      // Limpiar del set los IDs que ya desaparecieron de Firestore
+      _pendienteBorrado.forEach(id => { if (!ids.includes(id)) _pendienteBorrado.delete(id); });
       _registros = snap.docs
+        .filter(d => !_pendienteBorrado.has(d.id))
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
