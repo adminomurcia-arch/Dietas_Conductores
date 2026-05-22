@@ -546,7 +546,7 @@ function renderHistorial() {
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
 
-  let regs = getRegistros().slice();
+  let regs = getRegistros().slice().reverse();
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
     String(r.codigoConductor).includes(filtro));
@@ -933,17 +933,16 @@ async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
   try {
-    await window.deleteRegistro(id);
+    await deleteRegistro(id);
   } catch(e) {
     console.error('Error al borrar:', e.code, e.message);
     showToast('Error al borrar: ' + e.message, 'error');
     return;
   }
-  // Borrar también el registro vinculado de la pareja
   if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
     const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
     if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
-      await window.deleteRegistro(reg.registroPareja);
+      await deleteRegistro(reg.registroPareja);
       showToast('Ambos registros eliminados');
     } else {
       showToast('Registro eliminado');
@@ -951,7 +950,6 @@ async function borrarRegistro(id) {
   } else {
     showToast('Registro eliminado');
   }
-  // Firestore no dispara onSnapshot para operaciones locales — renderizar manualmente
   renderHistorial();
 }
 
