@@ -931,7 +931,12 @@ async function editarRegistro(id) {
 
 async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+
+  // Guardar datos ANTES de borrar (deleteRegistro los elimina de memoria)
   const reg = getRegistros().find(r => r.id === id);
+  const idPareja = reg?.registroPareja || null;
+  const nombrePareja = idPareja ? (getRegistros().find(r => r.id === idPareja)?.nombreConductor || '') : '';
+
   try {
     await deleteRegistro(id);
   } catch(e) {
@@ -939,11 +944,15 @@ async function borrarRegistro(id) {
     showToast('Error al borrar: ' + e.message, 'error');
     return;
   }
-  if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
-    const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
-    if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
-      await deleteRegistro(reg.registroPareja);
-      showToast('Ambos registros eliminados');
+
+  if (idPareja && reg?.equipaje === 'DOBLE' && nombrePareja) {
+    if (confirm(`¿Eliminar también el registro vinculado de ${nombrePareja}?`)) {
+      try {
+        await deleteRegistro(idPareja);
+        showToast('Ambos registros eliminados');
+      } catch(e) {
+        showToast('Error al borrar registro de pareja: ' + e.message, 'error');
+      }
     } else {
       showToast('Registro eliminado');
     }
