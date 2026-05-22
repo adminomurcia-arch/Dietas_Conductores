@@ -395,7 +395,6 @@ export async function eliminarTractora(matricula) {
 async function cargarRegistros() {
   try {
     const snap = await getDocs(collection(db, COL_REGISTROS));
-    console.log(`Firestore registros encontrados: ${snap.size}`);
     _registros = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
@@ -448,12 +447,7 @@ export async function updateRegistro(id, datos) {
 }
 
 export async function deleteRegistro(id) {
-  const projectId = 'dietas-conductores';
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${COL_REGISTROS}/${id}`;
-  const res = await fetch(url, { method: 'DELETE' });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`Error borrando: ${res.status}`);
-  }
+  await deleteDoc(doc(db, COL_REGISTROS, id));
   _registros = _registros.filter(r => r.id !== id);
 }
 
