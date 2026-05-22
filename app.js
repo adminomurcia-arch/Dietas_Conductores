@@ -660,7 +660,7 @@ function renderHistorial() {
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
 
-  let regs = getRegistros().slice().reverse();
+  let regs = getRegistros().slice().sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
     String(r.codigoConductor).includes(filtro));
