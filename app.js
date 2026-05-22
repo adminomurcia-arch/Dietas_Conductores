@@ -546,7 +546,7 @@ function renderHistorial() {
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
 
-  let regs = getRegistros().slice(); // ya ordenado por fechaCreacion desc en db.js
+  let regs = getRegistros().slice(); // ordenado por fechaCreacion desc en db.js
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
     String(r.codigoConductor).includes(filtro));
@@ -933,24 +933,24 @@ async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
 
-  // Pausar onSnapshot y marcar ID para que no reaparezca
-  if (typeof window.pausarListener === 'function') window.pausarListener();
-  if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(id);
+  // Pausar onSnapshot para evitar que restaure el registro borrado
+  window.pausarListener();
+  window.marcarPendienteBorrado(id);
 
   try {
     await window.deleteRegistro(id);
+    console.log('Borrado OK:', id);
   } catch(e) {
-    if (typeof window.reanudarListener === 'function') window.reanudarListener();
-    console.error('Error al borrar:', e.code, e.message);
+    window.reanudarListener();
+    console.error('Error al borrar:', e);
     showToast('Error al borrar: ' + e.message, 'error');
     return;
   }
 
-  // Ofrecer borrar el registro vinculado de la pareja
   if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
     const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
     if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
-      if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(reg.registroPareja);
+      window.marcarPendienteBorrado(reg.registroPareja);
       await window.deleteRegistro(reg.registroPareja);
       showToast('Ambos registros eliminados');
     } else {
@@ -961,10 +961,8 @@ async function borrarRegistro(id) {
   }
 
   renderHistorial();
-  // Reanudar listener tras 2s (tiempo para que Firestore confirme el borrado)
-  setTimeout(() => {
-    if (typeof window.reanudarListener === 'function') window.reanudarListener();
-  }, 2000);
+  // Reanudar listener tras 3s (tiempo para que Firestore confirme el borrado)
+  setTimeout(() => window.reanudarListener(), 3000);
 }
 
 // ---- ESTADOS ----
