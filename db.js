@@ -403,13 +403,18 @@ async function cargarRegistros() {
 }
 
 // Listener en tiempo real — actualiza historial automáticamente
+let _onRegistrosChange = null;
+export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
+
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
   _unsubRegistros = onSnapshot(
     query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
     snap => {
       _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (typeof renderHistorial === 'function') renderHistorial();
+      if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
+      // Fallback por si acaso
+      if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
     err => console.error('Listener error:', err)
   );
