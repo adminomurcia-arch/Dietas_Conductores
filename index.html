@@ -959,7 +959,7 @@
 <script type="module">
   import { initDB, getConductores, getTarifas, getRegistros, getTarifa,
            buscarConductor, upsertConductor, eliminarConductor,
-           addRegistro, updateRegistro, deleteRegistro,
+           addRegistro, updateRegistro, deleteRegistro, marcarPendienteBorrado,
            setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros,
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
            getConceptos, upsertConcepto, eliminarConcepto,
@@ -975,7 +975,8 @@
   window.eliminarConductor    = eliminarConductor;
   window.addRegistro          = addRegistro;
   window.updateRegistro       = updateRegistro;
-  window.deleteRegistro       = deleteRegistro;
+  window.deleteRegistro          = deleteRegistro;
+  window.marcarPendienteBorrado  = marcarPendienteBorrado;
   window.setEstadoDietas      = setEstadoDietas;
   window.setEstadoGastos      = setEstadoGastos;
   window.liquidarRegistros    = liquidarRegistros;
