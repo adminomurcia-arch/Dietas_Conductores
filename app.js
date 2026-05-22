@@ -363,6 +363,16 @@ async function guardarRegistro() {
   if (editId) {
     datosRegistro.modificadoPor     = 'admin';
     datosRegistro.fechaModificacion = ahora;
+    // Preservar campos de trazabilidad del registro original
+    const regOriginal = getRegistros().find(r => r.id === editId);
+    if (regOriginal) {
+      datosRegistro.creadoPor   = regOriginal.creadoPor   || 'admin';
+      datosRegistro.creadoEn    = regOriginal.creadoEn    || regOriginal.fechaCreacion || ahora;
+      datosRegistro.estadoDietas = regOriginal.estadoDietas;
+      datosRegistro.estadoGastos = regOriginal.estadoGastos;
+      datosRegistro.esDuplicado  = regOriginal.esDuplicado || false;
+      datosRegistro.registroPareja = regOriginal.registroPareja || '';
+    }
     await updateRegistro(editId, datosRegistro);
     showToast('Registro actualizado ✓', 'success');
 
@@ -393,9 +403,8 @@ async function guardarRegistro() {
     const regGuardado = await addRegistro(datosRegistro);
     showToast('Registro guardado ✓', 'success');
 
-    // Si es DOBLE, ofrecer duplicar para el conductor pareja
-    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja) {
-      // Extraer código de pareja (puede ser "010004 — NOMBRE" o solo "010004")
+    // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
       if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
@@ -409,9 +418,18 @@ async function guardarRegistro() {
           registroPareja:  regGuardado.id,
           creadoPor:       'admin',
           creadoEn:        ahora,
+          esDuplicado:     true,   // evita bucle de duplicación
+          // Copiar conteos de operaciones del registro original
+          nCarga:    datosRegistro.nCarga,
+          nPalet:    datosRegistro.nPalet,
+          nRebote:   datosRegistro.nRebote,
+          n24h:      datosRegistro.n24h,
+          nPausa:    datosRegistro.nPausa,
+          nNacional: datosRegistro.nNacional,
+          nUK:       datosRegistro.nUK,
+          nNDLF:     datosRegistro.nNDLF,
         };
         const regPareja = await addRegistro(datosPareja);
-        // Vincular el registro original con el de la pareja
         await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
         showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
@@ -914,7 +932,15 @@ async function editarRegistro(id) {
 async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
-  await deleteRegistro(id);
+  console.log('Borrando registro ID:', id, '| Registro encontrado:', !!reg);
+  try {
+    await deleteRegistro(id);
+    console.log('Borrado OK en Firebase');
+  } catch(e) {
+    console.error('Error al borrar:', e.code, e.message);
+    showToast('Error al borrar: ' + e.message, 'error');
+    return;
+  }
   // Ofrecer borrar el registro vinculado de la pareja
   if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
     const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
