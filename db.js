@@ -19,7 +19,6 @@ const firebaseConfig = {
 
 const _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db   = getFirestore(_app);
-console.log('Firebase app name:', _app.name, '| DB:', !!db);
 
 // ---- COLECCIONES ----
 const COL_CONDUCTORES  = 'conductores';
@@ -400,42 +399,28 @@ async function cargarRegistros() {
     _registros = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
-    console.log(`Registros cargados: ${_registros.length}`);
   } catch (e) {
     console.error('Error cargando registros:', e);
     _registros = [];
   }
 }
 
-// Listener en tiempo real
+// Listener en tiempo real — actualiza historial automáticamente
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 
-let _listenerPausado = false;
-export function pausarListener()   { _listenerPausado = true;  console.log('Listener PAUSADO'); }
-export function reanudarListener() { _listenerPausado = false; console.log('Listener REANUDADO'); }
-
-const _pendienteBorrado = new Set();
-export function marcarPendienteBorrado(id) { _pendienteBorrado.add(id); }
-
 function escucharRegistros() {
   if (_unsubRegistros) _unsubRegistros();
-  console.log('Iniciando onSnapshot con db:', !!db);
   _unsubRegistros = onSnapshot(
     collection(db, COL_REGISTROS),
     snap => {
-      if (_listenerPausado) { console.log('onSnapshot ignorado — pausado'); return; }
-      console.log(`onSnapshot RECIBIDO: ${snap.size} docs`);
-      const ids = snap.docs.map(d => d.id);
-      _pendienteBorrado.forEach(id => { if (!ids.includes(id)) _pendienteBorrado.delete(id); });
       _registros = snap.docs
-        .filter(d => !_pendienteBorrado.has(d.id))
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
-    err => console.error('Listener ERROR:', err)
+    err => console.error('Listener error:', err)
   );
 }
 
@@ -463,7 +448,12 @@ export async function updateRegistro(id, datos) {
 }
 
 export async function deleteRegistro(id) {
-  await deleteDoc(doc(db, COL_REGISTROS, id));
+  const projectId = 'dietas-conductores';
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${COL_REGISTROS}/${id}`;
+  const res = await fetch(url, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Error borrando: ${res.status}`);
+  }
   _registros = _registros.filter(r => r.id !== id);
 }
 
