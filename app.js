@@ -404,32 +404,56 @@ async function guardarRegistro() {
     showToast('Registro guardado ✓', 'success');
 
     // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja
-    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
-      const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
-      const condPareja = buscarConductor(codPareja);
+    if (datosRegistro.equipaje === 'DOBLE' && !datosRegistro.esDuplicado) {
+      // Extraer código pareja del campo PAREJA del conductor (puede ser solo código o "código — nombre")
+      const codParejaRaw = buscarConductor(datosRegistro.codigoConductor)?.PAREJA || '';
+      const codPareja = String(codParejaRaw).split('—')[0].trim().padStart(6, '0');
+      const condPareja = codPareja ? buscarConductor(codPareja) : null;
       if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
+        // Construir datosPareja SIN heredar esDuplicado ni ids del original
         const datosPareja = {
-          ...datosRegistro,
           codigoConductor: condPareja.Codigo,
           nombreConductor: condPareja.Nombre,
           tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
-          equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
+          equipaje:        'DOBLE',
           pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-          registroPareja:  regGuardado.id,
+          plataforma:      datosRegistro.plataforma,
+          categoria:       datosRegistro.categoria,
+          fechaSalida:     datosRegistro.fechaSalida,
+          horaSalida:      datosRegistro.horaSalida,
+          fechaLlegada:    datosRegistro.fechaLlegada,
+          horaLlegada:     datosRegistro.horaLlegada,
+          diasTrabajados:  datosRegistro.diasTrabajados,
+          restoHoras:      datosRegistro.restoHoras,
+          coefNacional:    datosRegistro.coefNacional,
+          nDomingos:       datosRegistro.nDomingos,
+          nFestivos:       datosRegistro.nFestivos,
+          kmSalida:        datosRegistro.kmSalida,
+          kmVuelta:        datosRegistro.kmVuelta,
+          totalKm:         datosRegistro.totalKm,
+          nCarga:          datosRegistro.nCarga,
+          nPalet:          datosRegistro.nPalet,
+          nRebote:         datosRegistro.nRebote,
+          n24h:            datosRegistro.n24h,
+          nPausa:          datosRegistro.nPausa,
+          nNacional:       datosRegistro.nNacional,
+          nUK:             datosRegistro.nUK,
+          nNDLF:           datosRegistro.nNDLF,
+          acarreos:        datosRegistro.acarreos,
+          dietaVlissingen: datosRegistro.dietaVlissingen,
+          extras:          datosRegistro.extras,
+          gastosViaje:     datosRegistro.gastosViaje,
+          gastosDetalle:   datosRegistro.gastosDetalle,
+          anticipos:       datosRegistro.anticipos,
+          modo:            datosRegistro.modo,
+          resultado:       datosRegistro.resultado,
+          registroPareja:  regGuardado.id,  // apunta al registro original
           creadoPor:       'admin',
           creadoEn:        ahora,
-          esDuplicado:     true,   // evita bucle de duplicación
-          // Copiar conteos de operaciones del registro original
-          nCarga:    datosRegistro.nCarga,
-          nPalet:    datosRegistro.nPalet,
-          nRebote:   datosRegistro.nRebote,
-          n24h:      datosRegistro.n24h,
-          nPausa:    datosRegistro.nPausa,
-          nNacional: datosRegistro.nNacional,
-          nUK:       datosRegistro.nUK,
-          nNDLF:     datosRegistro.nNDLF,
+          esDuplicado:     true,            // CRÍTICO: evita bucle
         };
         const regPareja = await addRegistro(datosPareja);
+        // Actualizar el registro original para que apunte al de la pareja
         await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
         showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
@@ -933,7 +957,6 @@ async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
 
-  // Pausar onSnapshot para evitar que restaure el registro borrado
   window.pausarListener();
   window.marcarPendienteBorrado(id);
 
@@ -961,7 +984,6 @@ async function borrarRegistro(id) {
   }
 
   renderHistorial();
-  // Reanudar listener tras 3s (tiempo para que Firestore confirme el borrado)
   setTimeout(() => window.reanudarListener(), 3000);
 }
 
