@@ -932,10 +932,10 @@ async function editarRegistro(id) {
 async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
   const reg = getRegistros().find(r => r.id === id);
-  console.log('Borrando registro ID:', id, '| Registro encontrado:', !!reg);
   try {
-    await deleteRegistro(id);
-    console.log('Borrado OK en Firebase');
+    // Marcar como pendiente ANTES de borrar para que onSnapshot lo ignore
+    if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(id);
+    await window.deleteRegistro(id);
   } catch(e) {
     console.error('Error al borrar:', e.code, e.message);
     showToast('Error al borrar: ' + e.message, 'error');
@@ -945,7 +945,8 @@ async function borrarRegistro(id) {
   if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
     const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
     if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
-      await deleteRegistro(reg.registroPareja);
+      if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(reg.registroPareja);
+      await window.deleteRegistro(reg.registroPareja);
       showToast('Ambos registros eliminados');
     } else {
       showToast('Registro eliminado');
@@ -953,8 +954,7 @@ async function borrarRegistro(id) {
   } else {
     showToast('Registro eliminado');
   }
-  // Pequeño delay para que onSnapshot procese el cambio antes de re-renderizar
-  setTimeout(() => renderHistorial(), 300);
+  renderHistorial();
 }
 
 // ---- ESTADOS ----
