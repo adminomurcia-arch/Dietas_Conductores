@@ -13,6 +13,52 @@ window.addEventListener('beforeunload', e => {
   }
 });
 
+// ---- BUSCADOR DE CONDUCTOR ----
+function filtrarConductores(texto) {
+  const div = document.getElementById('conductorSugerencias');
+  if (!texto || texto.length < 1) { div.style.display = 'none'; return; }
+
+  const q = texto.toLowerCase();
+  const conductores = getConductores();
+  const coincidencias = conductores.filter(c =>
+    c.Codigo.includes(q) ||
+    c.Nombre.toLowerCase().includes(q)
+  ).slice(0, 10);
+
+  if (!coincidencias.length) { div.style.display = 'none'; return; }
+
+  div.innerHTML = coincidencias.map(c => `
+    <div onclick="seleccionarConductor('${c.Codigo}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+      font-size:13px;display:flex;gap:10px;align-items:center"
+      onmouseover="this.style.background='var(--bg-hover)'"
+      onmouseout="this.style.background=''">
+      <span style="font-weight:700;color:var(--primary);min-width:60px">${c.Codigo}</span>
+      <span>${c.Nombre}</span>
+      <span style="margin-left:auto;color:var(--text-muted);font-size:11px">${c.PLATAFORMA}</span>
+    </div>
+  `).join('');
+  div.style.display = 'block';
+}
+
+function seleccionarConductor(codigo) {
+  document.getElementById('codConductor').value = codigo;
+  const c = buscarConductor(codigo);
+  if (c) {
+    document.getElementById('buscarConductorInput').value = `${c.Codigo} — ${c.Nombre}`;
+  }
+  document.getElementById('conductorSugerencias').style.display = 'none';
+  autocompletar();
+}
+
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('#buscarConductorInput') && !e.target.closest('#conductorSugerencias')) {
+    const div = document.getElementById('conductorSugerencias');
+    if (div) div.style.display = 'none';
+  }
+});
+
 // ---- INIT ----
 // Se llama desde index.html tras initDB() de Firebase
 window._appReady = function() {
@@ -625,6 +671,8 @@ function limpiarFormulario() {
   adaptarPlataforma('', '');
   // Restaurar modo nuevo registro
   delete document.getElementById('formRegistro').dataset.editId;
+  const bi = document.getElementById('buscarConductorInput');
+  if (bi) bi.value = '';
   document.getElementById('btn-guardar').textContent = '💾 Guardar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'none';
 }
@@ -966,6 +1014,9 @@ async function editarRegistro(id) {
 
   // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
+  const _bi = document.getElementById('buscarConductorInput');
+  if (_bi) _bi.value = r.codigoConductor && r.nombreConductor
+    ? `${r.codigoConductor} — ${r.nombreConductor}` : (r.codigoConductor || '');
   autocompletar();
   // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
   document.getElementById('coefNacional').value    = r.coefNacional || 0;
