@@ -793,13 +793,17 @@ function renderTablas() {
   // Conductores
   document.getElementById('tbody-conductores').innerHTML =
     getConductores().map(c => `<tr>
-      <td>${c.PLATAFORMA}</td><td>${c.CATEGORIA}</td><td>${c.Codigo}</td>
-      <td>${c.Nombre}</td><td>${c.NIF||''}</td>
-      <td style="font-size:11px;font-family:monospace">${c.IBAN||''}</td>
-      <td>${c.PrecioKmt}</td><td>${c.Email||''}</td>
+      <td>${c.PLATAFORMA}</td>
+      <td style="font-size:10px">${c.CATEGORIA}</td>
+      <td>${c.Codigo}</td>
+      <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="${c.Nombre}">${c.Nombre}</td>
+      <td>${c.NIF||''}</td>
+      <td style="font-size:9px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.IBAN||''}">${c.IBAN||''}</td>
+      <td>${c.PrecioKmt}</td>
+      <td style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${c.Email||''}">${c.Email||''}</td>
       <td>${c.EQUIPAJE||'—'}</td>
       <td>${c.PAREJA||'—'}</td>
-      <td>${c.tractoraAsignada||'—'}</td>
+      <td style="font-size:10px">${c.tractoraAsignada||'—'}</td>
       <td>
         <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
