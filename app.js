@@ -856,20 +856,34 @@ function editarConductor(codigo) {
   document.getElementById('m-precio').value            = c.PrecioKmt || '';
   document.getElementById('m-email').value             = c.Email    || '';
   document.getElementById('m-equipaje').value           = c.EQUIPAJE || '';
+  document.getElementById('m-pareja').value             = c.PAREJA   || '';
+
+  // Poblar select de tractoras y seleccionar la asignada
+  const selTrac = document.getElementById('m-tractora-asignada');
+  selTrac.innerHTML = '<option value="">— Sin asignar —</option>';
+  getTractoras().forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = t.matricula;
+    selTrac.appendChild(opt);
+  });
+  selTrac.value = c.tractoraAsignada || '';
+
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
 async function guardarConductor() {
   const conductor = {
-    PLATAFORMA: document.getElementById('m-plataforma').value,
-    CATEGORIA:  document.getElementById('m-categoria').value,
-    Codigo:     document.getElementById('m-codigo').value.trim(),
-    Nombre:     document.getElementById('m-nombre').value.trim(),
-    NIF:        document.getElementById('m-nif').value.trim(),
-    IBAN:       document.getElementById('m-iban').value.trim(),
-    PrecioKmt:  parseFloat(document.getElementById('m-precio').value) || 0,
-    Email:      document.getElementById('m-email').value.trim(),
-    EQUIPAJE:   document.getElementById('m-equipaje').value,
+    PLATAFORMA:       document.getElementById('m-plataforma').value,
+    CATEGORIA:        document.getElementById('m-categoria').value,
+    Codigo:           document.getElementById('m-codigo').value.trim(),
+    Nombre:           document.getElementById('m-nombre').value.trim(),
+    NIF:              document.getElementById('m-nif').value.trim(),
+    IBAN:             document.getElementById('m-iban').value.trim(),
+    PrecioKmt:        parseFloat(document.getElementById('m-precio').value) || 0,
+    Email:            document.getElementById('m-email').value.trim(),
+    EQUIPAJE:         document.getElementById('m-equipaje').value,
+    PAREJA:           document.getElementById('m-pareja').value.trim(),
+    tractoraAsignada: document.getElementById('m-tractora-asignada').value,
   };
   if (!conductor.Codigo || !conductor.Nombre) {
     showToast('Código y Nombre son obligatorios', 'error'); return;
