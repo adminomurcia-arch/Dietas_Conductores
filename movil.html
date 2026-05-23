@@ -978,13 +978,18 @@ window.mGuardar = async function() {
     }
     
     // Enviar aviso por email via Google Apps Script
-    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzdxFH-m9bn7suEPQslWkOtUntj8fk-Sp-kD1X7Qn-cCC6tboi0MmgnwBlosR3BTPqeDw/exec';
+    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwLcE3hz5f0reOAolRClSckEZX8RRPA3vFewoJVSSLlSAuBIMlWEzazHtDTgQVS_p5_Mw/exec';
     try {
       const payload = JSON.stringify({
         ...reg,
         id: regId,
         totalDietas: resultado?.TOTAL ? resultado.TOTAL.toFixed(2) + ' €' :
-                     resultado?.sumDietas ? resultado.sumDietas.toFixed(2) + ' €' : '—'
+                     resultado?.sumDietas ? resultado.sumDietas.toFixed(2) + ' €' : '—',
+        // Incluir fotos Base64 para adjuntar en el email
+        fotosAdjuntas: (reg.fotosBase64 || []).map((f, i) => ({
+          nombre: `foto_${i+1}.jpg`,
+          base64: f.base64.split(',')[1]  // quitar prefijo data:image/jpeg;base64,
+        }))
       });
       // Apps Script requiere no-cors para evitar bloqueo CORS
       fetch(WEBHOOK_URL, {
@@ -1169,7 +1174,7 @@ window.mToast = function(msg, tipo='') {
 window.mAñadirFotos = function(input) {
   const files = Array.from(input.files);
   files.forEach(file => {
-    if (_fotosData.length >= 6) { mToast('Máximo 6 fotos por registro', 'error'); return; }
+    if (_fotosData.length >= 4) { mToast('Máximo 4 fotos por registro', 'error'); return; }
     const reader = new FileReader();
     reader.onload = e => {
       _fotosData.push({ file, dataUrl: e.target.result });
@@ -1205,7 +1210,7 @@ async function subirFotos(regId) {
   // Comprimir y guardar como Base64 en Firestore (sin Storage, sin CORS)
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 800, 0.7);
+    const base64 = await comprimirFoto(f.file, 400, 0.5);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
