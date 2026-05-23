@@ -730,11 +730,26 @@
       <button class="btn btn-primary" onclick="nuevoConductor()">+ Nuevo</button>
     </div>
     <div class="table-wrap">
-      <table id="tabla-conductores" class="data-table">
+      <table id="tabla-conductores" class="data-table" style="font-size:11px;table-layout:fixed;width:100%">
+        <colgroup>
+          <col style="width:60px">  <!-- Plataforma -->
+          <col style="width:80px">  <!-- Categoría -->
+          <col style="width:55px">  <!-- Código -->
+          <col style="width:160px"> <!-- Nombre -->
+          <col style="width:80px">  <!-- NIF -->
+          <col style="width:130px"> <!-- IBAN -->
+          <col style="width:55px">  <!-- Precio Kmt -->
+          <col style="width:130px"> <!-- Email -->
+          <col style="width:55px">  <!-- Equipaje -->
+          <col style="width:55px">  <!-- Pareja -->
+          <col style="width:70px">  <!-- Tractora -->
+          <col style="width:60px">  <!-- Acciones -->
+        </colgroup>
         <thead>
           <tr>
-            <th>Plataforma</th><th>Categoría</th><th>Código</th><th>Nombre</th>
-            <th>NIF</th><th>IBAN</th><th>Precio Kmt</th><th>Email</th><th>Equipaje</th><th>Pareja</th><th>Tractora</th><th>Acciones</th>
+            <th>Plat.</th><th>Categ.</th><th>Cód.</th><th>Nombre</th>
+            <th>NIF</th><th>IBAN</th><th>€/Km</th><th>Email</th>
+            <th>Equip.</th><th>Pareja</th><th>Tractora</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody-conductores"></tbody>
