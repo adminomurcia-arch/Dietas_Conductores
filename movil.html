@@ -477,8 +477,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
          addDoc, orderBy, query, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
-         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -490,7 +489,6 @@ const firebaseConfig = {
 };
 const _app     = initializeApp(firebaseConfig);
 const _db      = getFirestore(_app);
-const _storage = getStorage(_app);
 
 // Asegurar red activa
 enableNetwork(_db).catch(() => {});
@@ -967,15 +965,15 @@ window.mGuardar = async function() {
     const ref = await addDoc(collection(_db, 'registros'), reg);
     regId = ref.id;
 
-    // Subir fotos si las hay
+    // Guardar fotos como Base64 en Firestore
     if (_fotosData.length) {
       try {
-        const urls = await subirFotos(regId);
+        const fotos = await subirFotos(regId);
         const { updateDoc, doc: fDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-        await updateDoc(fDoc(_db, 'registros', regId), { fotosUrls: urls });
-        reg.fotosUrls = urls;
+        await updateDoc(fDoc(_db, 'registros', regId), { fotosBase64: fotos });
+        reg.fotosBase64 = fotos;
       } catch(ef) {
-        console.warn('Error subiendo fotos:', ef);
+        console.warn('Error guardando fotos:', ef);
       }
     }
     
@@ -1204,14 +1202,33 @@ window.mBorrarFoto = function(i) {
 
 async function subirFotos(regId) {
   if (!_fotosData.length) return [];
-  const urls = [];
-  for (let i = 0; i < _fotosData.length; i++) {
-    const ref = storageRef(_storage, `registros/${regId}/foto_${i+1}_${Date.now()}.jpg`);
-    await uploadBytes(ref, _fotosData[i].file);
-    const url = await getDownloadURL(ref);
-    urls.push(url);
+  // Comprimir y guardar como Base64 en Firestore (sin Storage, sin CORS)
+  const fotos = [];
+  for (const f of _fotosData) {
+    const base64 = await comprimirFoto(f.file, 800, 0.7);
+    fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
-  return urls;
+  return fotos;
+}
+
+function comprimirFoto(file, maxSize, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else       { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = url;
+  });
 }
 
 // ==========================================
@@ -1268,7 +1285,7 @@ async function cargarHistorialPropio() {
       const estado = r.estadoDietas || 'pendiente';
       const total = r.resultado?.TOTAL || r.resultado?.sumDietas || 0;
       const fmt = v => Number(v).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-      const fotos = r.fotosUrls?.length ? `<div style="font-size:11px;color:var(--soft);margin-top:4px">📎 ${r.fotosUrls.length} foto(s)</div>` : '';
+      const fotos = r.fotosBase64?.length ? `<div style="font-size:11px;color:var(--soft);margin-top:4px">📎 ${r.fotosBase64.length} foto(s)</div>` : '';
       return `
         <div class="hist-card">
           <div class="hc-head">${r.fechaSalida} → ${r.fechaLlegada} · ${r.diasTrabajados} días</div>
