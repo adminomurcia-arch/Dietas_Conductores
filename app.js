@@ -798,6 +798,8 @@ function renderTablas() {
       <td style="font-size:11px;font-family:monospace">${c.IBAN||''}</td>
       <td>${c.PrecioKmt}</td><td>${c.Email||''}</td>
       <td>${c.EQUIPAJE||'—'}</td>
+      <td>${c.PAREJA||'—'}</td>
+      <td>${c.tractoraAsignada||'—'}</td>
       <td>
         <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
