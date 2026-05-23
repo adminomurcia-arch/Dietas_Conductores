@@ -171,9 +171,16 @@
     <section class="form-section">
       <h2 class="section-title">Conductor</h2>
       <div class="form-grid">
-        <div class="field">
-          <label>Código Conductor *</label>
-          <input type="text" id="codConductor" placeholder="Ej: 10001" oninput="autocompletar()" required>
+        <div class="field" style="position:relative">
+          <label>Conductor * (código o nombre)</label>
+          <input type="text" id="buscarConductorInput" placeholder="Escribe código o nombre…"
+            oninput="filtrarConductores(this.value)" autocomplete="off"
+            style="width:100%">
+          <div id="conductorSugerencias" style="display:none;position:absolute;z-index:999;
+            background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+            width:100%;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15)">
+          </div>
+          <input type="hidden" id="codConductor">
         </div>
         <div class="field">
           <label>Nombre Completo</label>
