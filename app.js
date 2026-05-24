@@ -261,18 +261,6 @@ async function guardarRegistro() {
     if (!kmV) { showToast('El Km de vuelta es obligatorio', 'error'); document.getElementById('kmVuelta').focus(); return; }
   }
 
-  // Validar fecha obligatoria en filas de operaciones
-  const opRows = document.querySelectorAll('.operacion-row');
-  for (const row of opRows) {
-    const fechaInput = row.querySelector('input[type="date"]');
-    if (fechaInput && !fechaInput.value) {
-      fechaInput.style.borderColor = '#c0392b';
-      showToast('Todas las operaciones deben tener fecha', 'error');
-      fechaInput.focus();
-      return;
-    }
-    if (fechaInput) fechaInput.style.borderColor = '';
-  }
 
   // Validar solapamiento de fechas con otros registros del mismo conductor
   const codCond = document.getElementById('codConductor').value.trim();
