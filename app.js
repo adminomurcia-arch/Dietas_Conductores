@@ -13,52 +13,6 @@ window.addEventListener('beforeunload', e => {
   }
 });
 
-// ---- BUSCADOR DE CONDUCTOR ----
-function filtrarConductores(texto) {
-  const div = document.getElementById('conductorSugerencias');
-  if (!texto || texto.length < 1) { div.style.display = 'none'; return; }
-
-  const q = texto.toLowerCase();
-  const conductores = getConductores();
-  const coincidencias = conductores.filter(c =>
-    c.Codigo.includes(q) ||
-    c.Nombre.toLowerCase().includes(q)
-  ).slice(0, 10);
-
-  if (!coincidencias.length) { div.style.display = 'none'; return; }
-
-  div.innerHTML = coincidencias.map(c => `
-    <div onclick="seleccionarConductor('${c.Codigo}')"
-      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
-      font-size:13px;display:flex;gap:10px;align-items:center"
-      onmouseover="this.style.background='var(--bg-hover)'"
-      onmouseout="this.style.background=''">
-      <span style="font-weight:700;color:var(--primary);min-width:60px">${c.Codigo}</span>
-      <span>${c.Nombre}</span>
-      <span style="margin-left:auto;color:var(--text-muted);font-size:11px">${c.PLATAFORMA}</span>
-    </div>
-  `).join('');
-  div.style.display = 'block';
-}
-
-function seleccionarConductor(codigo) {
-  document.getElementById('codConductor').value = codigo;
-  const c = buscarConductor(codigo);
-  if (c) {
-    document.getElementById('buscarConductorInput').value = `${c.Codigo} — ${c.Nombre}`;
-  }
-  document.getElementById('conductorSugerencias').style.display = 'none';
-  autocompletar();
-}
-
-// Cerrar sugerencias al hacer clic fuera
-document.addEventListener('click', e => {
-  if (!e.target.closest('#buscarConductorInput') && !e.target.closest('#conductorSugerencias')) {
-    const div = document.getElementById('conductorSugerencias');
-    if (div) div.style.display = 'none';
-  }
-});
-
 // ---- INIT ----
 // Se llama desde index.html tras initDB() de Firebase
 window._appReady = function() {
@@ -393,14 +347,6 @@ async function guardarRegistro() {
     nNacional:       getCount('nacional'),
     nUK:             getCount('uk'),
     nNDLF:           getCount('ndlf'),
-    opCarga:   leerDetallesOperacion('carga'),
-    opPalet:   leerDetallesOperacion('palet'),
-    opRebote:  leerDetallesOperacion('rebote'),
-    op24h:     leerDetallesOperacion('24horas'),
-    opPausa:   leerDetallesOperacion('pausa'),
-    opNacional:leerDetallesOperacion('nacional'),
-    opUK:      leerDetallesOperacion('uk'),
-    opNDLF:    leerDetallesOperacion('ndlf'),
     acarreos:        parseFloat(document.getElementById('acarreos').value)         || 0,
     dietaVlissingen: parseFloat(document.getElementById('dietaVlissingen').value)  || 0,
     extrasConcepto:  document.getElementById('extrasConcepto')?.value || '',
@@ -430,79 +376,25 @@ async function guardarRegistro() {
     await updateRegistro(editId, datosRegistro);
     showToast('Registro actualizado ✓', 'success');
 
-    // DOBLE: ofrecer actualizar el registro de la pareja
-    const regActual  = getRegistros().find(r => r.id === editId);
-    const idPareja   = regActual?.registroPareja;
+    // Si es DOBLE y tiene registro pareja vinculado, ofrecer actualizar el otro
+    const regActual = getRegistros().find(r => r.id === editId);
+    const idPareja  = regActual?.registroPareja;
     if (idPareja && datosRegistro.equipaje === 'DOBLE') {
       const regPareja = getRegistros().find(r => r.id === idPareja);
-      const nombrePareja = regPareja?.nombreConductor || `ID: ${idPareja}`;
-      if (confirm(`¿Aplicar los mismos cambios al registro de la pareja (${nombrePareja})?`)) {
-        // DOBLE editar: cargas y palets se dividen exactamente entre 2
-        const nCargaEditMitad = datosRegistro.nCarga / 2;
-        const nPaletEditMitad = datosRegistro.nPalet / 2;
-
-        // Actualizar registro principal con su mitad exacta
-        await updateRegistro(editId, { nCarga: nCargaEditMitad, nPalet: nPaletEditMitad });
-
+      if (regPareja && confirm(`¿Aplicar los mismos cambios al registro de ${regPareja.nombreConductor}?`)) {
         const datosPareja = {
-          codigoConductor:  regPareja?.codigoConductor  || datosRegistro.codigoConductor,
-          nombreConductor:  regPareja?.nombreConductor  || datosRegistro.nombreConductor,
-          tractora:         datosRegistro.tractora,
-          equipaje:         'DOBLE',
-          pareja:           `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-          plataforma:       datosRegistro.plataforma,
-          categoria:        datosRegistro.categoria,
-          fechaSalida:      datosRegistro.fechaSalida,
-          horaSalida:       datosRegistro.horaSalida,
-          fechaLlegada:     datosRegistro.fechaLlegada,
-          horaLlegada:      datosRegistro.horaLlegada,
-          diasTrabajados:   datosRegistro.diasTrabajados,
-          restoHoras:       datosRegistro.restoHoras,
-          coefNacional:     datosRegistro.coefNacional,
-          nDomingos:        datosRegistro.nDomingos,
-          nFestivos:        datosRegistro.nFestivos,
-          kmSalida:         datosRegistro.kmSalida,
-          kmVuelta:         datosRegistro.kmVuelta,
-          totalKm:          datosRegistro.totalKm,
-          nCarga:           nCargaEditMitad,
-          nPalet:           nPaletEditMitad,
-          nRebote:          datosRegistro.nRebote,
-          n24h:             datosRegistro.n24h,
-          nPausa:           datosRegistro.nPausa,
-          nNacional:        datosRegistro.nNacional,
-          nUK:              datosRegistro.nUK,
-          nNDLF:            datosRegistro.nNDLF,
-          acarreos:         datosRegistro.acarreos,
-          dietaVlissingen:  datosRegistro.dietaVlissingen,
-          extras:           datosRegistro.extras,
-          extrasConcepto:   datosRegistro.extrasConcepto,
-          // Gastos NO se copian a la pareja
-          gastosViaje:      regPareja?.gastosViaje  || 0,
-          gastosDetalle:    regPareja?.gastosDetalle || [],
-          anticipos:        regPareja?.anticipos     || 0,
-          modo:             datosRegistro.modo,
-          resultado:        datosRegistro.resultado,
-          // Copiar detalles de operaciones
-          opCarga:          datosRegistro.opCarga   || [],
-          opPalet:          datosRegistro.opPalet   || [],
-          opRebote:         datosRegistro.opRebote  || [],
-          op24h:            datosRegistro.op24h     || [],
-          opPausa:          datosRegistro.opPausa   || [],
-          opNacional:       datosRegistro.opNacional || [],
-          opUK:             datosRegistro.opUK      || [],
-          opNDLF:           datosRegistro.opNDLF    || [],
-          registroPareja:   editId,
-          modificadoPor:    'admin',
+          ...datosRegistro,
+          codigoConductor: regPareja.codigoConductor,
+          nombreConductor: regPareja.nombreConductor,
+          tractora:        regPareja.tractora        || datosRegistro.tractora,
+          equipaje:        regPareja.equipaje        || datosRegistro.equipaje,
+          pareja:          regPareja.pareja          || datosRegistro.pareja,
+          registroPareja:  editId,
+          modificadoPor:   'admin',
           fechaModificacion: ahora,
-          esDuplicado:      true,
         };
-        // Recalcular resultado con el PrecioKmt de la pareja
-        const condParejaObj = buscarConductor(datosPareja.codigoConductor);
-        const resultadoParejaEdit = calcularDietasParaConductor(condParejaObj, datosPareja);
-        datosPareja.resultado = resultadoParejaEdit;
-
         await updateRegistro(idPareja, datosPareja);
-        showToast(`Registro de ${nombrePareja} actualizado también ✓`, 'success');
+        showToast('Registro de pareja actualizado también ✓', 'success');
       }
     }
   } else {
@@ -511,78 +403,35 @@ async function guardarRegistro() {
     const regGuardado = await addRegistro(datosRegistro);
     showToast('Registro guardado ✓', 'success');
 
-    // DOBLE: duplicar para la pareja si no es ya un duplicado
-    if (datosRegistro.equipaje === 'DOBLE' && !datosRegistro.esDuplicado) {
-      const condActual = buscarConductor(datosRegistro.codigoConductor);
-      const codPareja  = condActual?.PAREJA ? String(condActual.PAREJA).trim().padStart(6,'0') : null;
-      const condPareja = codPareja ? buscarConductor(codPareja) : null;
-      if (condPareja && confirm(`¿Crear también el registro para la pareja ${condPareja.Nombre}?`)) {
-        // DOBLE: cargas y palets se dividen exactamente entre 2
-        const nCargaMitad = datosRegistro.nCarga / 2;
-        const nPaletMitad = datosRegistro.nPalet / 2;
-
-        // Actualizar el registro principal con su mitad exacta
-        await updateRegistro(regGuardado.id, { nCarga: nCargaMitad, nPalet: nPaletMitad });
-
+    // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
+      const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
+      const condPareja = buscarConductor(codPareja);
+      if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
         const datosPareja = {
+          ...datosRegistro,
           codigoConductor: condPareja.Codigo,
           nombreConductor: condPareja.Nombre,
-          tractora:        datosRegistro.tractora,
-          equipaje:        'DOBLE',
+          tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
+          equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
           pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-          plataforma:      datosRegistro.plataforma,
-          categoria:       datosRegistro.categoria,
-          fechaSalida:     datosRegistro.fechaSalida,
-          horaSalida:      datosRegistro.horaSalida,
-          fechaLlegada:    datosRegistro.fechaLlegada,
-          horaLlegada:     datosRegistro.horaLlegada,
-          diasTrabajados:  datosRegistro.diasTrabajados,
-          restoHoras:      datosRegistro.restoHoras,
-          coefNacional:    datosRegistro.coefNacional,
-          nDomingos:       datosRegistro.nDomingos,
-          nFestivos:       datosRegistro.nFestivos,
-          kmSalida:        datosRegistro.kmSalida,
-          kmVuelta:        datosRegistro.kmVuelta,
-          totalKm:         datosRegistro.totalKm,
-          nCarga:          nCargaMitad,
-          nPalet:          nPaletMitad,
-          nRebote:         datosRegistro.nRebote,
-          n24h:            datosRegistro.n24h,
-          nPausa:          datosRegistro.nPausa,
-          nNacional:       datosRegistro.nNacional,
-          nUK:             datosRegistro.nUK,
-          nNDLF:           datosRegistro.nNDLF,
-          acarreos:        datosRegistro.acarreos,
-          dietaVlissingen: datosRegistro.dietaVlissingen,
-          extras:          datosRegistro.extras,
-          extrasConcepto:  datosRegistro.extrasConcepto,
-          // Gastos NO se copian a la pareja
-          gastosViaje:     0,
-          gastosDetalle:   [],
-          anticipos:       0,
-          modo:            datosRegistro.modo,
-          resultado:       datosRegistro.resultado,
-          // Copiar detalles de operaciones
-          opCarga:         datosRegistro.opCarga   || [],
-          opPalet:         datosRegistro.opPalet   || [],
-          opRebote:        datosRegistro.opRebote  || [],
-          op24h:           datosRegistro.op24h     || [],
-          opPausa:         datosRegistro.opPausa   || [],
-          opNacional:      datosRegistro.opNacional || [],
-          opUK:            datosRegistro.opUK      || [],
-          opNDLF:          datosRegistro.opNDLF    || [],
           registroPareja:  regGuardado.id,
           creadoPor:       'admin',
           creadoEn:        ahora,
-          esDuplicado:     true,
+          esDuplicado:     true,   // evita bucle de duplicación
+          // Copiar conteos de operaciones del registro original
+          nCarga:    datosRegistro.nCarga,
+          nPalet:    datosRegistro.nPalet,
+          nRebote:   datosRegistro.nRebote,
+          n24h:      datosRegistro.n24h,
+          nPausa:    datosRegistro.nPausa,
+          nNacional: datosRegistro.nNacional,
+          nUK:       datosRegistro.nUK,
+          nNDLF:     datosRegistro.nNDLF,
         };
-        // Recalcular resultado con el PrecioKmt de la pareja
-        const resultadoPareja = calcularDietasParaConductor(condPareja, datosPareja);
-        datosPareja.resultado = resultadoPareja;
-
         const regPareja = await addRegistro(datosPareja);
         await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
-        showToast(`Registro creado también para ${condPareja.Nombre} ✓`, 'success');
+        showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
     }
   }
@@ -649,15 +498,6 @@ function leerGastosDetallados(comoArray = false) {
   return gastos.reduce((s, g) => s + g.importe, 0);
 }
 
-// ---- DETALLES DE OPERACIONES ----
-function leerDetallesOperacion(tipo) {
-  const rows = document.querySelectorAll(`#lista-${tipo} .operacion-row`);
-  return Array.from(rows).map(row => {
-    const inputs = row.querySelectorAll('input');
-    return { fecha: inputs[0]?.value || '', lugar: inputs[1]?.value || '' };
-  });
-}
-
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
@@ -671,8 +511,6 @@ function limpiarFormulario() {
   adaptarPlataforma('', '');
   // Restaurar modo nuevo registro
   delete document.getElementById('formRegistro').dataset.editId;
-  const bi = document.getElementById('buscarConductorInput');
-  if (bi) bi.value = '';
   document.getElementById('btn-guardar').textContent = '💾 Guardar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'none';
 }
@@ -708,7 +546,7 @@ function renderHistorial() {
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
 
-  let regs = getRegistros().slice().sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
+  let regs = getRegistros().slice().reverse();
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
     String(r.codigoConductor).includes(filtro));
@@ -793,17 +631,11 @@ function renderTablas() {
   // Conductores
   document.getElementById('tbody-conductores').innerHTML =
     getConductores().map(c => `<tr>
-      <td>${c.PLATAFORMA}</td>
-      <td style="font-size:10px">${c.CATEGORIA}</td>
-      <td>${c.Codigo}</td>
-      <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="${c.Nombre}">${c.Nombre}</td>
-      <td>${c.NIF||''}</td>
-      <td style="font-size:9px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.IBAN||''}">${c.IBAN||''}</td>
-      <td>${c.PrecioKmt}</td>
-      <td style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${c.Email||''}">${c.Email||''}</td>
+      <td>${c.PLATAFORMA}</td><td>${c.CATEGORIA}</td><td>${c.Codigo}</td>
+      <td>${c.Nombre}</td><td>${c.NIF||''}</td>
+      <td style="font-size:11px;font-family:monospace">${c.IBAN||''}</td>
+      <td>${c.PrecioKmt}</td><td>${c.Email||''}</td>
       <td>${c.EQUIPAJE||'—'}</td>
-      <td>${c.PAREJA||'—'}</td>
-      <td style="font-size:10px">${c.tractoraAsignada||'—'}</td>
       <td>
         <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
@@ -862,34 +694,20 @@ function editarConductor(codigo) {
   document.getElementById('m-precio').value            = c.PrecioKmt || '';
   document.getElementById('m-email').value             = c.Email    || '';
   document.getElementById('m-equipaje').value           = c.EQUIPAJE || '';
-  document.getElementById('m-pareja').value             = c.PAREJA   || '';
-
-  // Poblar select de tractoras y seleccionar la asignada
-  const selTrac = document.getElementById('m-tractora-asignada');
-  selTrac.innerHTML = '<option value="">— Sin asignar —</option>';
-  getTractoras().forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = opt.textContent = t.matricula;
-    selTrac.appendChild(opt);
-  });
-  selTrac.value = c.tractoraAsignada || '';
-
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
 async function guardarConductor() {
   const conductor = {
-    PLATAFORMA:       document.getElementById('m-plataforma').value,
-    CATEGORIA:        document.getElementById('m-categoria').value,
-    Codigo:           document.getElementById('m-codigo').value.trim(),
-    Nombre:           document.getElementById('m-nombre').value.trim(),
-    NIF:              document.getElementById('m-nif').value.trim(),
-    IBAN:             document.getElementById('m-iban').value.trim(),
-    PrecioKmt:        parseFloat(document.getElementById('m-precio').value) || 0,
-    Email:            document.getElementById('m-email').value.trim(),
-    EQUIPAJE:         document.getElementById('m-equipaje').value,
-    PAREJA:           document.getElementById('m-pareja').value.trim(),
-    tractoraAsignada: document.getElementById('m-tractora-asignada').value,
+    PLATAFORMA: document.getElementById('m-plataforma').value,
+    CATEGORIA:  document.getElementById('m-categoria').value,
+    Codigo:     document.getElementById('m-codigo').value.trim(),
+    Nombre:     document.getElementById('m-nombre').value.trim(),
+    NIF:        document.getElementById('m-nif').value.trim(),
+    IBAN:       document.getElementById('m-iban').value.trim(),
+    PrecioKmt:  parseFloat(document.getElementById('m-precio').value) || 0,
+    Email:      document.getElementById('m-email').value.trim(),
+    EQUIPAJE:   document.getElementById('m-equipaje').value,
   };
   if (!conductor.Codigo || !conductor.Nombre) {
     showToast('Código y Nombre son obligatorios', 'error'); return;
@@ -1034,9 +852,6 @@ async function editarRegistro(id) {
 
   // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
-  const _bi = document.getElementById('buscarConductorInput');
-  if (_bi) _bi.value = r.codigoConductor && r.nombreConductor
-    ? `${r.codigoConductor} — ${r.nombreConductor}` : (r.codigoConductor || '');
   autocompletar();
   // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
   document.getElementById('coefNacional').value    = r.coefNacional || 0;
@@ -1064,7 +879,7 @@ async function editarRegistro(id) {
   document.getElementById('numFestivos').value     = r.nFestivos   || '';
   if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
 
-  // Marcar modo edición ANTES del setTimeout
+  // Marcar modo edición
   document.getElementById('formRegistro').dataset.editId = id;
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
@@ -1075,49 +890,26 @@ async function editarRegistro(id) {
 
   // Operaciones y gastos DESPUÉS de adaptarPlataforma (que se llama en autocompletar)
   setTimeout(() => {
-    // Reforzar editId por si autocompletar lo borró
-    document.getElementById('formRegistro').dataset.editId = id;
-    document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
-    document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
-
     calcularTiempos();
 
-    // Reconstruir operaciones con fecha y lugar si están guardados
+    // Reconstruir operaciones
     ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
       document.getElementById(`lista-${tipo}`).innerHTML = '');
+    const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                      n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                      nUK:'uk', nNDLF:'ndlf' };
+    Object.entries(tipoMap).forEach(([campo, tipo]) => {
+      const n = r[campo] || 0;
+      for (let i = 0; i < n; i++) addOperacion(tipo);
+    });
 
-    const tipoMapDetalle = {
-      carga:'opCarga', palet:'opPalet', rebote:'opRebote',
-      '24horas':'op24h', pausa:'opPausa', nacional:'opNacional',
-      uk:'opUK', ndlf:'opNDLF'
-    };
-    const tipoMapCount = {
-      carga:'nCarga', palet:'nPalet', rebote:'nRebote',
-      '24horas':'n24h', pausa:'nPausa', nacional:'nNacional',
-      uk:'nUK', ndlf:'nNDLF'
-    };
-
-    Object.keys(tipoMapDetalle).forEach(tipo => {
-      const detalles = r[tipoMapDetalle[tipo]];
-      if (detalles && detalles.length) {
-        // Restaurar filas con fecha y lugar
-        const lista = document.getElementById(`lista-${tipo}`);
-        detalles.forEach((d, i) => {
-          const row = document.createElement('div');
-          row.className = 'operacion-row';
-          row.innerHTML = `
-            <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;color:var(--primary);font-size:13px;align-self:center">${i+1}</span>
-            <input type="date" value="${d.fecha || ''}">
-            <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()" value="${d.lugar || ''}">
-            <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
-          `;
-          lista.appendChild(row);
-        });
-      } else {
-        // Sin detalle guardado — crear filas vacías por conteo
-        const n = r[tipoMapCount[tipo]] || 0;
-        for (let i = 0; i < n; i++) addOperacion(tipo);
-      }
+    // Rellenar campos del modo Resumido
+    const rMap = { nCarga:'r-carga', nPalet:'r-palet', nRebote:'r-rebote',
+                   n24h:'r-24horas', nPausa:'r-pausa', nNacional:'r-nacional',
+                   nUK:'r-uk', nNDLF:'r-ndlf' };
+    Object.entries(rMap).forEach(([campo, elId]) => {
+      const el = document.getElementById(elId);
+      if (el) el.value = r[campo] || 0;
     });
 
     // Reconstruir gastos de viaje
@@ -1148,39 +940,29 @@ async function editarRegistro(id) {
 
 async function borrarRegistro(id) {
   if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
-
-  // Guardar datos de la pareja ANTES de borrar (deleteRegistro los elimina de _registros)
-  const reg          = getRegistros().find(r => r.id === id);
-  const idPareja     = reg?.registroPareja || null;
-  const regPareja    = idPareja ? getRegistros().find(r => r.id === idPareja) : null;
-  const nombrePareja = regPareja?.nombreConductor || null;
-
+  const reg = getRegistros().find(r => r.id === id);
   try {
-    await deleteRegistro(id);
+    // Marcar como pendiente ANTES de borrar para que onSnapshot lo ignore
+    if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(id);
+    await window.deleteRegistro(id);
   } catch(e) {
     console.error('Error al borrar:', e.code, e.message);
     showToast('Error al borrar: ' + e.message, 'error');
     return;
   }
-
-  // DOBLE: ofrecer borrar el registro de la pareja
-  if (idPareja && reg?.equipaje === 'DOBLE') {
-    const texto = nombrePareja ? `el registro de ${nombrePareja}` : 'el registro de la pareja';
-    if (confirm(`¿Eliminar también ${texto}?`)) {
-      try {
-        await deleteRegistro(idPareja);
-        showToast('Ambos registros eliminados');
-      } catch(e) {
-        console.error('Error al borrar pareja:', e.code, e.message);
-        showToast('Error al borrar registro de pareja: ' + e.message, 'error');
-      }
+  // Ofrecer borrar el registro vinculado de la pareja
+  if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
+    const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
+    if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
+      if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(reg.registroPareja);
+      await window.deleteRegistro(reg.registroPareja);
+      showToast('Ambos registros eliminados');
     } else {
       showToast('Registro eliminado');
     }
   } else {
     showToast('Registro eliminado');
   }
-
   renderHistorial();
 }
 
@@ -1457,8 +1239,6 @@ function cargarLiqValidacion() {
       <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge" style="background:#fce7f3;color:#9d174d">📱 Móvil</span></td>
       <td style="display:flex;gap:4px">
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px"
-          onclick="editarRegistro('${r.id}')">✏️ Editar</button>
         <button class="btn btn-primary" style="padding:4px 10px;font-size:12px"
           onclick="aprobarRegistro('${r.id}')">✅ Aprobar</button>
         <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:#c0392b"
