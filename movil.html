@@ -81,11 +81,8 @@
 
     /* Sugerencias tractora */
     .sug-item {
-      padding:10px 14px;
-      font-size:14px;
-      font-family:var(--mono);
-      cursor:pointer;
-      border-bottom:1px solid var(--border);
+      padding:10px 14px; font-size:14px; font-family:var(--mono);
+      cursor:pointer; border-bottom:1px solid var(--border);
     }
     .sug-item:last-child { border-bottom:none; }
     .sug-item:active, .sug-item.hover { background:var(--calc-bg); color:var(--calc-text); }
@@ -106,8 +103,7 @@
                   font-size:16px; cursor:pointer; padding:0 4px; }
 
     /* RESULTADO */
-    .resultado { background:var(--calc-bg); border-radius:8px;
-                 padding:14px; margin-top:8px; }
+    .resultado { background:var(--calc-bg); border-radius:8px; padding:14px; margin-top:8px; }
     .resultado-fila { display:flex; justify-content:space-between;
                       font-size:13px; padding:4px 0;
                       border-bottom:1px solid rgba(74,124,89,.15); }
@@ -167,32 +163,10 @@
                 cursor:pointer; color:var(--soft); font-size:11px; gap:4px; background:var(--bg); }
     .add-foto span { font-size:24px; }
 
-    /* HISTORIAL */
-    #pantalla-historial { display:none; padding:16px 16px 40px; }
-    .hist-card { background:var(--surface); border-radius:var(--radius); padding:14px 16px;
-                 margin-bottom:10px; border:1px solid var(--border); }
-    .hist-card .hc-head { font-weight:600; font-size:14px; margin-bottom:4px; }
-    .hist-card .hc-sub  { font-size:12px; color:var(--soft); margin-bottom:6px; }
-    .hist-card .hc-estado { display:inline-block; padding:2px 8px; border-radius:20px;
-                            font-size:11px; font-weight:600; }
-    .hc-estado.pendiente_validacion { background:#fef3c7; color:#92400e; }
-    .hc-estado.pendiente  { background:#dbeafe; color:#1e40af; }
-    .hc-estado.liquidado  { background:#d1fae5; color:#065f46; }
-
     /* OFFLINE */
     .offline-badge { position:fixed; top:0; left:0; right:0; background:#c0392b; color:#fff;
                      text-align:center; padding:6px; font-size:12px; font-weight:600; z-index:9999;
                      display:none; }
-
-    /* NAV BOTTOM */
-    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--surface);
-                  border-top:1px solid var(--border); display:none; grid-template-columns:1fr 1fr;
-                  z-index:100; }
-    .bottom-nav button { padding:12px; border:none; background:none; color:var(--soft);
-                         font-size:11px; cursor:pointer; display:flex; flex-direction:column;
-                         align-items:center; gap:2px; font-family:var(--font); }
-    .bottom-nav button.active { color:var(--primary); font-weight:600; }
-    .bottom-nav button span { font-size:20px; }
   </style>
 </head>
 <body>
@@ -254,7 +228,6 @@
              oninput="mFiltrarTractoras()"
              onblur="setTimeout(mCerrarSugerencias, 200)">
       <div id="m-tractora-estado" style="font-size:12px;margin-top:4px;display:none"></div>
-      <!-- Lista de sugerencias -->
       <div id="m-tractora-sugerencias" style="
         display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
         background:#fff;border:1.5px solid var(--primary);border-top:none;
@@ -344,50 +317,66 @@
     <div class="section-title">Operaciones</div>
 
     <div class="op-bloque" id="m-bloque-carga">
-      <div class="op-header"><span>Carga / Descarga</span>
-        <button class="btn-add-sm" onclick="mAddOp('carga')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>Carga / Descarga</span>
+        <button class="btn-add-sm" onclick="mAddOp('carga')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-carga"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-palet">
-      <div class="op-header"><span>Mov. de Palet</span>
-        <button class="btn-add-sm" onclick="mAddOp('palet')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>Mov. de Palet</span>
+        <button class="btn-add-sm" onclick="mAddOp('palet')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-palet"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-rebote">
-      <div class="op-header"><span>Rebote</span>
-        <button class="btn-add-sm" onclick="mAddOp('rebote')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>Rebote</span>
+        <button class="btn-add-sm" onclick="mAddOp('rebote')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-rebote"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-24h" style="display:none">
-      <div class="op-header"><span>24 Horas</span>
-        <button class="btn-add-sm" onclick="mAddOp('24h')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>24 Horas</span>
+        <button class="btn-add-sm" onclick="mAddOp('24h')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-24h"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-pausa" style="display:none">
-      <div class="op-header"><span>Pausa</span>
-        <button class="btn-add-sm" onclick="mAddOp('pausa')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>Pausa</span>
+        <button class="btn-add-sm" onclick="mAddOp('pausa')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-pausa"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-nac" style="display:none">
-      <div class="op-header"><span>Nacional (servicios)</span>
-        <button class="btn-add-sm" onclick="mAddOp('nac')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>Nacional (servicios)</span>
+        <button class="btn-add-sm" onclick="mAddOp('nac')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-nac"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-uk" style="display:none">
-      <div class="op-header"><span>UK</span>
-        <button class="btn-add-sm" onclick="mAddOp('uk')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>UK</span>
+        <button class="btn-add-sm" onclick="mAddOp('uk')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-uk"></div>
     </div>
 
     <div class="op-bloque" id="m-bloque-ndlf" style="display:none">
-      <div class="op-header"><span>NDLF</span>
-        <button class="btn-add-sm" onclick="mAddOp('ndlf')">+ Añadir</button></div>
+      <div class="op-header">
+        <span>NDLF</span>
+        <button class="btn-add-sm" onclick="mAddOp('ndlf')">+ Añadir</button>
+      </div>
       <div class="op-lista" id="m-lista-ndlf"></div>
     </div>
   </div>
@@ -452,24 +441,6 @@
   </button>
 </div>
 
-<!-- HISTORIAL -->
-<div id="pantalla-historial">
-  <div style="font-size:16px;font-weight:600;margin-bottom:16px">📋 Mis Registros</div>
-  <div id="m-hist-lista">
-    <div style="text-align:center;color:var(--soft);padding:40px 0;font-size:14px">Cargando…</div>
-  </div>
-</div>
-
-<!-- NAV BOTTOM -->
-<nav class="bottom-nav" id="bottom-nav">
-  <button id="nav-registro" class="active" onclick="mNavegar('registro')">
-    <span>📝</span>Registro
-  </button>
-  <button id="nav-historial" onclick="mNavegar('historial')">
-    <span>📋</span>Mis Registros
-  </button>
-</nav>
-
 <!-- TOAST -->
 <div id="m-toast" class="toast"></div>
 
@@ -477,7 +448,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
          addDoc, orderBy, query, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -487,15 +457,18 @@ const firebaseConfig = {
   messagingSenderId: "1024050278672",
   appId:             "1:1024050278672:web:5ce9e2f86694cc6e86f595"
 };
-const _app     = initializeApp(firebaseConfig);
-const _db      = getFirestore(_app);
+const _app = initializeApp(firebaseConfig);
+const _db  = getFirestore(_app);
 
 // Asegurar red activa
 enableNetwork(_db).catch(() => {});
 
 // ---- Estado ----
 let _conductor  = null;
-let _fotosData  = [];   // { file, dataUrl } pendientes de subir
+let _tarifas    = [];
+let _tractoras  = [];
+let _fotosData  = [];
+let _hoy        = new Date().toISOString().slice(0,10);
 const OFFLINE_KEY = 'dietas_offline_regs';
 
 // ---- Detección offline ----
@@ -506,18 +479,13 @@ function actualizarEstadoRed() {
 }
 window.addEventListener('online',  actualizarEstadoRed);
 window.addEventListener('offline', actualizarEstadoRed);
-let _tarifas   = [];
-let _tractoras = []; // matrículas válidas
-let _hoy       = new Date().toISOString().slice(0,10);
 
-// ---- Arranque — solo muestra login, no carga datos todavía ----
+// ---- Arranque ----
 async function init() {
-  document.getElementById('loading').style.display = 'none';
+  document.getElementById('loading').style.display    = 'none';
   document.getElementById('app-header').style.display = 'flex';
-  document.getElementById('bottom-nav').style.display = 'grid';
   actualizarEstadoRed();
   document.getElementById('pantalla-login').style.display = 'block';
-
   document.querySelectorAll('input[type="date"]').forEach(el => {
     el.max = _hoy;
     el.addEventListener('focus', function(){ if(!this.value) this.value = _hoy; });
@@ -525,23 +493,18 @@ async function init() {
 }
 init();
 
-// ---- LOGIN — búsqueda directa por ID + carga paralela de tarifas y tractoras ----
+// ---- LOGIN ----
 window.mLogin = async function() {
   const cod   = document.getElementById('m-codigo').value.trim();
   const input = document.getElementById('m-codigo');
-
   if (!cod) { mToast('Introduce tu código', 'error'); return; }
 
-  // Mostrar spinner en el botón
   const btn = document.querySelector('#pantalla-login .btn-primary');
   btn.textContent = 'Verificando…';
   btn.disabled = true;
 
-  // Normalizar código a 6 dígitos
   const codNorm = cod.padStart(6, '0');
-
   try {
-    // Búsqueda directa por ID normalizado
     const [conductorSnap, tarifasSnap, tractorasSnap] = await Promise.all([
       getDoc(doc(_db, 'conductores', codNorm)),
       getDocs(collection(_db, 'tarifas')),
@@ -552,12 +515,9 @@ window.mLogin = async function() {
     if (conductorSnap.exists()) {
       conductorData = conductorSnap.data();
     } else {
-      // Fallback: buscar por campo Codigo si el ID no coincide
       const q    = query(collection(_db, 'conductores'), where('Codigo', '==', codNorm));
       const snap = await getDocs(q);
-      if (!snap.empty) {
-        conductorData = snap.docs[0].data();
-      }
+      if (!snap.empty) conductorData = snap.docs[0].data();
     }
 
     if (!conductorData) {
@@ -575,17 +535,13 @@ window.mLogin = async function() {
     document.getElementById('m-plat').textContent     = _conductor.PLATAFORMA + ' · ' + _conductor.CATEGORIA;
     document.getElementById('header-sub').textContent = _conductor.Nombre;
 
-    // Equipaje y pareja
     const equipaje = _conductor.EQUIPAJE || '';
     document.getElementById('m-equipaje').textContent = equipaje || '—';
-    if (equipaje === 'SIMPLE') document.getElementById('m-coef').value = 2.7;
-    else if (equipaje === 'DOBLE') document.getElementById('m-coef').value = 1.30;
+    if      (equipaje === 'SIMPLE') document.getElementById('m-coef').value = 2.7;
+    else if (equipaje === 'DOBLE')  document.getElementById('m-coef').value = 1.30;
 
-    // Pareja
-    const pareja = _conductor.PAREJA || '';
-    document.getElementById('m-pareja').textContent = pareja || '—';
+    document.getElementById('m-pareja').textContent = _conductor.PAREJA || '—';
 
-    // Tractora asignada en Firestore
     const tractAsig = _conductor.tractoraAsignada || localStorage.getItem(`tractora_${_conductor.Codigo}`) || '';
     if (tractAsig) {
       document.getElementById('m-tractora').value = tractAsig;
@@ -615,23 +571,23 @@ window.mCerrar = function() {
 
 // ---- ADAPTAR POR PLATAFORMA ----
 window.mAdaptarPlataforma = function(plat, cat) {
-  const esCau  = plat === 'CAUDETE';
-  const esFil  = plat === 'FILARDI';
-  const sinKm  = ['COMODIN','PESCADO'].includes((cat||'').toUpperCase());
+  const esCau = plat === 'CAUDETE';
+  const esFil = plat === 'FILARDI';
+  const sinKm = ['COMODIN','PESCADO'].includes((cat||'').toUpperCase());
 
   show('m-field-hsal',  esCau);
   show('m-field-hlleg', esCau);
   show('m-field-resto', esCau);
   show('m-field-dom',   esCau);
-  show('m-section-km',  true);  // siempre visible
+  show('m-section-km',  true);
   document.getElementById('m-kms-nota').style.display = esCau ? '' : 'none';
   show('m-field-acarreos', !esCau);
   show('m-field-vliss',    !esCau);
 
   if (sinKm) {
-    document.getElementById('m-kmsal').readOnly   = true;
-    document.getElementById('m-kmvuel').readOnly  = true;
-    document.getElementById('m-kmtotal').value    = (12000).toLocaleString('es-ES');
+    document.getElementById('m-kmsal').readOnly  = true;
+    document.getElementById('m-kmvuel').readOnly = true;
+    document.getElementById('m-kmtotal').value   = (12000).toLocaleString('es-ES');
   }
 
   show('m-bloque-carga',  !esFil);
@@ -685,12 +641,10 @@ window.mCalcTiempos = function() {
 function mParseKm(str) {
   return parseFloat(String(str).replace(/\./g,'').replace(',','.')) || 0;
 }
-
 window.mFormatKm = function(input) {
   const val = mParseKm(input.value);
   if (val) input.value = val.toLocaleString('es-ES');
 };
-
 window.mCalcKm = function() {
   const cat = (_conductor?.CATEGORIA||'').toUpperCase();
   if (['COMODIN','PESCADO'].includes(cat)) {
@@ -723,7 +677,6 @@ function mRenumerar(tipo) {
     if (span) span.textContent = i + 1;
   });
 }
-
 window.mAddOp = function(tipo) {
   const lista = document.getElementById(`m-lista-${tipo}`);
   const n = lista.querySelectorAll('.op-row').length + 1;
@@ -738,11 +691,9 @@ window.mAddOp = function(tipo) {
   lista.appendChild(row);
   mCalcDietas();
 };
-
 function mGetCount(tipo) {
   return document.querySelectorAll(`#m-lista-${tipo} .op-row`).length;
 }
-
 function mGetDetalle(tipo) {
   const rows = document.querySelectorAll(`#m-lista-${tipo} .op-row`);
   return Array.from(rows).map(row => {
@@ -758,9 +709,10 @@ function getTar(concepto, plat) {
 }
 
 // ---- CÁLCULO ----
+// DOBLE: carga y palet se comparten entre los dos conductores (÷ 2)
 window.mCalcDietas = function() {
   if (!_conductor) return;
-  const plat = _conductor.PLATAFORMA;
+  const plat     = _conductor.PLATAFORMA;
   const precioKm = _conductor.PrecioKmt || 0;
 
   const km    = mParseKm(document.getElementById('m-kmtotal').value);
@@ -771,12 +723,18 @@ window.mCalcDietas = function() {
   const acar  = parseFloat(document.getElementById('m-acarreos').value)|| 0;
   const vliss = parseFloat(document.getElementById('m-vliss').value)   || 0;
 
-  const nCarga = mGetCount('carga'), nPalet = mGetCount('palet');
-  const nRebote = mGetCount('rebote'), n24h = mGetCount('24h');
-  const nPausa = mGetCount('pausa'), nNac = mGetCount('nac');
-  const nUK = mGetCount('uk'), nNDLF = mGetCount('ndlf');
-  const nDom  = plat==='CAUDETE' ? (parseFloat(document.getElementById('m-dom').value)||0) : 0;
-  const nFest = plat==='CAUDETE' && document.getElementById('m-chk-fest').checked
+  // DOBLE: carga y palet se dividen entre los dos conductores
+  const divisor = (_conductor.EQUIPAJE||'').toUpperCase() === 'DOBLE' ? 2 : 1;
+  const nCarga  = mGetCount('carga') / divisor;
+  const nPalet  = mGetCount('palet') / divisor;
+  const nRebote = mGetCount('rebote');
+  const n24h    = mGetCount('24h');
+  const nPausa  = mGetCount('pausa');
+  const nNac    = mGetCount('nac');
+  const nUK     = mGetCount('uk');
+  const nNDLF   = mGetCount('ndlf');
+  const nDom    = plat==='CAUDETE' ? (parseFloat(document.getElementById('m-dom').value)||0) : 0;
+  const nFest   = plat==='CAUDETE' && document.getElementById('m-chk-fest').checked
     ? (parseFloat(document.getElementById('m-fest').value)||0) : 0;
 
   const cat = (_conductor.CATEGORIA||'').toUpperCase();
@@ -795,13 +753,8 @@ window.mCalcDietas = function() {
     const total = km*precioKm + sumVar;
     const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
     let DN, DI;
-    if (coef >= dias) {
-      DI = 0;
-      DN = Math.max(0, total-HE-HP-NOC);
-    } else {
-      DN = coef*45.19;
-      DI = Math.max(0, total-HE-HP-NOC-DN);
-    }
+    if (coef >= dias) { DI = 0; DN = Math.max(0, total-HE-HP-NOC); }
+    else { DN = coef*45.19; DI = Math.max(0, total-HE-HP-NOC-DN); }
     res = { tipo:'TJG', total, HE, HP, NOC, DN, DI };
   } else if (plat === 'FILARDI') {
     const sumVar = nRebote*getTar('REBOTE','FILARDI') + nUK*getTar('UK','FILARDI')
@@ -810,7 +763,7 @@ window.mCalcDietas = function() {
     const total = km*precioKm + sumVar;
     const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
     const DN = coef*45.19;
-    let DI = (dias-coef)*59;
+    let DI  = (dias-coef)*59;
     let MEJ = total-HE-HP-NOC-DN-DI;
     if (MEJ < 0) { DI = total-HE-HP-NOC-DN; MEJ = 0; }
     res = { tipo:'FILARDI', total, HE, HP, NOC, DN, DI, MEJ };
@@ -819,12 +772,11 @@ window.mCalcDietas = function() {
     const fl = document.getElementById('m-flleg').value;
     let diasEfic = dias;
     if (fs && fl) {
-      const d1 = new Date(fs.split('-').map(Number).reduce((a,v,i)=>i===1?new Date(a,v-1,1):a,0));
-      const [y,m,d] = fs.split('-').map(Number);
+      const [y,m,d]    = fs.split('-').map(Number);
       const [y2,m2,d2] = fl.split('-').map(Number);
       diasEfic = Math.round((new Date(y2,m2-1,d2) - new Date(y,m-1,d)) / 86400000) + 1;
     }
-    const PE = diasEfic * 8.75;
+    const PE   = diasEfic * 8.75;
     const DISP = (nDom+nFest)*getTar('DOMINGO_FESTIVOS','CAUDETE')
                + nCarga*getTar('CARGA/DESCARGAS','CAUDETE')
                + nPalet*getTar('MOV. PALETS','CAUDETE') + nNac*10.3;
@@ -844,15 +796,11 @@ function mostrarResultadoMovil(res) {
   const f = v => `${(+v).toFixed(2)} €`;
   let filas = [];
   if (res.tipo === 'PESCADO') {
-    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],
-             ['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)]];
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)]];
   } else if (res.tipo === 'TJG') {
-    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],
-             ['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)]];
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)]];
   } else if (res.tipo === 'FILARDI') {
-    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],
-             ['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],
-             ['Dieta Inter.',f(res.DI)],['Mejora',f(res.MEJ)]];
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)],['Mejora',f(res.MEJ)]];
   } else {
     filas = [['Plus Eficiencia',f(res.PE)],['Disponibilidad',f(res.DISP)],['Dietas',f(res.DIET)]];
   }
@@ -871,7 +819,6 @@ window.mGuardar = async function() {
   const fl = document.getElementById('m-flleg').value;
   if (!fs || !fl) { mToast('Introduce fechas de salida y llegada','error'); return; }
 
-  // Validar tractora
   const tractora = document.getElementById('m-tractora').value.trim().toUpperCase();
   if (tractora && !_tractoras.includes(tractora)) {
     mToast('Matrícula de tractora no válida','error');
@@ -888,8 +835,8 @@ window.mGuardar = async function() {
     codigoConductor: _conductor.Codigo,
     nombreConductor: _conductor.Nombre,
     tractora,
-    equipaje:        _conductor.EQUIPAJE  || '',
-    pareja:          _conductor.PAREJA     || '',
+    equipaje:        _conductor.EQUIPAJE || '',
+    pareja:          _conductor.PAREJA   || '',
     plataforma:      plat,
     categoria:       _conductor.CATEGORIA,
     fechaSalida:     fs,
@@ -905,38 +852,35 @@ window.mGuardar = async function() {
     kmSalida:        mParseKm(document.getElementById('m-kmsal').value),
     kmVuelta:        mParseKm(document.getElementById('m-kmvuel').value),
     totalKm:         mParseKm(document.getElementById('m-kmtotal').value),
-    nCarga:  mGetCount('carga'), nPalet: mGetCount('palet'),
-    nRebote: mGetCount('rebote'), n24h:  mGetCount('24h'),
-    nPausa:  mGetCount('pausa'), nNacional: mGetCount('nac'),
-    nUK:     mGetCount('uk'),   nNDLF:  mGetCount('ndlf'),
-    opCarga:   mGetDetalle('carga'),
-    opPalet:   mGetDetalle('palet'),
-    opRebote:  mGetDetalle('rebote'),
-    op24h:     mGetDetalle('24h'),
-    opPausa:   mGetDetalle('pausa'),
-    opNacional:mGetDetalle('nac'),
-    opUK:      mGetDetalle('uk'),
-    opNDLF:    mGetDetalle('ndlf'),
-    acarreos:       parseFloat(document.getElementById('m-acarreos').value)|| 0,
-    dietaVlissingen:parseFloat(document.getElementById('m-vliss').value)   || 0,
-    extras:         parseFloat(document.getElementById('m-extras').value)  || 0,
-    gastosViaje:    parseFloat(document.getElementById('m-gastos').value)  || 0,
-    anticipos:      0,
-    modo:           'movil',
-    origenMovil:    true,
-    fechaCreacion:  new Date().toISOString(),
+    // Guardar conteos brutos (sin dividir) para que administración vea el total real
+    nCarga:    mGetCount('carga'),  nPalet:    mGetCount('palet'),
+    nRebote:   mGetCount('rebote'), n24h:      mGetCount('24h'),
+    nPausa:    mGetCount('pausa'),  nNacional: mGetCount('nac'),
+    nUK:       mGetCount('uk'),     nNDLF:     mGetCount('ndlf'),
+    opCarga:   mGetDetalle('carga'),   opPalet:   mGetDetalle('palet'),
+    opRebote:  mGetDetalle('rebote'),  op24h:     mGetDetalle('24h'),
+    opPausa:   mGetDetalle('pausa'),   opNacional:mGetDetalle('nac'),
+    opUK:      mGetDetalle('uk'),      opNDLF:    mGetDetalle('ndlf'),
+    acarreos:        parseFloat(document.getElementById('m-acarreos').value)|| 0,
+    dietaVlissingen: parseFloat(document.getElementById('m-vliss').value)   || 0,
+    extras:          parseFloat(document.getElementById('m-extras').value)  || 0,
+    gastosViaje:     parseFloat(document.getElementById('m-gastos').value)  || 0,
+    anticipos:       0,
+    modo:            'movil',
+    origenMovil:     true,
+    fechaCreacion:   new Date().toISOString(),
     resultado: {
-      sumDietas:        resultado.total,
-      TOTAL:            resultado.total,
-      H_EXTRA:          resultado.HE   || 0,
-      H_PRESEN:         resultado.HP   || 0,
-      NOCTURNO:         resultado.NOC  || 0,
-      DIET_NAC:         resultado.DN   || 0,
-      DIET_INTER:       resultado.DI   || 0,
-      MEJORA:           resultado.MEJ  || 0,
-      PLUS_EFICIENCIA:  resultado.PE   || 0,
-      DISPONIBILIDAD:   resultado.DISP || 0,
-      DIETAS:           resultado.DIET || 0,
+      sumDietas:       resultado.total,
+      TOTAL:           resultado.total,
+      H_EXTRA:         resultado.HE   || 0,
+      H_PRESEN:        resultado.HP   || 0,
+      NOCTURNO:        resultado.NOC  || 0,
+      DIET_NAC:        resultado.DN   || 0,
+      DIET_INTER:      resultado.DI   || 0,
+      MEJORA:          resultado.MEJ  || 0,
+      PLUS_EFICIENCIA: resultado.PE   || 0,
+      DISPONIBILIDAD:  resultado.DISP || 0,
+      DIETAS:          resultado.DIET || 0,
     }
   };
 
@@ -947,15 +891,13 @@ window.mGuardar = async function() {
     reg.creadoEn     = new Date().toISOString();
     reg.esDuplicado  = false;
 
-    let regId;
     if (!navigator.onLine) {
-      // Modo offline: guardar en localStorage
       const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
       pendientes.push(reg);
       localStorage.setItem(OFFLINE_KEY, JSON.stringify(pendientes));
       mToast('Sin conexión — registro guardado localmente ✓');
       document.getElementById('pantalla-registro').style.display = 'none';
-      document.getElementById('pantalla-ok').style.display = 'flex';
+      document.getElementById('pantalla-ok').style.display       = 'flex';
       document.getElementById('pantalla-ok').querySelector('p').textContent =
         'Tu registro se enviará automáticamente cuando recuperes la conexión.';
       _fotosData = [];
@@ -963,12 +905,12 @@ window.mGuardar = async function() {
     }
 
     const ref = await addDoc(collection(_db, 'registros'), reg);
-    regId = ref.id;
+    const regId = ref.id;
 
     // Guardar fotos como Base64 en Firestore
     if (_fotosData.length) {
       try {
-        const fotos = await subirFotos(regId);
+        const fotos = await subirFotos();
         const { updateDoc, doc: fDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
         await updateDoc(fDoc(_db, 'registros', regId), { fotosBase64: fotos });
         reg.fotosBase64 = fotos;
@@ -976,29 +918,22 @@ window.mGuardar = async function() {
         console.warn('Error guardando fotos:', ef);
       }
     }
-    
-    // Enviar aviso por email via Google Apps Script
+
+    // Aviso por email via Google Apps Script
     const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwLcE3hz5f0reOAolRClSckEZX8RRPA3vFewoJVSSLlSAuBIMlWEzazHtDTgQVS_p5_Mw/exec';
     try {
-      const payload = JSON.stringify({
-        ...reg,
-        id: regId,
-        totalDietas: resultado?.TOTAL ? resultado.TOTAL.toFixed(2) + ' €' :
-                     resultado?.sumDietas ? resultado.sumDietas.toFixed(2) + ' €' : '—',
-        // Incluir fotos Base64 para adjuntar en el email
-        fotosAdjuntas: (reg.fotosBase64 || []).map((f, i) => ({
-          nombre: `foto_${i+1}.jpg`,
-          base64: f.base64.split(',')[1]  // quitar prefijo data:image/jpeg;base64,
-        }))
-      });
-      // Apps Script requiere no-cors para evitar bloqueo CORS
       fetch(WEBHOOK_URL, {
-        method: 'POST',
-        mode: 'no-cors',
+        method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: payload
-      }).then(() => console.log('Aviso enviado'))
-        .catch(err => console.warn('Aviso email no enviado:', err));
+        body: JSON.stringify({
+          ...reg, id: regId,
+          totalDietas: resultado.total ? resultado.total.toFixed(2) + ' €' : '—',
+          fotosAdjuntas: (reg.fotosBase64 || []).map((f, i) => ({
+            nombre: `foto_${i+1}.jpg`,
+            base64: f.base64.split(',')[1]
+          }))
+        })
+      }).catch(err => console.warn('Aviso email no enviado:', err));
     } catch(err) {
       console.warn('Error preparando aviso:', err);
     }
@@ -1007,7 +942,6 @@ window.mGuardar = async function() {
     if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA && !reg.esDuplicado) {
       const codPareja = String(_conductor.PAREJA).split('—')[0].trim().padStart(6, '0');
       try {
-        // Buscar conductor pareja en Firestore
         let condPareja = null;
         const snapP = await getDoc(doc(_db, 'conductores', codPareja));
         if (snapP.exists()) {
@@ -1017,7 +951,6 @@ window.mGuardar = async function() {
           const sq = await getDocs(q);
           if (!sq.empty) condPareja = sq.docs[0].data();
         }
-
         if (condPareja) {
           const regPareja = {
             ...reg,
@@ -1028,11 +961,10 @@ window.mGuardar = async function() {
             pareja:          `${_conductor.Codigo} — ${_conductor.Nombre}`,
             registroPareja:  regId,
             esDuplicado:     true,
-            origenMovil:     false,  // no disparar aviso duplicado
+            origenMovil:     false,
             creadoEn:        new Date().toISOString(),
           };
           const refP = await addDoc(collection(_db, 'registros'), regPareja);
-          // Vincular registro original con el de la pareja
           const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
           await updateDoc(ref, { registroPareja: refP.id });
         }
@@ -1041,6 +973,7 @@ window.mGuardar = async function() {
       }
     }
 
+    _fotosData = [];
     document.getElementById('pantalla-registro').style.display = 'none';
     document.getElementById('pantalla-ok').style.display       = 'flex';
   } catch(e) {
@@ -1072,7 +1005,7 @@ window.mLimpiar = function() {
   document.getElementById('m-section-resultado').style.display = 'none';
 };
 
-// ---- AUTOCOMPLETE TRACTORA ----
+// ---- TRACTORA ----
 window.mFiltrarTractoras = function() {
   const input = document.getElementById('m-tractora');
   const lista = document.getElementById('m-tractora-sugerencias');
@@ -1080,66 +1013,47 @@ window.mFiltrarTractoras = function() {
   const val   = input.value.toUpperCase();
   input.value = val;
   estado.style.display = 'none';
-
   if (!val) { lista.style.display = 'none'; return; }
-
   const coincidencias = _tractoras.filter(m => m.includes(val));
-
-  if (!coincidencias.length) {
-    lista.style.display = 'none';
-    return;
-  }
-
+  if (!coincidencias.length) { lista.style.display = 'none'; return; }
   lista.innerHTML = coincidencias.map(m => {
-    // Resaltar la parte que coincide
     const idx = m.indexOf(val);
     const html = idx >= 0
       ? m.slice(0,idx) + `<strong>${m.slice(idx, idx+val.length)}</strong>` + m.slice(idx+val.length)
       : m;
     return `<div class="sug-item" onmousedown="mSeleccionarTractora('${m}')">${html}</div>`;
   }).join('');
-
   lista.style.display = 'block';
 };
-
 window.mSeleccionarTractora = function(matricula) {
-  const input  = document.getElementById('m-tractora');
-  const lista  = document.getElementById('m-tractora-sugerencias');
+  document.getElementById('m-tractora').value = matricula;
+  document.getElementById('m-tractora-sugerencias').style.display = 'none';
   const estado = document.getElementById('m-tractora-estado');
-
-  input.value          = matricula;
-  lista.style.display  = 'none';
   estado.style.display = 'block';
   estado.style.color   = '#3d7a5c';
   estado.textContent   = '✓ Matrícula válida';
-  input.style.borderColor = '#3d7a5c';
+  document.getElementById('m-tractora').style.borderColor = '#3d7a5c';
 };
-
 window.mCerrarSugerencias = function() {
   const lista  = document.getElementById('m-tractora-sugerencias');
   const input  = document.getElementById('m-tractora');
   const estado = document.getElementById('m-tractora-estado');
   lista.style.display = 'none';
-
-  // Validar lo que quedó escrito
   const val = input.value.trim().toUpperCase();
   if (!val) { input.style.borderColor = ''; estado.style.display = 'none'; return; }
-
   if (_tractoras.includes(val)) {
     input.style.borderColor = '#3d7a5c';
-    estado.style.display    = 'block';
-    estado.style.color      = '#3d7a5c';
-    estado.textContent      = '✓ Matrícula válida';
+    estado.style.display = 'block'; estado.style.color = '#3d7a5c';
+    estado.textContent = '✓ Matrícula válida';
   } else {
     input.style.borderColor = '#c0392b';
-    estado.style.display    = 'block';
-    estado.style.color      = '#c0392b';
-    estado.textContent      = '✗ Matrícula no encontrada';
+    estado.style.display = 'block'; estado.style.color = '#c0392b';
+    estado.textContent = '✗ Matrícula no encontrada';
   }
 };
-
-// mValidarTractora sigue usándose al pre-rellenar con la última tractora
 window.mValidarTractora = window.mCerrarSugerencias;
+
+// ---- CALENDARIO ----
 function parseFecha(fecha) {
   const [y, m, d] = String(fecha).split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -1168,9 +1082,7 @@ window.mToast = function(msg, tipo='') {
   setTimeout(()=> t.className='toast', 3000);
 };
 
-// ==========================================
-// FOTOS
-// ==========================================
+// ---- FOTOS ----
 window.mAñadirFotos = function(input) {
   const files = Array.from(input.files);
   files.forEach(file => {
@@ -1184,7 +1096,6 @@ window.mAñadirFotos = function(input) {
   });
   input.value = '';
 };
-
 function renderFotos() {
   const grid = document.getElementById('m-fotos-grid');
   const thumbs = _fotosData.map((f, i) => `
@@ -1193,21 +1104,17 @@ function renderFotos() {
       <button class="del-foto" onclick="mBorrarFoto(${i})">✕</button>
     </div>
   `).join('');
-  const addBtn = _fotosData.length < 6
+  const addBtn = _fotosData.length < 4
     ? `<div class="add-foto" onclick="document.getElementById('m-foto-input').click()">
         <span>📷</span>Añadir
        </div>` : '';
   grid.innerHTML = thumbs + addBtn;
 }
-
 window.mBorrarFoto = function(i) {
   _fotosData.splice(i, 1);
   renderFotos();
 };
-
-async function subirFotos(regId) {
-  if (!_fotosData.length) return [];
-  // Comprimir y guardar como Base64 en Firestore (sin Storage, sin CORS)
+async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
     const base64 = await comprimirFoto(f.file, 400, 0.5);
@@ -1215,7 +1122,6 @@ async function subirFotos(regId) {
   }
   return fotos;
 }
-
 function comprimirFoto(file, maxSize, quality) {
   return new Promise(resolve => {
     const img = new Image();
@@ -1236,9 +1142,7 @@ function comprimirFoto(file, maxSize, quality) {
   });
 }
 
-// ==========================================
-// OFFLINE
-// ==========================================
+// ---- OFFLINE ----
 async function sincronizarOffline() {
   const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
   if (!pendientes.length) return;
@@ -1255,58 +1159,6 @@ async function sincronizarOffline() {
   localStorage.setItem(OFFLINE_KEY, JSON.stringify(restantes));
   if (sincronizados > 0) mToast(`${sincronizados} registro(s) sincronizado(s) ✓`);
 }
-
-// ==========================================
-// NAVEGACIÓN
-// ==========================================
-window.mNavegar = function(pantalla) {
-  document.getElementById('pantalla-registro').style.display  = pantalla === 'registro'  ? 'block' : 'none';
-  document.getElementById('pantalla-historial').style.display = pantalla === 'historial' ? 'block' : 'none';
-  document.getElementById('pantalla-ok').style.display        = 'none';
-  document.getElementById('nav-registro').classList.toggle('active',  pantalla === 'registro');
-  document.getElementById('nav-historial').classList.toggle('active', pantalla === 'historial');
-  if (pantalla === 'historial') cargarHistorialPropio();
-};
-
-// ==========================================
-// HISTORIAL PROPIO
-// ==========================================
-async function cargarHistorialPropio() {
-  if (!_conductor) return;
-  const lista = document.getElementById('m-hist-lista');
-  lista.innerHTML = '<div style="text-align:center;color:var(--soft);padding:40px 0;font-size:14px">Cargando…</div>';
-  try {
-    const snap = await getDocs(query(
-      collection(_db, 'registros'),
-      where('codigoConductor', '==', _conductor.Codigo),
-      orderBy('fechaCreacion', 'desc')
-    ));
-    if (snap.empty) {
-      lista.innerHTML = '<div style="text-align:center;color:var(--soft);padding:40px 0;font-size:14px">No tienes registros enviados.</div>';
-      return;
-    }
-    lista.innerHTML = snap.docs.map(d => {
-      const r = { id: d.id, ...d.data() };
-      const estado = r.estadoDietas || 'pendiente';
-      const total = r.resultado?.TOTAL || r.resultado?.sumDietas || 0;
-      const fmt = v => Number(v).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-      const fotos = r.fotosBase64?.length ? `<div style="font-size:11px;color:var(--soft);margin-top:4px">📎 ${r.fotosBase64.length} foto(s)</div>` : '';
-      return `
-        <div class="hist-card">
-          <div class="hc-head">${r.fechaSalida} → ${r.fechaLlegada} · ${r.diasTrabajados} días</div>
-          <div class="hc-sub">${r.tractora || '—'} · ${r.plataforma}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span class="hc-estado ${estado}">${estado.replace('_',' ')}</span>
-            <span style="font-weight:600;color:var(--primary)">${fmt(total)}</span>
-          </div>
-          ${fotos}
-        </div>`;
-    }).join('');
-  } catch(e) {
-    lista.innerHTML = `<div style="text-align:center;color:var(--error);padding:20px">Error al cargar: ${e.message}</div>`;
-  }
-}
-
 </script>
 </body>
 </html>
