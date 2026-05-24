@@ -43,7 +43,7 @@ function contarFestivos(inicio, fin) {
   return n;
 }
 
-// ---- LEER OPERACIONES ----
+// ---- LEER OPERACIONES (formulario PC) ----
 function getCount(tipo) {
   const detallado = document.getElementById('btn-detallado').classList.contains('active');
   if (detallado) {
@@ -53,7 +53,7 @@ function getCount(tipo) {
   return el ? parseInt(el.value) || 0 : 0;
 }
 
-// ---- LEER TODOS LOS INPUTS DEL FORMULARIO ----
+// ---- LEER TODOS LOS INPUTS DEL FORMULARIO (PC) ----
 function leerFormulario() {
   const plataforma = document.getElementById('plataforma').value.trim();
   const categoria  = document.getElementById('categoria').value.trim().toUpperCase();
@@ -88,117 +88,147 @@ function leerFormulario() {
   };
 }
 
-// ---- CÁLCULO PRINCIPAL (calcula Y muestra) ----
+// ============================================================
+// MOTOR DE CÁLCULO PURO
+// Recibe un objeto { plataforma, categoria, precioKm, ... }
+// y una función getTarifaFn(concepto, plataforma) → número.
+// No toca el DOM. Usada por PC, móvil e informes.
+// ============================================================
+function calcularDietasPuro(datos, precioKm, getTarifaFn) {
+  const {
+    plataforma, categoria,
+    totalKm = 0, diasTrab = 0, restoHoras = 0, coefNac = 0, extras = 0,
+    nAcarreos = 0, nVlissingen = 0,
+    nCarga = 0, nPalet = 0, nRebote = 0,
+    n24h = 0, nPausa = 0, nNacional = 0,
+    nUK = 0, nNDLF = 0,
+    nDomingos = 0, nFestivos = 0,
+    fechaSalida = '', fechaLlegada = '',
+  } = datos;
+
+  const cat = (categoria || '').toUpperCase();
+  const tar = (concepto) => getTarifaFn(concepto, plataforma);
+
+  if (cat === 'PESCADO') {
+    const sumDietas = totalKm * precioKm;
+    const H_EXTRA   = 0.02926 * 0.4 * totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * totalKm;
+    const DIET_NAC  = coefNac * 45.19;
+    return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER: 0 };
+  }
+
+  if (plataforma === 'TJG') {
+    const sumVariables = nCarga      * getTarifaFn('CARGA/DESCARGAS',   'TJG')
+                       + nPalet      * getTarifaFn('MOV. PALETS',       'TJG')
+                       + nRebote     * getTarifaFn('REBOTE',            'TJG')
+                       + n24h        * getTarifaFn('24HORAS_PAUSA',     'TJG')
+                       + nPausa      * getTarifaFn('24HORAS_PAUSA',     'TJG')
+                       + nAcarreos   * getTarifaFn('ACARREOS',          'TJG')
+                       + nVlissingen * getTarifaFn('DIETA_VLISSINGEN',  'TJG')
+                       + extras;
+    const sumDietas = totalKm * precioKm + sumVariables;
+    const H_EXTRA   = 0.02926 * 0.4 * totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * totalKm;
+    let DIET_NAC, DIET_INTER;
+    if (coefNac >= diasTrab) {
+      DIET_INTER = 0;
+      DIET_NAC   = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO);
+    } else {
+      DIET_NAC   = coefNac * 45.19;
+      DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
+    }
+    return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
+  }
+
+  if (plataforma === 'FILARDI') {
+    const sumVariables = nRebote     * getTarifaFn('REBOTE',            'FILARDI')
+                       + nUK         * getTarifaFn('UK',                'FILARDI')
+                       + nNDLF       * getTarifaFn('NDLF',              'FILARDI')
+                       + nAcarreos   * getTarifaFn('ACARREOS',          'FILARDI')
+                       + nVlissingen * getTarifaFn('DIETA_VLISSINGEN',  'FILARDI')
+                       + extras;
+    const sumDietas = totalKm * precioKm + sumVariables;
+    const H_EXTRA   = 0.02926 * 0.4 * totalKm;
+    const H_PRESEN  = 0.02926 * 0.5 * totalKm;
+    const NOCTURNO  = 0.02926 * 0.1 * totalKm;
+    const DIET_NAC  = coefNac * 45.19;
+    let DIET_INTER  = (diasTrab - coefNac) * 59;
+    let MEJORA      = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC - DIET_INTER;
+    if (MEJORA < 0) { DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC; MEJORA = 0; }
+    return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER, MEJORA };
+  }
+
+  if (plataforma === 'CAUDETE') {
+    const tarDF = getTarifaFn('DOMINGO_FESTIVOS', 'CAUDETE');
+    let diasEfic = diasTrab;
+    if (fechaSalida && fechaLlegada) {
+      const fs = parseFecha(fechaSalida);
+      const fl = parseFecha(fechaLlegada);
+      diasEfic = Math.round((fl - fs) / 86400000) + 1;
+    }
+    const PLUS_EFICIENCIA = diasEfic * 8.75;
+    const DISPONIBILIDAD  = (nDomingos + nFestivos) * tarDF
+                          + nCarga    * getTarifaFn('CARGA/DESCARGAS', 'CAUDETE')
+                          + nPalet    * getTarifaFn('MOV. PALETS',     'CAUDETE')
+                          + nNacional * 10.3;
+    const DIETAS = diasTrab   * getTarifaFn('DIA',    'CAUDETE')
+                 + restoHoras * getTarifaFn('HORAS',  'CAUDETE')
+                 + nRebote    * getTarifaFn('REBOTE', 'CAUDETE')
+                 + extras;
+    const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
+    return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+  }
+
+  return {};
+}
+
+// ---- CÁLCULO PRINCIPAL para el formulario PC (calcula Y muestra) ----
 function calcularDietas() {
   const f = leerFormulario();
   if (!f.plataforma) return null;
 
-  let res = {};
-  if (f.categoria === 'PESCADO') res = calcPESCADO(f);
-  else if (f.plataforma === 'TJG')     res = calcTJG(f);
-  else if (f.plataforma === 'FILARDI') res = calcFILARDI(f);
-  else if (f.plataforma === 'CAUDETE') res = calcCAUDETE(f);
+  const precioKm = buscarConductorActual()?.PrecioKmt || 0;
+  const res = calcularDietasPuro(
+    { ...f, diasTrab: f.diasTrab, coefNac: f.coefNac },
+    precioKm,
+    getTarifa
+  );
 
   mostrarResultado(res, f.plataforma, f.categoria);
   return res;
 }
 
-// ---- PESCADO ----
-function calcPESCADO({ totalKm, coefNac }) {
-  const precioKm  = buscarConductorActual()?.PrecioKmt || 0;
-  const sumDietas = totalKm * precioKm;  // siempre 12.000 × PrecioKmt
-  const H_EXTRA   = 0.02926 * 0.4 * totalKm;
-  const H_PRESEN  = 0.02926 * 0.5 * totalKm;
-  const NOCTURNO  = 0.02926 * 0.1 * totalKm;
-  const DIET_NAC  = coefNac * 45.19;
-  const DIET_INTER = 0;
-  return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
-}
-
-// ---- TJG ----
-function calcTJG({ totalKm, diasTrab, coefNac, nCarga, nPalet, nRebote, n24h, nPausa, nAcarreos, nVlissingen, extras }) {
-  const precioKm = buscarConductorActual()?.PrecioKmt || 0;
-
-  const sumVariables = nCarga      * getTarifa('CARGA/DESCARGAS', 'TJG')
-                     + nPalet      * getTarifa('MOV. PALETS',     'TJG')
-                     + nRebote     * getTarifa('REBOTE',          'TJG')
-                     + n24h        * getTarifa('24HORAS_PAUSA',   'TJG')
-                     + nPausa      * getTarifa('24HORAS_PAUSA',   'TJG')
-                     + nAcarreos   * getTarifa('ACARREOS',        'TJG')
-                     + nVlissingen * getTarifa('DIETA_VLISSINGEN','TJG')
-                     + extras;
-
-  const sumDietas = totalKm * precioKm + sumVariables;
-  const H_EXTRA  = 0.02926 * 0.4 * totalKm;
-  const H_PRESEN = 0.02926 * 0.5 * totalKm;
-  const NOCTURNO = 0.02926 * 0.1 * totalKm;
-
-  let DIET_NAC, DIET_INTER;
-  if (coefNac >= diasTrab) {
-    // Todo nacional — sin días internacionales
-    DIET_INTER = 0;
-    DIET_NAC   = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO);
-  } else {
-    // Hay días internacionales
-    DIET_NAC   = coefNac * 45.19;
-    DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
-  }
-
-  return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
-}
-
-// ---- FILARDI ----
-function calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreos, nVlissingen, extras }) {
-  const precioKm = buscarConductorActual()?.PrecioKmt || 0;
-
-  const sumVariables = nRebote     * getTarifa('REBOTE',           'FILARDI')
-                     + nUK         * getTarifa('UK',               'FILARDI')
-                     + nNDLF       * getTarifa('NDLF',             'FILARDI')
-                     + nAcarreos   * getTarifa('ACARREOS',         'FILARDI')
-                     + nVlissingen * getTarifa('DIETA_VLISSINGEN', 'FILARDI')
-                     + extras;
-
-  const sumDietas = totalKm * precioKm + sumVariables;
-  const H_EXTRA   = 0.02926 * 0.4 * totalKm;
-  const H_PRESEN  = 0.02926 * 0.5 * totalKm;
-  const NOCTURNO  = 0.02926 * 0.1 * totalKm;
-  const DIET_NAC  = coefNac * 45.19;
-
-  let DIET_INTER = (diasTrab - coefNac) * 59;
-  let MEJORA     = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC - DIET_INTER;
-
-  if (MEJORA < 0) {
-    DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC;
-    MEJORA = 0;
-  }
-
-  return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER, MEJORA };
-}
-
-// ---- CAUDETE ----
-function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras, fechaSalida, fechaLlegada }) {
-  const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
-
-  // Plus Eficiencia = (fecha llegada - fecha salida + 1) × 8,75
-  let diasEfic = diasTrab;
-  if (fechaSalida && fechaLlegada) {
-    const fs = parseFecha(fechaSalida);
-    const fl = parseFecha(fechaLlegada);
-    diasEfic = Math.round((fl - fs) / 86400000) + 1;
-  }
-  const PLUS_EFICIENCIA = diasEfic * 8.75;
-
-  const DISPONIBILIDAD  = (nDomingos + nFestivos) * tarDF
-                        + nCarga    * getTarifa('CARGA/DESCARGAS', 'CAUDETE')
-                        + nPalet    * getTarifa('MOV. PALETS',     'CAUDETE')
-                        + nNacional * 10.3;
-  const DIETAS          = diasTrab   * getTarifa('DIA',    'CAUDETE')
-                        + restoHoras * getTarifa('HORAS',  'CAUDETE')
-                        + nRebote    * getTarifa('REBOTE', 'CAUDETE')
-                        + extras;
-  const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
-
-  return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+// ---- CÁLCULO para un conductor específico (informes / pareja DOBLE) ----
+// Mantiene la misma firma que antes para no romper informes.js y app.js
+function calcularDietasParaConductor(conductor, datos) {
+  const precioKm = conductor?.PrecioKmt || 0;
+  // Normalizar nombres de campos (el formulario usa diasTrab, los registros usan diasTrabajados)
+  const normalized = {
+    plataforma:   datos.plataforma,
+    categoria:    datos.categoria || '',
+    totalKm:      datos.totalKm         || 0,
+    diasTrab:     datos.diasTrabajados  || datos.diasTrab  || 0,
+    restoHoras:   datos.restoHoras      || 0,
+    coefNac:      datos.coefNacional    || datos.coefNac   || 0,
+    extras:       datos.extras          || 0,
+    nAcarreos:    datos.acarreos        || datos.nAcarreos || 0,
+    nVlissingen:  datos.dietaVlissingen || datos.nVlissingen || 0,
+    nCarga:       datos.nCarga    || 0,
+    nPalet:       datos.nPalet    || 0,
+    nRebote:      datos.nRebote   || 0,
+    n24h:         datos.n24h      || 0,
+    nPausa:       datos.nPausa    || 0,
+    nNacional:    datos.nNacional || 0,
+    nUK:          datos.nUK       || 0,
+    nNDLF:        datos.nNDLF     || 0,
+    nDomingos:    datos.nDomingos || 0,
+    nFestivos:    datos.nFestivos || 0,
+    fechaSalida:  datos.fechaSalida  || '',
+    fechaLlegada: datos.fechaLlegada || '',
+  };
+  return calcularDietasPuro(normalized, precioKm, getTarifa);
 }
 
 // ---- MOSTRAR RESULTADO ----
@@ -331,104 +361,4 @@ function calcularKms() {
   const total = sal && vuel ? vuel - sal : 0;
   document.getElementById('totalKm').value = total ? total.toLocaleString('es-ES') : '';
   calcularDietas();
-}
-
-
-// ---- CALCULAR DIETAS PARA UN CONDUCTOR ESPECÍFICO (sin usar el formulario) ----
-function calcularDietasParaConductor(conductor, datos) {
-  const f = {
-    plataforma:   datos.plataforma,
-    categoria:    (datos.categoria || '').toUpperCase(),
-    totalKm:      datos.totalKm      || 0,
-    diasTrab:     datos.diasTrabajados || 0,
-    restoHoras:   datos.restoHoras   || 0,
-    coefNac:      datos.coefNacional  || 0,
-    extras:       datos.extras        || 0,
-    nAcarreos:    datos.acarreos      || 0,
-    nVlissingen:  datos.dietaVlissingen || 0,
-    nCarga:       datos.nCarga   || 0,
-    nPalet:       datos.nPalet   || 0,
-    nRebote:      datos.nRebote  || 0,
-    n24h:         datos.n24h     || 0,
-    nPausa:       datos.nPausa   || 0,
-    nNacional:    datos.nNacional || 0,
-    nUK:          datos.nUK      || 0,
-    nNDLF:        datos.nNDLF    || 0,
-    nDomingos:    datos.nDomingos || 0,
-    nFestivos:    datos.nFestivos || 0,
-    fechaSalida:  datos.fechaSalida  || '',
-    fechaLlegada: datos.fechaLlegada || '',
-  };
-
-  // Sobreescribir precioKm con el del conductor de la pareja
-  const precioKm = conductor?.PrecioKmt || 0;
-
-  let res = {};
-  if (f.categoria === 'PESCADO') {
-    const sumDietas = f.totalKm * precioKm;
-    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
-    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
-    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
-    const DIET_NAC  = f.coefNac * 45.19;
-    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER: 0 };
-  } else if (f.plataforma === 'TJG') {
-    const sumVariables = f.nCarga    * getTarifa('CARGA/DESCARGAS', 'TJG')
-                       + f.nPalet    * getTarifa('MOV. PALETS',     'TJG')
-                       + f.nRebote   * getTarifa('REBOTE',          'TJG')
-                       + f.n24h      * getTarifa('24HORAS_PAUSA',   'TJG')
-                       + f.nPausa    * getTarifa('24HORAS_PAUSA',   'TJG')
-                       + f.nAcarreos * getTarifa('ACARREOS',        'TJG')
-                       + f.nVlissingen * getTarifa('DIETA_VLISSINGEN','TJG')
-                       + f.extras;
-    const sumDietas = f.totalKm * precioKm + sumVariables;
-    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
-    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
-    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
-    let DIET_NAC, DIET_INTER;
-    if (f.coefNac >= f.diasTrab) {
-      DIET_INTER = 0;
-      DIET_NAC   = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO);
-    } else {
-      DIET_NAC   = f.coefNac * 45.19;
-      DIET_INTER = Math.max(0, sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC);
-    }
-    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
-  } else if (f.plataforma === 'FILARDI') {
-    const sumVariables = f.nRebote     * getTarifa('REBOTE',           'FILARDI')
-                       + f.nUK         * getTarifa('UK',               'FILARDI')
-                       + f.nNDLF       * getTarifa('NDLF',             'FILARDI')
-                       + f.nAcarreos   * getTarifa('ACARREOS',         'FILARDI')
-                       + f.nVlissingen * getTarifa('DIETA_VLISSINGEN', 'FILARDI')
-                       + f.extras;
-    const sumDietas = f.totalKm * precioKm + sumVariables;
-    const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
-    const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
-    const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
-    const DIET_NAC  = f.coefNac * 45.19;
-    let DIET_INTER  = (f.diasTrab - f.coefNac) * 59;
-    let MEJORA      = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC - DIET_INTER;
-    if (MEJORA < 0) { DIET_INTER = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO - DIET_NAC; MEJORA = 0; }
-    res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER, MEJORA };
-  } else if (f.plataforma === 'CAUDETE') {
-    const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
-    let diasEfic = f.diasTrab;
-    if (f.fechaSalida && f.fechaLlegada) {
-      const fs = parseFecha(f.fechaSalida);
-      const fl = parseFecha(f.fechaLlegada);
-      diasEfic = Math.round((fl - fs) / 86400000) + 1;
-    }
-    const PLUS_EFICIENCIA = diasEfic * 8.75;
-    const DISPONIBILIDAD  = (f.nDomingos + f.nFestivos) * tarDF
-                          + f.nCarga    * getTarifa('CARGA/DESCARGAS', 'CAUDETE')
-                          + f.nPalet    * getTarifa('MOV. PALETS',     'CAUDETE')
-                          + f.nNacional * 10.3;
-    const DIETAS = f.diasTrab   * getTarifa('DIA',    'CAUDETE')
-                 + f.restoHoras * getTarifa('HORAS',  'CAUDETE')
-                 + f.nRebote    * getTarifa('REBOTE', 'CAUDETE')
-                 + f.extras;
-    const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
-    res = { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
-  }
-
-  return res;
 }
