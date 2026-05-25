@@ -4,23 +4,172 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Registro de Actividad</title>
-  <link rel="stylesheet" href="estilos.css">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* Posición del toast en móvil (centra horizontalmente) */
-    #m-toast {
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
+    :root {
+      --bg:       #f4f6f2;
+      --surface:  #ffffff;
+      --border:   #d8ddd4;
+      --text:     #2c3328;
+      --soft:     #6b7566;
+      --primary:  #4a7c59;
+      --primary-h:#3a6347;
+      --accent:   #c46b3a;
+      --calc-bg:  #eaf4ef;
+      --calc-text:#2a5c40;
+      --error:    #c0392b;
+      --radius:   12px;
+      --font:     'DM Sans', sans-serif;
+      --mono:     'DM Mono', monospace;
     }
-    #m-toast.show { transform: translateX(-50%) translateY(0); }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* Pantalla de registro: padding lateral táctil */
-    #pantalla-registro { display: none; padding: 16px 16px 40px; }
-    #pantalla-login    { padding: 24px 20px; }
+    /* LOADING */
+    #loading { display:flex; flex-direction:column; align-items:center; justify-content:center;
+               height:100vh; gap:12px; }
+    #loading .icono { font-size:48px; }
+    #loading p { font-size:14px; color:var(--soft); }
+
+    /* HEADER */
+    .header { background:var(--primary); color:#fff; padding:16px 20px;
+              display:flex; align-items:center; gap:12px; }
+    .header .logo { font-size:24px; }
+    .header h1 { font-size:16px; font-weight:600; }
+    .header p  { font-size:11px; opacity:0.8; margin-top:1px; }
+
+    /* PANTALLA LOGIN */
+    #pantalla-login { padding:24px 20px; }
+    .login-card { background:var(--surface); border-radius:var(--radius);
+                  padding:28px 24px; box-shadow:0 2px 16px rgba(44,51,40,.1); }
+    .login-card h2 { font-size:18px; font-weight:600; margin-bottom:6px; }
+    .login-card p  { font-size:13px; color:var(--soft); margin-bottom:24px; }
+
+    /* PANTALLA REGISTRO */
+    #pantalla-registro { display:none; padding:16px 16px 40px; }
+
+    /* SECCIONES */
+    .section { background:var(--surface); border-radius:var(--radius);
+               padding:16px; margin-bottom:12px;
+               box-shadow:0 1px 6px rgba(44,51,40,.07); }
+    .section-title { font-size:11px; font-weight:600; text-transform:uppercase;
+                     letter-spacing:.06em; color:var(--primary); margin-bottom:14px; }
+
+    /* CAMPOS */
+    .field { margin-bottom:12px; }
+    .field label { display:block; font-size:12px; font-weight:500;
+                   color:var(--soft); margin-bottom:4px; }
+    input, select, textarea {
+      font-family:var(--font); font-size:14px; width:100%;
+      padding:10px 12px; border:1.5px solid var(--border);
+      border-radius:8px; background:var(--surface); color:var(--text);
+      -webkit-appearance:none; appearance:none;
+    }
+    input:focus, select:focus { outline:none; border-color:var(--primary); }
+    input.readonly { background:var(--calc-bg); color:var(--calc-text);
+                     font-family:var(--mono); font-weight:500; }
+    input.error { border-color:var(--error); }
+
+    /* GRID 2 col */
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* CHECK */
+    .check-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    .check-row input[type="checkbox"] { width:18px; height:18px;
+      accent-color:var(--primary); flex-shrink:0; }
+    .check-row label { font-size:12px; color:var(--soft); }
+
+    /* Sugerencias tractora */
+    .sug-item {
+      padding:10px 14px; font-size:14px; font-family:var(--mono);
+      cursor:pointer; border-bottom:1px solid var(--border);
+    }
+    .sug-item:last-child { border-bottom:none; }
+    .sug-item:active, .sug-item.hover { background:var(--calc-bg); color:var(--calc-text); }
+
+    /* OPERACIONES */
+    .op-bloque { border:1px solid var(--border); border-radius:8px;
+                 margin-bottom:10px; overflow:hidden; }
+    .op-header { display:flex; justify-content:space-between; align-items:center;
+                 padding:10px 12px; background:var(--bg);
+                 font-size:13px; font-weight:500; }
+    .op-lista  { padding:8px 12px; display:flex; flex-direction:column; gap:8px; }
+    .op-row    { display:grid; grid-template-columns:60px 1fr 1fr auto; gap:6px; align-items:center; }
+    .op-row input { font-size:13px; padding:7px 8px; }
+    .btn-add-sm { background:var(--primary); color:#fff; border:none;
+                  border-radius:6px; padding:4px 10px; font-size:12px;
+                  font-family:var(--font); cursor:pointer; }
+    .btn-del-sm { background:none; border:none; color:var(--error);
+                  font-size:16px; cursor:pointer; padding:0 4px; }
+
+    /* RESULTADO */
+    .resultado { background:var(--calc-bg); border-radius:8px; padding:14px; margin-top:8px; }
+    .resultado-fila { display:flex; justify-content:space-between;
+                      font-size:13px; padding:4px 0;
+                      border-bottom:1px solid rgba(74,124,89,.15); }
+    .resultado-fila:last-child { border:none; }
+    .resultado-fila .label { color:var(--soft); }
+    .resultado-fila .valor { font-family:var(--mono); font-weight:500; color:var(--calc-text); }
+    .resultado-total { display:flex; justify-content:space-between;
+                       background:var(--primary); color:#fff; border-radius:8px;
+                       padding:12px 14px; margin-top:10px; font-weight:600; }
+    .resultado-total .valor { font-family:var(--mono); font-size:18px; }
+
+    /* BOTONES */
+    .btn-primary { width:100%; padding:14px; background:var(--primary); color:#fff;
+                   border:none; border-radius:10px; font-family:var(--font);
+                   font-size:15px; font-weight:600; cursor:pointer; margin-top:8px; }
+    .btn-primary:active { background:var(--primary-h); }
+    .btn-ghost { width:100%; padding:12px; background:transparent; color:var(--text);
+                 border:1.5px solid var(--border); border-radius:10px;
+                 font-family:var(--font); font-size:14px; cursor:pointer; margin-top:8px; }
+
+    /* CONDUCTOR INFO */
+    .conductor-badge { background:var(--primary); color:#fff; border-radius:8px;
+                       padding:10px 14px; margin-bottom:16px;
+                       display:flex; justify-content:space-between; align-items:center; }
+    .conductor-badge .nombre { font-weight:600; font-size:14px; }
+    .conductor-badge .plat   { font-size:11px; opacity:.8; }
+    .conductor-badge .btn-salir { background:rgba(255,255,255,.2); border:none;
+                                   color:#fff; border-radius:6px; padding:4px 10px;
+                                   font-size:12px; cursor:pointer; font-family:var(--font); }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+             background:#2c3328; color:#fff; padding:10px 20px; border-radius:8px;
+             font-size:13px; font-weight:500; opacity:0; transition:all .25s; z-index:100;
+             white-space:nowrap; pointer-events:none; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.success { background:var(--primary); }
+    .toast.error   { background:var(--error); }
+
+    /* CONFIRMACIÓN */
+    #pantalla-ok { display:none; flex-direction:column; align-items:center;
+                   justify-content:center; min-height:60vh; padding:24px; text-align:center; gap:16px; }
+    #pantalla-ok .icono { font-size:64px; }
+    #pantalla-ok h2 { font-size:22px; font-weight:600; color:var(--primary); }
+    #pantalla-ok p  { font-size:14px; color:var(--soft); max-width:280px; }
+
+    /* FOTOS */
+    .fotos-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px; }
+    .foto-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden;
+                  border:1px solid var(--border); background:#f0f0f0; }
+    .foto-thumb img { width:100%; height:100%; object-fit:cover; }
+    .foto-thumb .del-foto { position:absolute; top:2px; right:2px; background:rgba(192,57,43,0.85);
+                            color:#fff; border:none; border-radius:50%; width:22px; height:22px;
+                            font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .add-foto { aspect-ratio:1; border-radius:8px; border:2px dashed var(--border);
+                display:flex; flex-direction:column; align-items:center; justify-content:center;
+                cursor:pointer; color:var(--soft); font-size:11px; gap:4px; background:var(--bg); }
+    .add-foto span { font-size:24px; }
+
+    /* OFFLINE */
+    .offline-badge { position:fixed; top:0; left:0; right:0; background:#c0392b; color:#fff;
+                     text-align:center; padding:6px; font-size:12px; font-weight:600; z-index:9999;
+                     display:none; }
   </style>
 </head>
-<body class="movil-form">
+<body>
 
 <!-- OFFLINE BADGE -->
 <div class="offline-badge" id="offline-badge">⚠️ Sin conexión — El registro se guardará al recuperar la red</div>
@@ -32,7 +181,7 @@
 </div>
 
 <!-- HEADER -->
-<div class="header-movil" style="display:none" id="app-header">
+<div class="header" style="display:none" id="app-header">
   <div class="logo">🚛</div>
   <div>
     <h1>Registro de Actividad</h1>
@@ -50,7 +199,7 @@
       <input type="text" id="m-codigo" placeholder="Ej: 10001"
              inputmode="numeric" autocomplete="off">
     </div>
-    <button class="btn-primary-movil" onclick="mLogin()">Entrar</button>
+    <button class="btn-primary" onclick="mLogin()">Entrar</button>
   </div>
 </div>
 
@@ -277,8 +426,8 @@
            multiple style="display:none" onchange="mAñadirFotos(this)">
   </div>
 
-  <button class="btn-primary-movil" onclick="mGuardar()">✅ Enviar Registro</button>
-  <button class="btn-ghost-movil"   onclick="mLimpiar()">🗑️ Limpiar</button>
+  <button class="btn-primary" onclick="mGuardar()">✅ Enviar Registro</button>
+  <button class="btn-ghost"   onclick="mLimpiar()">🗑️ Limpiar</button>
 
 </div>
 
@@ -287,7 +436,7 @@
   <div class="icono">✅</div>
   <h2>Registro enviado</h2>
   <p>Tu actividad ha sido registrada correctamente.</p>
-  <button class="btn-primary-movil" onclick="mNuevoRegistro()" style="max-width:280px">
+  <button class="btn-primary" onclick="mNuevoRegistro()" style="max-width:280px">
     Nuevo Registro
   </button>
 </div>
@@ -310,42 +459,17 @@ const firebaseConfig = {
 };
 const _app = initializeApp(firebaseConfig);
 const _db  = getFirestore(_app);
+
+// Asegurar red activa
 enableNetwork(_db).catch(() => {});
 
 // ---- Estado ----
-let _conductor = null;
-let _tarifas   = [];
-let _tractoras = [];
-let _fotosData = [];
-let _hoy       = new Date().toISOString().slice(0, 10);
+let _conductor  = null;
+let _tarifas    = [];
+let _tractoras  = [];
+let _fotosData  = [];
+let _hoy        = new Date().toISOString().slice(0,10);
 const OFFLINE_KEY = 'dietas_offline_regs';
-
-// ---- Helpers de tarifas (locales al móvil) ----
-function getTar(concepto, plat) {
-  const f = _tarifas.find(t => t.CONCEPTO === concepto);
-  return f ? (f[plat] || 0) : 0;
-}
-
-// ---- Helpers de calendario (locales al móvil, idénticos a calculos.js) ----
-function parseFecha(fecha) {
-  const [y, m, d] = String(fecha).split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-function contarDomingos(ini, fin) {
-  let n = 0, d = parseFecha(ini), f = parseFecha(fin);
-  while (d <= f) { if (d.getDay() === 0) n++; d.setDate(d.getDate() + 1); }
-  return n;
-}
-function contarFestivos(ini, fin) {
-  const fest = [[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
-  let n = 0, d = parseFecha(ini), f = parseFecha(fin);
-  while (d <= f) {
-    const m = d.getMonth()+1, dd = d.getDate();
-    if (d.getDay() !== 0 && fest.some(([fm,fd]) => fm===m && fd===dd)) n++;
-    d.setDate(d.getDate() + 1);
-  }
-  return n;
-}
 
 // ---- Detección offline ----
 function actualizarEstadoRed() {
@@ -364,7 +488,7 @@ async function init() {
   document.getElementById('pantalla-login').style.display = 'block';
   document.querySelectorAll('input[type="date"]').forEach(el => {
     el.max = _hoy;
-    el.addEventListener('focus', function() { if (!this.value) this.value = _hoy; });
+    el.addEventListener('focus', function(){ if(!this.value) this.value = _hoy; });
   });
 }
 init();
@@ -375,7 +499,7 @@ window.mLogin = async function() {
   const input = document.getElementById('m-codigo');
   if (!cod) { mToast('Introduce tu código', 'error'); return; }
 
-  const btn = document.querySelector('#pantalla-login .btn-primary-movil');
+  const btn = document.querySelector('#pantalla-login .btn-primary');
   btn.textContent = 'Verificando…';
   btn.disabled = true;
 
@@ -397,7 +521,7 @@ window.mLogin = async function() {
     }
 
     if (!conductorData) {
-      input.style.borderColor = 'var(--error)';
+      input.style.borderColor = '#c0392b';
       mToast('Código no encontrado. Comprueba el número.', 'error');
       return;
     }
@@ -446,10 +570,6 @@ window.mCerrar = function() {
 };
 
 // ---- ADAPTAR POR PLATAFORMA ----
-function show(id, cond) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = cond ? '' : 'none';
-}
 window.mAdaptarPlataforma = function(plat, cat) {
   const esCau = plat === 'CAUDETE';
   const esFil = plat === 'FILARDI';
@@ -479,11 +599,16 @@ window.mAdaptarPlataforma = function(plat, cat) {
   show('m-bloque-ndlf',   esFil);
 };
 
+function show(id, cond) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = cond ? '' : 'none';
+}
+
 // ---- TIEMPOS ----
 window.mCalcTiempos = function() {
   const plat = _conductor?.PLATAFORMA || '';
-  const fs   = document.getElementById('m-fsal').value;
-  const fl   = document.getElementById('m-flleg').value;
+  const fs = document.getElementById('m-fsal').value;
+  const fl = document.getElementById('m-flleg').value;
   const inFS = document.getElementById('m-fsal');
   const inFL = document.getElementById('m-flleg');
 
@@ -532,8 +657,8 @@ window.mCalcKm = function() {
   const inS  = document.getElementById('m-kmsal');
   const inV  = document.getElementById('m-kmvuel');
   if (sal && vuel && vuel < sal) {
-    inS.style.borderColor = 'var(--error)';
-    inV.style.borderColor = 'var(--error)';
+    inS.style.borderColor = '#c0392b';
+    inV.style.borderColor = '#c0392b';
     mToast('Km Vuelta no puede ser menor que Km Salida','error');
     document.getElementById('m-kmtotal').value = '';
     return;
@@ -577,85 +702,136 @@ function mGetDetalle(tipo) {
   });
 }
 
-// ---- CÁLCULO — usa calcularDietasPuro de calculos.js ----
-// calculos.js se carga como script normal (no module) desde index.html y movil.html.
-// En movil.html necesitamos el motor puro; suministramos getTar como función de tarifas local.
+// ---- TARIFA ----
+function getTar(concepto, plat) {
+  const f = _tarifas.find(t => t.CONCEPTO === concepto);
+  return f ? (f[plat] || 0) : 0;
+}
+
+// ---- CÁLCULO ----
+// DOBLE: carga y palet se comparten entre los dos conductores (÷ 2)
 window.mCalcDietas = function() {
   if (!_conductor) return;
-
   const plat     = _conductor.PLATAFORMA;
   const precioKm = _conductor.PrecioKmt || 0;
-  const divisor  = (_conductor.EQUIPAJE||'').toUpperCase() === 'DOBLE' ? 2 : 1;
 
-  const datos = {
-    plataforma:  plat,
-    categoria:   _conductor.CATEGORIA || '',
-    totalKm:     mParseKm(document.getElementById('m-kmtotal').value),
-    diasTrab:    parseFloat(document.getElementById('m-dias').value)    || 0,
-    restoHoras:  parseFloat(document.getElementById('m-resto').value)   || 0,
-    coefNac:     parseFloat(document.getElementById('m-coef').value)    || 0,
-    extras:      parseFloat(document.getElementById('m-extras').value)  || 0,
-    nAcarreos:   parseFloat(document.getElementById('m-acarreos').value)|| 0,
-    nVlissingen: parseFloat(document.getElementById('m-vliss').value)   || 0,
-    // DOBLE: carga y palet se dividen entre los dos conductores
-    nCarga:   mGetCount('carga')  / divisor,
-    nPalet:   mGetCount('palet')  / divisor,
-    nRebote:  mGetCount('rebote'),
-    n24h:     mGetCount('24h'),
-    nPausa:   mGetCount('pausa'),
-    nNacional:mGetCount('nac'),
-    nUK:      mGetCount('uk'),
-    nNDLF:    mGetCount('ndlf'),
-    nDomingos: plat === 'CAUDETE' ? (parseFloat(document.getElementById('m-dom').value)||0) : 0,
-    nFestivos: plat === 'CAUDETE' && document.getElementById('m-chk-fest').checked
-               ? (parseFloat(document.getElementById('m-fest').value)||0) : 0,
-    fechaSalida:  document.getElementById('m-fsal').value,
-    fechaLlegada: document.getElementById('m-flleg').value,
-  };
+  const km    = mParseKm(document.getElementById('m-kmtotal').value);
+  const dias  = parseFloat(document.getElementById('m-dias').value)    || 0;
+  const resto = parseFloat(document.getElementById('m-resto').value)   || 0;
+  const coef  = parseFloat(document.getElementById('m-coef').value)    || 0;
+  const ext   = parseFloat(document.getElementById('m-extras').value)  || 0;
+  const acar  = parseFloat(document.getElementById('m-acarreos').value)|| 0;
+  const vliss = parseFloat(document.getElementById('m-vliss').value)   || 0;
 
-  // calcularDietasPuro está definida en calculos.js (script no-módulo, ya cargado)
-  const res = calcularDietasPuro(datos, precioKm, getTar);
+  // DOBLE: carga y palet se dividen entre los dos conductores
+  const divisor = (_conductor.EQUIPAJE||'').toUpperCase() === 'DOBLE' ? 2 : 1;
+  const nCarga  = mGetCount('carga') / divisor;
+  const nPalet  = mGetCount('palet') / divisor;
+  const nRebote = mGetCount('rebote');
+  const n24h    = mGetCount('24h');
+  const nPausa  = mGetCount('pausa');
+  const nNac    = mGetCount('nac');
+  const nUK     = mGetCount('uk');
+  const nNDLF   = mGetCount('ndlf');
+  const nDom    = plat==='CAUDETE' ? (parseFloat(document.getElementById('m-dom').value)||0) : 0;
+  const nFest   = plat==='CAUDETE' && document.getElementById('m-chk-fest').checked
+    ? (parseFloat(document.getElementById('m-fest').value)||0) : 0;
 
-  mostrarResultadoMovil(res, plat, datos.categoria);
-  return { ...res, _datos: datos };
+  const cat = (_conductor.CATEGORIA||'').toUpperCase();
+
+  let res = {};
+  if (cat === 'PESCADO') {
+    const total = km * precioKm;
+    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
+    const DN = coef*45.19;
+    res = { tipo:'PESCADO', total, HE, HP, NOC, DN };
+  } else if (plat === 'TJG') {
+    const sumVar = nCarga*getTar('CARGA/DESCARGAS','TJG') + nPalet*getTar('MOV. PALETS','TJG')
+                 + nRebote*getTar('REBOTE','TJG') + n24h*getTar('24HORAS_PAUSA','TJG')
+                 + nPausa*getTar('24HORAS_PAUSA','TJG') + acar*getTar('ACARREOS','TJG')
+                 + vliss*getTar('DIETA_VLISSINGEN','TJG') + ext;
+    const total = km*precioKm + sumVar;
+    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
+    let DN, DI;
+    if (coef >= dias) { DI = 0; DN = Math.max(0, total-HE-HP-NOC); }
+    else { DN = coef*45.19; DI = Math.max(0, total-HE-HP-NOC-DN); }
+    res = { tipo:'TJG', total, HE, HP, NOC, DN, DI };
+  } else if (plat === 'FILARDI') {
+    const sumVar = nRebote*getTar('REBOTE','FILARDI') + nUK*getTar('UK','FILARDI')
+                 + nNDLF*getTar('NDLF','FILARDI') + acar*getTar('ACARREOS','FILARDI')
+                 + vliss*getTar('DIETA_VLISSINGEN','FILARDI') + ext;
+    const total = km*precioKm + sumVar;
+    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
+    const DN = coef*45.19;
+    let DI  = (dias-coef)*59;
+    let MEJ = total-HE-HP-NOC-DN-DI;
+    if (MEJ < 0) { DI = total-HE-HP-NOC-DN; MEJ = 0; }
+    res = { tipo:'FILARDI', total, HE, HP, NOC, DN, DI, MEJ };
+  } else if (plat === 'CAUDETE') {
+    const fs = document.getElementById('m-fsal').value;
+    const fl = document.getElementById('m-flleg').value;
+    let diasEfic = dias;
+    if (fs && fl) {
+      const [y,m,d]    = fs.split('-').map(Number);
+      const [y2,m2,d2] = fl.split('-').map(Number);
+      diasEfic = Math.round((new Date(y2,m2-1,d2) - new Date(y,m-1,d)) / 86400000) + 1;
+    }
+    const PE   = diasEfic * 8.75;
+    const DISP = (nDom+nFest)*getTar('DOMINGO_FESTIVOS','CAUDETE')
+               + nCarga*getTar('CARGA/DESCARGAS','CAUDETE')
+               + nPalet*getTar('MOV. PALETS','CAUDETE') + nNac*10.3;
+    const DIET = dias*getTar('DIA','CAUDETE') + resto*getTar('HORAS','CAUDETE')
+               + nRebote*getTar('REBOTE','CAUDETE') + ext;
+    res = { tipo:'CAUDETE', PE, DISP, DIET, total: PE+DISP+DIET };
+  }
+
+  mostrarResultadoMovil(res);
+  return res;
 };
 
-function mostrarResultadoMovil(res, plat, categoria) {
+function mostrarResultadoMovil(res) {
   const sec  = document.getElementById('m-section-resultado');
   const body = document.getElementById('m-resultado-body');
   sec.style.display = 'block';
-  const f = v => `${(+v||0).toFixed(2)} €`;
-  const cat = (categoria||'').toUpperCase();
-
-  let filas = [], total = 0;
-  if (cat === 'PESCADO') {
-    filas = [['H. Extra',f(res.H_EXTRA)],['H. Presencia',f(res.H_PRESEN)],['Nocturno',f(res.NOCTURNO)],['Dieta Nac.',f(res.DIET_NAC)]];
-    total = res.sumDietas;
-  } else if (plat === 'TJG') {
-    filas = [['H. Extra',f(res.H_EXTRA)],['H. Presencia',f(res.H_PRESEN)],['Nocturno',f(res.NOCTURNO)],['Dieta Nac.',f(res.DIET_NAC)],['Dieta Inter.',f(res.DIET_INTER)]];
-    total = res.sumDietas;
-  } else if (plat === 'FILARDI') {
-    filas = [['H. Extra',f(res.H_EXTRA)],['H. Presencia',f(res.H_PRESEN)],['Nocturno',f(res.NOCTURNO)],['Dieta Nac.',f(res.DIET_NAC)],['Dieta Inter.',f(res.DIET_INTER)],['Mejora',f(res.MEJORA)]];
-    total = res.sumDietas;
+  const f = v => `${(+v).toFixed(2)} €`;
+  let filas = [];
+  if (res.tipo === 'PESCADO') {
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)]];
+  } else if (res.tipo === 'TJG') {
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)]];
+  } else if (res.tipo === 'FILARDI') {
+    filas = [['H. Extra',f(res.HE)],['H. Presencia',f(res.HP)],['Nocturno',f(res.NOC)],['Dieta Nac.',f(res.DN)],['Dieta Inter.',f(res.DI)],['Mejora',f(res.MEJ)]];
   } else {
-    filas = [['Plus Eficiencia',f(res.PLUS_EFICIENCIA)],['Disponibilidad',f(res.DISPONIBILIDAD)],['Dietas',f(res.DIETAS)]];
-    total = res.TOTAL;
+    filas = [['Plus Eficiencia',f(res.PE)],['Disponibilidad',f(res.DISP)],['Dietas',f(res.DIET)]];
   }
-
   body.innerHTML =
-    `<div class="resultado-movil">${filas.map(([l,v]) =>
+    `<div class="resultado">${filas.map(([l,v])=>
       `<div class="resultado-fila"><span class="label">${l}</span><span class="valor">${v}</span></div>`
     ).join('')}</div>
-    <div class="resultado-total"><span>TOTAL</span><span class="valor">${f(total)}</span></div>`;
+    <div class="resultado-total"><span>TOTAL</span><span class="valor">${f(res.total)}</span></div>`;
 }
 
 // ---- GUARDAR ----
 window.mGuardar = async function() {
   if (!_conductor) return;
   const plat = _conductor.PLATAFORMA;
-  const fs   = document.getElementById('m-fsal').value;
-  const fl   = document.getElementById('m-flleg').value;
+  const fs = document.getElementById('m-fsal').value;
+  const fl = document.getElementById('m-flleg').value;
   if (!fs || !fl) { mToast('Introduce fechas de salida y llegada','error'); return; }
+
+  // Validar horas para CAUDETE
+  if (plat === 'CAUDETE') {
+    const hs = document.getElementById('m-hsal').value;
+    const hl = document.getElementById('m-hlleg').value;
+    if (!hs || !hl) { mToast('Introduce hora de salida y llegada','error'); return; }
+  }
+
+  // Verificar que los días estén calculados
+  const diasVal = parseFloat(document.getElementById('m-dias').value) || 0;
+  if (diasVal <= 0) {
+    mToast('Las fechas no generan días trabajados válidos','error');
+    return;
+  }
 
   const tractora = document.getElementById('m-tractora').value.trim().toUpperCase();
   if (tractora && !_tractoras.includes(tractora)) {
@@ -664,8 +840,11 @@ window.mGuardar = async function() {
     return;
   }
 
-  const resultado = window.mCalcDietas();
-  if (!resultado) return;
+  const resultado = mCalcDietas();
+  if (!resultado) {
+    mToast('Error al calcular. Comprueba que todos los datos están completos','error');
+    return;
+  }
 
   if (tractora) localStorage.setItem(`tractora_${_conductor.Codigo}`, tractora);
 
@@ -687,9 +866,9 @@ window.mGuardar = async function() {
     nDomingos:       parseFloat(document.getElementById('m-dom').value)   || 0,
     nFestivos:       parseFloat(document.getElementById('m-fest').value)  || 0,
     festivosEnLiquidacion: document.getElementById('m-chk-fest').checked,
-    kmSalida:  mParseKm(document.getElementById('m-kmsal').value),
-    kmVuelta:  mParseKm(document.getElementById('m-kmvuel').value),
-    totalKm:   mParseKm(document.getElementById('m-kmtotal').value),
+    kmSalida:        mParseKm(document.getElementById('m-kmsal').value),
+    kmVuelta:        mParseKm(document.getElementById('m-kmvuel').value),
+    totalKm:         mParseKm(document.getElementById('m-kmtotal').value),
     // Guardar conteos brutos (sin dividir) para que administración vea el total real
     nCarga:    mGetCount('carga'),  nPalet:    mGetCount('palet'),
     nRebote:   mGetCount('rebote'), n24h:      mGetCount('24h'),
@@ -708,17 +887,17 @@ window.mGuardar = async function() {
     origenMovil:     true,
     fechaCreacion:   new Date().toISOString(),
     resultado: {
-      sumDietas:       resultado.sumDietas      || resultado.TOTAL || 0,
-      TOTAL:           resultado.TOTAL          || resultado.sumDietas || 0,
-      H_EXTRA:         resultado.H_EXTRA        || 0,
-      H_PRESEN:        resultado.H_PRESEN       || 0,
-      NOCTURNO:        resultado.NOCTURNO       || 0,
-      DIET_NAC:        resultado.DIET_NAC       || 0,
-      DIET_INTER:      resultado.DIET_INTER     || 0,
-      MEJORA:          resultado.MEJORA         || 0,
-      PLUS_EFICIENCIA: resultado.PLUS_EFICIENCIA|| 0,
-      DISPONIBILIDAD:  resultado.DISPONIBILIDAD || 0,
-      DIETAS:          resultado.DIETAS         || 0,
+      sumDietas:       resultado.total,
+      TOTAL:           resultado.total,
+      H_EXTRA:         resultado.HE   || 0,
+      H_PRESEN:        resultado.HP   || 0,
+      NOCTURNO:        resultado.NOC  || 0,
+      DIET_NAC:        resultado.DN   || 0,
+      DIET_INTER:      resultado.DI   || 0,
+      MEJORA:          resultado.MEJ  || 0,
+      PLUS_EFICIENCIA: resultado.PE   || 0,
+      DISPONIBILIDAD:  resultado.DISP || 0,
+      DIETAS:          resultado.DIET || 0,
     }
   };
 
@@ -765,7 +944,7 @@ window.mGuardar = async function() {
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           ...reg, id: regId,
-          totalDietas: (reg.resultado.TOTAL||reg.resultado.sumDietas||0).toFixed(2) + ' €',
+          totalDietas: resultado.total ? resultado.total.toFixed(2) + ' €' : '—',
           fotosAdjuntas: (reg.fotosBase64 || []).map((f, i) => ({
             nombre: `foto_${i+1}.jpg`,
             base64: f.base64.split(',')[1]
@@ -785,7 +964,7 @@ window.mGuardar = async function() {
         if (snapP.exists()) {
           condPareja = snapP.data();
         } else {
-          const q  = query(collection(_db, 'conductores'), where('Codigo', '==', codPareja));
+          const q = query(collection(_db, 'conductores'), where('Codigo', '==', codPareja));
           const sq = await getDocs(q);
           if (!sq.empty) condPareja = sq.docs[0].data();
         }
@@ -845,17 +1024,17 @@ window.mLimpiar = function() {
 
 // ---- TRACTORA ----
 window.mFiltrarTractoras = function() {
-  const input  = document.getElementById('m-tractora');
-  const lista  = document.getElementById('m-tractora-sugerencias');
-  const estado = document.getElementById('m-tractora-estado');
-  const val    = input.value.toUpperCase();
-  input.value  = val;
+  const input = document.getElementById('m-tractora');
+  const lista = document.getElementById('m-tractora-sugerencias');
+  const estado= document.getElementById('m-tractora-estado');
+  const val   = input.value.toUpperCase();
+  input.value = val;
   estado.style.display = 'none';
   if (!val) { lista.style.display = 'none'; return; }
   const coincidencias = _tractoras.filter(m => m.includes(val));
   if (!coincidencias.length) { lista.style.display = 'none'; return; }
   lista.innerHTML = coincidencias.map(m => {
-    const idx  = m.indexOf(val);
+    const idx = m.indexOf(val);
     const html = idx >= 0
       ? m.slice(0,idx) + `<strong>${m.slice(idx, idx+val.length)}</strong>` + m.slice(idx+val.length)
       : m;
@@ -868,9 +1047,9 @@ window.mSeleccionarTractora = function(matricula) {
   document.getElementById('m-tractora-sugerencias').style.display = 'none';
   const estado = document.getElementById('m-tractora-estado');
   estado.style.display = 'block';
-  estado.style.color   = 'var(--success)';
+  estado.style.color   = '#3d7a5c';
   estado.textContent   = '✓ Matrícula válida';
-  document.getElementById('m-tractora').style.borderColor = 'var(--success)';
+  document.getElementById('m-tractora').style.borderColor = '#3d7a5c';
 };
 window.mCerrarSugerencias = function() {
   const lista  = document.getElementById('m-tractora-sugerencias');
@@ -880,23 +1059,44 @@ window.mCerrarSugerencias = function() {
   const val = input.value.trim().toUpperCase();
   if (!val) { input.style.borderColor = ''; estado.style.display = 'none'; return; }
   if (_tractoras.includes(val)) {
-    input.style.borderColor = 'var(--success)';
-    estado.style.display = 'block'; estado.style.color = 'var(--success)';
+    input.style.borderColor = '#3d7a5c';
+    estado.style.display = 'block'; estado.style.color = '#3d7a5c';
     estado.textContent = '✓ Matrícula válida';
   } else {
-    input.style.borderColor = 'var(--error)';
-    estado.style.display = 'block'; estado.style.color = 'var(--error)';
+    input.style.borderColor = '#c0392b';
+    estado.style.display = 'block'; estado.style.color = '#c0392b';
     estado.textContent = '✗ Matrícula no encontrada';
   }
 };
 window.mValidarTractora = window.mCerrarSugerencias;
 
+// ---- CALENDARIO ----
+function parseFecha(fecha) {
+  const [y, m, d] = String(fecha).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function contarDomingos(ini, fin) {
+  let n=0, d=parseFecha(ini), f=parseFecha(fin);
+  while(d<=f){ if(d.getDay()===0) n++; d.setDate(d.getDate()+1); }
+  return n;
+}
+function contarFestivos(ini, fin) {
+  const fest=[[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
+  let n=0, d=parseFecha(ini), f=parseFecha(fin);
+  while(d<=f){
+    const m=d.getMonth()+1, dd=d.getDate();
+    if(d.getDay()!==0 && fest.some(([fm,fd])=>fm===m&&fd===dd)) n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
+
 // ---- TOAST ----
-window.mToast = function(msg, tipo = '') {
+window.mToast = function(msg, tipo='') {
   const t = document.getElementById('m-toast');
   t.textContent = msg;
   t.className = `toast ${tipo} show`;
-  setTimeout(() => t.className = 'toast', 3000);
+  setTimeout(()=> t.className='toast', 3000);
 };
 
 // ---- FOTOS ----
@@ -914,7 +1114,7 @@ window.mAñadirFotos = function(input) {
   input.value = '';
 };
 function renderFotos() {
-  const grid   = document.getElementById('m-fotos-grid');
+  const grid = document.getElementById('m-fotos-grid');
   const thumbs = _fotosData.map((f, i) => `
     <div class="foto-thumb">
       <img src="${f.dataUrl}" alt="foto ${i+1}">
@@ -964,7 +1164,7 @@ async function sincronizarOffline() {
   const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
   if (!pendientes.length) return;
   let sincronizados = 0;
-  const restantes   = [];
+  const restantes = [];
   for (const reg of pendientes) {
     try {
       await addDoc(collection(_db, 'registros'), reg);
@@ -977,8 +1177,5 @@ async function sincronizarOffline() {
   if (sincronizados > 0) mToast(`${sincronizados} registro(s) sincronizado(s) ✓`);
 }
 </script>
-
-<!-- calculos.js se carga como script clásico para que calcularDietasPuro sea global -->
-<script src="calculos.js"></script>
 </body>
 </html>
