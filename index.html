@@ -727,29 +727,27 @@
   <div id="bd-conductores" class="bd-content active">
     <div class="bd-toolbar">
       <h3>Conductores</h3>
-      <button class="btn btn-primary" onclick="nuevoConductor()">+ Nuevo</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="exportarConductoresCSV()">💾 Exportar CSV</button>
+        <button class="btn btn-primary" onclick="nuevoConductor()">+ Nuevo</button>
+      </div>
     </div>
     <div class="table-wrap">
-      <table id="tabla-conductores" class="data-table" style="font-size:11px;table-layout:fixed;width:100%">
-        <colgroup>
-          <col style="width:60px">  <!-- Plataforma -->
-          <col style="width:80px">  <!-- Categoría -->
-          <col style="width:55px">  <!-- Código -->
-          <col style="width:160px"> <!-- Nombre -->
-          <col style="width:80px">  <!-- NIF -->
-          <col style="width:130px"> <!-- IBAN -->
-          <col style="width:55px">  <!-- Precio Kmt -->
-          <col style="width:130px"> <!-- Email -->
-          <col style="width:55px">  <!-- Equipaje -->
-          <col style="width:55px">  <!-- Pareja -->
-          <col style="width:70px">  <!-- Tractora -->
-          <col style="width:60px">  <!-- Acciones -->
-        </colgroup>
+      <table id="tabla-conductores" class="data-table">
         <thead>
           <tr>
-            <th>Plat.</th><th>Categ.</th><th>Cód.</th><th>Nombre</th>
-            <th>NIF</th><th>IBAN</th><th>€/Km</th><th>Email</th>
-            <th>Equip.</th><th>Pareja</th><th>Tractora</th><th></th>
+            <th>Plat.</th>
+            <th>Categ.</th>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>NIF</th>
+            <th>IBAN</th>
+            <th>€/Km</th>
+            <th>Email</th>
+            <th>Equipaje</th>
+            <th>Pareja</th>
+            <th>Tractora</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="tbody-conductores"></tbody>
@@ -852,8 +850,19 @@
             <option value="DOBLE">DOBLE</option>
           </select>
         </div>
-        <div class="field"><label>Código Pareja (DOBLE)</label>
-          <input type="text" id="m-pareja" placeholder="Ej: 010050">
+        <div class="field" id="field-m-pareja">
+          <label>Pareja (equipaje DOBLE)</label>
+          <div style="position:relative">
+            <input type="text" id="m-pareja-input" placeholder="Escribe código o nombre…"
+              oninput="filtrarParejaModal(this.value)" autocomplete="off"
+              style="width:100%">
+            <div id="m-pareja-sugerencias" style="display:none;position:absolute;z-index:1100;
+              background:var(--surface);border:1px solid var(--primary);border-radius:8px;
+              width:100%;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+              margin-top:2px;"></div>
+          </div>
+          <input type="hidden" id="m-pareja">
+          <div id="m-pareja-nombre" style="font-size:11px;color:var(--primary);margin-top:3px;min-height:16px"></div>
         </div>
         <div class="field"><label>Tractora Asignada</label>
           <select id="m-tractora-asignada">
