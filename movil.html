@@ -616,7 +616,7 @@ window.mCalcTiempos = function() {
 
   if (fs && fs > _hoy) { inFS.classList.add('error'); mToast('Fecha salida no puede ser futura','error'); return; }
   if (fl && fl > _hoy) { inFL.classList.add('error'); mToast('Fecha llegada no puede ser futura','error'); return; }
-  if (fs && fl && fl <= fs) { inFL.classList.add('error'); mToast('Llegada debe ser posterior a salida','error'); return; }
+  if (fs && fl && fl < fs) { inFL.classList.add('error'); mToast('Fecha llegada no puede ser anterior a salida','error'); return; }
   if (!fs || !fl) return;
 
   let dias = 0, resto = 0;
@@ -819,20 +819,6 @@ window.mGuardar = async function() {
   const fl = document.getElementById('m-flleg').value;
   if (!fs || !fl) { mToast('Introduce fechas de salida y llegada','error'); return; }
 
-  // Validar horas para CAUDETE
-  if (plat === 'CAUDETE') {
-    const hs = document.getElementById('m-hsal').value;
-    const hl = document.getElementById('m-hlleg').value;
-    if (!hs || !hl) { mToast('Introduce hora de salida y llegada','error'); return; }
-  }
-
-  // Verificar que los días estén calculados
-  const diasVal = parseFloat(document.getElementById('m-dias').value) || 0;
-  if (diasVal <= 0) {
-    mToast('Las fechas no generan días trabajados válidos','error');
-    return;
-  }
-
   const tractora = document.getElementById('m-tractora').value.trim().toUpperCase();
   if (tractora && !_tractoras.includes(tractora)) {
     mToast('Matrícula de tractora no válida','error');
@@ -841,10 +827,7 @@ window.mGuardar = async function() {
   }
 
   const resultado = mCalcDietas();
-  if (!resultado) {
-    mToast('Error al calcular. Comprueba que todos los datos están completos','error');
-    return;
-  }
+  if (!resultado) return;
 
   if (tractora) localStorage.setItem(`tractora_${_conductor.Codigo}`, tractora);
 
