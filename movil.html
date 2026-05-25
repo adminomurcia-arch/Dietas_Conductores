@@ -418,12 +418,21 @@
   <div class="section">
     <div class="section-title">📎 Fotos / Documentos <span style="color:var(--soft);font-weight:400">(opcional)</span></div>
     <div class="fotos-grid" id="m-fotos-grid">
-      <div class="add-foto" onclick="document.getElementById('m-foto-input').click()">
-        <span>📷</span>Añadir foto
+      <div class="add-foto" style="flex-direction:row;gap:12px;padding:10px"
+           onclick="">
+        <div onclick="document.getElementById('m-foto-camara').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+          <span>📷</span><span style="font-size:10px">Cámara</span>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div onclick="document.getElementById('m-foto-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+          <span>🖼️</span><span style="font-size:10px">Galería/Doc</span>
+        </div>
       </div>
     </div>
-    <input type="file" id="m-foto-input" accept="image/*"
+    <input type="file" id="m-foto-input" accept="image/*,application/pdf"
            multiple style="display:none" onchange="mAñadirFotos(this)">
+    <input type="file" id="m-foto-camara" accept="image/*" capture="environment"
+           style="display:none" onchange="mAñadirFotos(this)">
   </div>
 
   <button class="btn-primary" onclick="mGuardar()">✅ Enviar Registro</button>
@@ -1105,8 +1114,14 @@ function renderFotos() {
     </div>
   `).join('');
   const addBtn = _fotosData.length < 4
-    ? `<div class="add-foto" onclick="document.getElementById('m-foto-input').click()">
-        <span>📷</span>Añadir
+    ? `<div class="add-foto" style="flex-direction:row;gap:12px;padding:10px">
+        <div onclick="document.getElementById('m-foto-camara').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+          <span>📷</span><span style="font-size:10px">Cámara</span>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div onclick="document.getElementById('m-foto-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+          <span>🖼️</span><span style="font-size:10px">Galería/Doc</span>
+        </div>
        </div>` : '';
   grid.innerHTML = thumbs + addBtn;
 }
