@@ -616,7 +616,7 @@ window.mCalcTiempos = function() {
 
   if (fs && fs > _hoy) { inFS.classList.add('error'); mToast('Fecha salida no puede ser futura','error'); return; }
   if (fl && fl > _hoy) { inFL.classList.add('error'); mToast('Fecha llegada no puede ser futura','error'); return; }
-  if (fs && fl && fl < fs) { inFL.classList.add('error'); mToast('Fecha llegada no puede ser anterior a salida','error'); return; }
+  if (fs && fl && fl <= fs) { inFL.classList.add('error'); mToast('Llegada debe ser posterior a salida','error'); return; }
   if (!fs || !fl) return;
 
   let dias = 0, resto = 0;
@@ -1117,7 +1117,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 400, 0.5);
+    const base64 = await comprimirFoto(f.file, 1600, 0.82);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
