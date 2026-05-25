@@ -434,6 +434,12 @@ async function guardarRegistro() {
     if (idPareja && datosRegistro.equipaje === 'DOBLE') {
       const regPareja = getRegistros().find(r => r.id === idPareja);
       if (regPareja && confirm(`¿Aplicar los mismos cambios al registro de ${regPareja.nombreConductor}?`)) {
+        // Recalcular resultado con el PrecioKmt propio de la pareja
+        const condParejaBuscar = buscarConductor(regPareja.codigoConductor);
+        const resultadoParejaEdit = calcularDietasParaConductor(condParejaBuscar, {
+          ...datosRegistro,
+          // Mantener los gastos y anticipos que ya tenía la pareja (no sobreescribir)
+        });
         const datosPareja = {
           ...datosRegistro,
           codigoConductor: regPareja.codigoConductor,
@@ -444,6 +450,12 @@ async function guardarRegistro() {
           registroPareja:  editId,
           modificadoPor:   'admin',
           fechaModificacion: ahora,
+          // NO sobreescribir gastos propios de la pareja
+          gastosViaje:   regPareja.gastosViaje   ?? 0,
+          gastosDetalle: regPareja.gastosDetalle ?? [],
+          anticipos:     regPareja.anticipos     ?? 0,
+          // Usar resultado recalculado con PrecioKmt de la pareja
+          resultado:     resultadoParejaEdit,
         };
         await updateRegistro(idPareja, datosPareja);
         showToast('Registro de pareja actualizado también ✓', 'success');
@@ -460,6 +472,8 @@ async function guardarRegistro() {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
       if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
+        // Recalcular resultado con el PrecioKmt propio de la pareja (no copiar el del original)
+        const resultadoPareja = calcularDietasParaConductor(condPareja, datosRegistro);
         const datosPareja = {
           ...datosRegistro,
           codigoConductor: condPareja.Codigo,
@@ -480,6 +494,12 @@ async function guardarRegistro() {
           nNacional: datosRegistro.nNacional,
           nUK:       datosRegistro.nUK,
           nNDLF:     datosRegistro.nNDLF,
+          // NO copiar gastos del conductor original: cada conductor tiene sus propios gastos
+          gastosViaje:   0,
+          gastosDetalle: [],
+          anticipos:     0,
+          // Usar resultado recalculado con PrecioKmt de la pareja
+          resultado:     resultadoPareja,
         };
         const regPareja = await addRegistro(datosPareja);
         await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
@@ -687,17 +707,33 @@ function renderHistorial() {
 function renderTablas() {
   // Conductores
   document.getElementById('tbody-conductores').innerHTML =
-    getConductores().map(c => `<tr>
-      <td>${c.PLATAFORMA}</td><td>${c.CATEGORIA}</td><td>${c.Codigo}</td>
-      <td>${c.Nombre}</td><td>${c.NIF||''}</td>
-      <td style="font-size:11px;font-family:monospace">${c.IBAN||''}</td>
-      <td>${c.PrecioKmt}</td><td>${c.Email||''}</td>
-      <td>${c.EQUIPAJE||'—'}</td>
-      <td>
-        <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
-        <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
-      </td>
-    </tr>`).join('');
+    getConductores().map(c => {
+      const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+      const condPar = codPar ? buscarConductor(codPar) : null;
+      const parejaInfo = condPar ? `${codPar} — ${condPar.Nombre.split(',')[0]}` : (codPar || '—');
+      const equipajeBadge = c.EQUIPAJE
+        ? `<span style="font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;
+                        background:${c.EQUIPAJE==='DOBLE'?'#e0f2fe':'#f0fdf4'};
+                        color:${c.EQUIPAJE==='DOBLE'?'#0369a1':'#166534'}">${c.EQUIPAJE}</span>`
+        : '—';
+      return `<tr>
+        <td><span class="hist-plat plat-${c.PLATAFORMA}-badge">${c.PLATAFORMA}</span></td>
+        <td>${c.CATEGORIA}</td>
+        <td style="font-family:var(--font-mono)">${c.Codigo}</td>
+        <td style="font-weight:500">${c.Nombre}</td>
+        <td style="font-family:var(--font-mono)">${c.NIF||'—'}</td>
+        <td class="td-iban">${c.IBAN||'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${c.PrecioKmt}</td>
+        <td class="td-email" title="${c.Email||''}">${c.Email||'—'}</td>
+        <td style="text-align:center">${equipajeBadge}</td>
+        <td style="color:var(--soft)">${parejaInfo}</td>
+        <td style="color:var(--soft)">${c.tractoraAsignada||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
+          <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('');
 
   // Tarifas — celdas editables directamente
   document.getElementById('tbody-tarifas').innerHTML =
@@ -734,6 +770,10 @@ function nuevoConductor() {
   document.getElementById('m-codigo-original').value = '';
   ['m-plataforma','m-categoria','m-codigo','m-nombre','m-nif','m-iban','m-precio','m-email','m-equipaje']
     .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-pareja').value        = '';
+  document.getElementById('m-pareja-input').value  = '';
+  document.getElementById('m-pareja-nombre').textContent = '';
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
@@ -751,6 +791,18 @@ function editarConductor(codigo) {
   document.getElementById('m-precio').value            = c.PrecioKmt || '';
   document.getElementById('m-email').value             = c.Email    || '';
   document.getElementById('m-equipaje').value           = c.EQUIPAJE || '';
+  // Cargar pareja
+  const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+  document.getElementById('m-pareja').value = codPar;
+  if (codPar) {
+    const condPar = buscarConductor(codPar);
+    document.getElementById('m-pareja-input').value = condPar ? `${codPar} — ${condPar.Nombre}` : codPar;
+    document.getElementById('m-pareja-nombre').textContent = condPar ? condPar.Nombre : '⚠️ No encontrado';
+  } else {
+    document.getElementById('m-pareja-input').value = '';
+    document.getElementById('m-pareja-nombre').textContent = '';
+  }
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
   document.getElementById('modal-conductor').style.display = 'flex';
 }
 
@@ -765,6 +817,7 @@ async function guardarConductor() {
     PrecioKmt:  parseFloat(document.getElementById('m-precio').value) || 0,
     Email:      document.getElementById('m-email').value.trim(),
     EQUIPAJE:   document.getElementById('m-equipaje').value,
+    PAREJA:     document.getElementById('m-pareja').value.trim() || null,
   };
   if (!conductor.Codigo || !conductor.Nombre) {
     showToast('Código y Nombre son obligatorios', 'error'); return;
@@ -1403,6 +1456,93 @@ function exportarHistorialLiq() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('CSV exportado ✓', 'success');
+}
+
+
+// ---- AUTOCOMPLETE PAREJA EN MODAL CONDUCTOR ----
+function filtrarParejaModal(query) {
+  const sugs = document.getElementById('m-pareja-sugerencias');
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    sugs.style.display = 'none';
+    sugs.innerHTML = '';
+    document.getElementById('m-pareja').value = '';
+    document.getElementById('m-pareja-nombre').textContent = '';
+    return;
+  }
+  const lista = getConductores().filter(c =>
+    c.Codigo.toLowerCase().includes(q) || c.Nombre.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  if (!lista.length) {
+    sugs.style.display = 'none';
+    sugs.innerHTML = '';
+    return;
+  }
+  sugs.innerHTML = lista.map(c => `
+    <div onclick="seleccionarParejaModal('${c.Codigo}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+             display:flex;align-items:center;gap:10px;font-size:12px;transition:background .15s"
+      onmouseover="this.style.background='var(--surface-hover,#f0f4ee)'"
+      onmouseout="this.style.background=''">
+      <span style="font-family:var(--font-mono);color:var(--primary);min-width:58px">${c.Codigo}</span>
+      <span style="flex:1;color:var(--text)">${c.Nombre}</span>
+      <span style="font-size:11px;color:var(--soft);background:var(--bg);
+                   padding:2px 6px;border-radius:10px">${c.PLATAFORMA}</span>
+    </div>
+  `).join('');
+  sugs.style.display = 'block';
+}
+
+function seleccionarParejaModal(codigo) {
+  const c = buscarConductor(codigo);
+  if (!c) return;
+  document.getElementById('m-pareja').value       = codigo;
+  document.getElementById('m-pareja-input').value = `${codigo} — ${c.Nombre}`;
+  document.getElementById('m-pareja-nombre').textContent = c.Nombre;
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
+  document.getElementById('m-pareja-sugerencias').innerHTML = '';
+}
+
+// Cerrar sugerencias pareja al clic fuera
+document.addEventListener('click', function(e) {
+  const input = document.getElementById('m-pareja-input');
+  const sugs  = document.getElementById('m-pareja-sugerencias');
+  if (input && sugs && !input.contains(e.target) && !sugs.contains(e.target)) {
+    sugs.style.display = 'none';
+  }
+});
+
+
+// ---- EXPORTAR CONDUCTORES CSV ----
+function exportarConductoresCSV() {
+  const conductores = getConductores();
+  if (!conductores.length) { showToast('No hay conductores para exportar', 'error'); return; }
+
+  const headers = ['Plataforma','Categoría','Código','Nombre','NIF','IBAN','PrecioKmt','Email','Equipaje','Pareja','Tractora'];
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+  const lines = [headers.map(esc).join(';')];
+  conductores.forEach(c => {
+    const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+    const condPar = codPar ? buscarConductor(codPar) : null;
+    const parejaTexto = condPar ? `${codPar} — ${condPar.Nombre}` : (codPar || '');
+    lines.push([
+      c.PLATAFORMA, c.CATEGORIA, c.Codigo, c.Nombre,
+      c.NIF||'', c.IBAN||'', c.PrecioKmt||0, c.Email||'',
+      c.EQUIPAJE||'', parejaTexto, c.tractoraAsignada||''
+    ].map(esc).join(';'));
+  });
+
+  const csv  = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `conductores_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${conductores.length} conductores exportados ✓`, 'success');
 }
 
 // ---- TOAST ----
