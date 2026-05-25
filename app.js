@@ -58,6 +58,70 @@ function setModo(modo) {
   calcularDietas();
 }
 
+// ---- AUTOCOMPLETE: filtrar conductores por código o nombre ----
+function filtrarConductores(query) {
+  const sugerencias = document.getElementById('conductorSugerencias');
+  const q = query.trim().toLowerCase();
+
+  if (!q) {
+    sugerencias.style.display = 'none';
+    sugerencias.innerHTML = '';
+    return;
+  }
+
+  const lista = getConductores().filter(c => {
+    return c.Codigo.toLowerCase().includes(q) ||
+           c.Nombre.toLowerCase().includes(q);
+  }).slice(0, 10); // máximo 10 resultados
+
+  if (!lista.length) {
+    sugerencias.style.display = 'none';
+    sugerencias.innerHTML = '';
+    return;
+  }
+
+  sugerencias.innerHTML = lista.map(c => `
+    <div onclick="seleccionarConductor('${c.Codigo}')"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);
+             display:flex;align-items:center;gap:10px;font-size:13px;
+             transition:background .15s"
+      onmouseover="this.style.background='var(--surface-hover,#f0f4ee)'"
+      onmouseout="this.style.background=''">
+      <span style="font-family:var(--font-mono);color:var(--primary);min-width:58px">${c.Codigo}</span>
+      <span style="flex:1;color:var(--text)">${c.Nombre}</span>
+      <span style="font-size:11px;color:var(--soft);background:var(--bg);
+                   padding:2px 7px;border-radius:10px">${c.PLATAFORMA}</span>
+    </div>
+  `).join('');
+
+  sugerencias.style.display = 'block';
+}
+
+function seleccionarConductor(codigo) {
+  const sugerencias = document.getElementById('conductorSugerencias');
+  const c = buscarConductor(codigo);
+  if (!c) return;
+
+  // Rellenar el campo de búsqueda con código + nombre
+  document.getElementById('buscarConductorInput').value = `${c.Codigo} — ${c.Nombre}`;
+  // Guardar código en el campo oculto
+  document.getElementById('codConductor').value = c.Codigo;
+  // Ocultar sugerencias
+  sugerencias.style.display = 'none';
+  sugerencias.innerHTML = '';
+  // Ejecutar el relleno del formulario
+  autocompletar();
+}
+
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click', function(e) {
+  const input = document.getElementById('buscarConductorInput');
+  const sugerencias = document.getElementById('conductorSugerencias');
+  if (input && sugerencias && !input.contains(e.target) && !sugerencias.contains(e.target)) {
+    sugerencias.style.display = 'none';
+  }
+});
+
 // ---- AUTOCOMPLETAR POR CÓDIGO ----
 function autocompletar() {
   const cod = document.getElementById('codConductor').value.trim();
@@ -489,6 +553,11 @@ function leerGastosDetallados(comoArray = false) {
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
+  // Limpiar también el campo visual de búsqueda de conductor
+  const buscarEl = document.getElementById('buscarConductorInput');
+  if (buscarEl) buscarEl.value = '';
+  const sugsEl = document.getElementById('conductorSugerencias');
+  if (sugsEl) { sugsEl.style.display = 'none'; sugsEl.innerHTML = ''; }
   ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
     document.getElementById(id).value = '');
   document.getElementById('section-resultado').style.display = 'none';
@@ -840,6 +909,11 @@ async function editarRegistro(id) {
 
   // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
+  // Rellenar también el campo visual de búsqueda
+  const cEdit = buscarConductor(r.codigoConductor);
+  document.getElementById('buscarConductorInput').value = cEdit
+    ? `${cEdit.Codigo} — ${cEdit.Nombre}`
+    : r.codigoConductor;
   autocompletar();
   // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
   document.getElementById('coefNacional').value    = r.coefNacional || 0;
