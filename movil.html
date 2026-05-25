@@ -422,7 +422,7 @@
         <span>📷</span>Añadir foto
       </div>
     </div>
-    <input type="file" id="m-foto-input" accept="image/*" capture="environment"
+    <input type="file" id="m-foto-input" accept="image/*"
            multiple style="display:none" onchange="mAñadirFotos(this)">
   </div>
 
@@ -1117,7 +1117,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 1600, 0.82);
+    const base64 = await comprimirFoto(f.file, 400, 0.5);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
