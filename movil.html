@@ -416,18 +416,35 @@
 
   <!-- FOTOS -->
   <div class="section">
-    <div class="section-title">📎 Fotos / Documentos <span style="color:var(--soft);font-weight:400">(opcional)</span></div>
-    <div class="fotos-grid" id="m-fotos-grid">
-      <div class="add-foto" style="flex-direction:row;gap:12px;padding:10px"
-           onclick="">
-        <div onclick="document.getElementById('m-foto-camara').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <span>📷</span><span style="font-size:10px">Cámara</span>
-        </div>
-        <div style="width:1px;background:var(--border)"></div>
-        <div onclick="document.getElementById('m-foto-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <span>🖼️</span><span style="font-size:10px">Galería/Doc</span>
-        </div>
-      </div>
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Adjuntos</span>
+      <span style="font-size:10px;font-weight:400;color:var(--soft);text-transform:none;letter-spacing:0">opcional · máx. 10</span>
+    </div>
+    <div class="fotos-grid" id="m-fotos-grid"></div>
+    <div id="m-foto-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <button onclick="document.getElementById('m-foto-camara').click()"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;
+               padding:13px 10px;border:1.5px solid var(--primary);border-radius:10px;
+               background:var(--calc-bg);color:var(--primary);font-family:var(--font);
+               font-size:13px;font-weight:600;cursor:pointer;transition:background .15s">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Cámara
+      </button>
+      <button onclick="document.getElementById('m-foto-input').click()"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;
+               padding:13px 10px;border:1.5px solid var(--border);border-radius:10px;
+               background:var(--surface);color:var(--text);font-family:var(--font);
+               font-size:13px;font-weight:600;cursor:pointer;transition:background .15s">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Galería / Doc
+      </button>
     </div>
     <input type="file" id="m-foto-input" accept="image/*,application/pdf"
            multiple style="display:none" onchange="mAñadirFotos(this)">
@@ -1095,7 +1112,7 @@ window.mToast = function(msg, tipo='') {
 window.mAñadirFotos = function(input) {
   const files = Array.from(input.files);
   files.forEach(file => {
-    if (_fotosData.length >= 4) { mToast('Máximo 4 fotos por registro', 'error'); return; }
+    if (_fotosData.length >= 10) { mToast('Máximo 10 fotos por registro', 'error'); return; }
     const reader = new FileReader();
     reader.onload = e => {
       _fotosData.push({ file, dataUrl: e.target.result });
@@ -1107,23 +1124,14 @@ window.mAñadirFotos = function(input) {
 };
 function renderFotos() {
   const grid = document.getElementById('m-fotos-grid');
-  const thumbs = _fotosData.map((f, i) => `
+  const botones = document.getElementById('m-foto-botones');
+  grid.innerHTML = _fotosData.map((f, i) => `
     <div class="foto-thumb">
       <img src="${f.dataUrl}" alt="foto ${i+1}">
-      <button class="del-foto" onclick="mBorrarFoto(${i})">✕</button>
+      <button class="del-foto" onclick="mBorrarFoto(${i})" title="Eliminar">✕</button>
     </div>
   `).join('');
-  const addBtn = _fotosData.length < 4
-    ? `<div class="add-foto" style="flex-direction:row;gap:12px;padding:10px">
-        <div onclick="document.getElementById('m-foto-camara').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <span>📷</span><span style="font-size:10px">Cámara</span>
-        </div>
-        <div style="width:1px;background:var(--border)"></div>
-        <div onclick="document.getElementById('m-foto-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <span>🖼️</span><span style="font-size:10px">Galería/Doc</span>
-        </div>
-       </div>` : '';
-  grid.innerHTML = thumbs + addBtn;
+  botones.style.display = _fotosData.length >= 10 ? 'none' : 'grid';
 }
 window.mBorrarFoto = function(i) {
   _fotosData.splice(i, 1);
