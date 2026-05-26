@@ -120,7 +120,7 @@ function previsualizarRRHH() {
   if (formato === 'detallado') {
     headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
                'DÍAS','KM','COEF_NAC','DOM_FEST',
-               'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF',
+               'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','NACIONAL',
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
                'SUM_DIETAS','H_EXTRA','H_PRESEN','NOCTURNO',
                'DIET_NAC','DIET_INTER','MEJORA',
@@ -138,7 +138,7 @@ function previsualizarRRHH() {
       'DÍAS': r.diasTrabajados, 'KM': r.totalKm,
       'COEF_NAC': r.coefNacional, 'DOM_FEST': (r.nDomingos||0) + (r.nFestivos||0),
       'CARGA': r.nCarga, 'PALET': r.nPalet, 'REBOTE': r.nRebote,
-      '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF,
+      '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF, 'NACIONAL': r.nNacional,
       'ACARREOS': r.acarreos, 'VLISSINGEN': r.dietaVlissingen,
       'EXTRAS': fmt2(r.extras), 'GASTOS_VIAJE': fmt2(r.gastosViaje), 'ANTICIPOS': fmt2(r.anticipos),
       'SUM_DIETAS': fmt2(r.resultado?.sumDietas),
