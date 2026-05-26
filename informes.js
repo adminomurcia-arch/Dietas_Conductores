@@ -89,11 +89,20 @@ function previsualizarGestoria() {
       m.nReg++;
       m.ANTICIPOS += parseFloat(r.anticipos || 0);
       if (plat === 'CAUDETE') {
+        const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
+        const diasTrab = parseFloat(r.diasTrabajados          || 0);
+        const coefNac  = parseFloat(r.coefNacional            || 0);
+        const dietNac  = r.resultado?.DIET_NAC  !== undefined
+          ? parseFloat(r.resultado.DIET_NAC)
+          : (diasTrab > 0 ? (dietas / diasTrab) * coefNac : 0);
+        const dietInter = r.resultado?.DIET_INTER !== undefined
+          ? parseFloat(r.resultado.DIET_INTER)
+          : dietas - dietNac;
         m.PLUS_EFICIENCIA += parseFloat(r.resultado?.PLUS_EFICIENCIA || 0);
         m.DISPONIBILIDAD  += parseFloat(r.resultado?.DISPONIBILIDAD  || 0);
-        m.DIETAS          += parseFloat(r.resultado?.DIETAS          || 0);
-        m.DIET_NAC        += parseFloat(r.resultado?.DIET_NAC        || 0);
-        m.DIET_INTER      += parseFloat(r.resultado?.DIET_INTER      || 0);
+        m.DIETAS          += dietas;
+        m.DIET_NAC        += dietNac;
+        m.DIET_INTER      += dietInter;
         m.TOTAL_CAU       += parseFloat(r.resultado?.TOTAL           || 0);
       } else {
         m.H_EXTRA   += parseFloat(r.resultado?.H_EXTRA   || 0);
@@ -141,18 +150,29 @@ function previsualizarGestoria() {
     // Detallado — una fila por registro
     if (plat === 'CAUDETE') {
       headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
-      filas = regs.map(r => ({
-        'COD':             r.codigoConductor,
-        'NOMBRE':          r.nombreConductor,
-        'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
-        'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
-        'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
-        'DIETAS':          fmt2(r.resultado?.DIETAS),
-        'DIET_NAC':        fmt2(r.resultado?.DIET_NAC),
-        'DIET_INTER':      fmt2(r.resultado?.DIET_INTER),
-        'TOTAL':           fmt2(r.resultado?.TOTAL),
-        'ANTICIPOS':       fmt2(r.anticipos),
-      }));
+      filas = regs.map(r => {
+        const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
+        const diasTrab = parseFloat(r.diasTrabajados          || 0);
+        const coefNac  = parseFloat(r.coefNacional            || 0);
+        const dietNac  = r.resultado?.DIET_NAC  !== undefined
+          ? parseFloat(r.resultado.DIET_NAC)
+          : (diasTrab > 0 ? (dietas / diasTrab) * coefNac : 0);
+        const dietInter = r.resultado?.DIET_INTER !== undefined
+          ? parseFloat(r.resultado.DIET_INTER)
+          : dietas - dietNac;
+        return {
+          'COD':             r.codigoConductor,
+          'NOMBRE':          r.nombreConductor,
+          'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
+          'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
+          'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
+          'DIETAS':          fmt2(dietas),
+          'DIET_NAC':        fmt2(dietNac),
+          'DIET_INTER':      fmt2(dietInter),
+          'TOTAL':           fmt2(r.resultado?.TOTAL),
+          'ANTICIPOS':       fmt2(r.anticipos),
+        };
+      });
     } else {
       headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
       filas = regs.map(r => ({
