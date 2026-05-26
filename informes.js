@@ -64,44 +64,111 @@ function previsualizarConductor() {
 // PREVISUALIZACIÓN — Gestoría
 // ============================================================
 function previsualizarGestoria() {
-  const plat  = document.getElementById('inf-plataforma-gestoria').value;
-  const desde = document.getElementById('inf-gest-desde').value;
-  const hasta = document.getElementById('inf-gest-hasta').value;
-  const regs  = filtrarRegistros(desde, hasta, plat, '');
+  const plat    = document.getElementById('inf-plataforma-gestoria').value;
+  const formato = document.getElementById('inf-gest-formato').value;
+  const desde   = document.getElementById('inf-gest-desde').value;
+  const hasta   = document.getElementById('inf-gest-hasta').value;
+  const regs    = filtrarRegistros(desde, hasta, plat, '');
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
 
-  if (plat === 'CAUDETE') {
-    headers = ['COD', 'NOMBRE', 'PERÍODO', 'PLUS_EFICIENCIA', 'DISPONIBILIDAD', 'DIETAS', 'TOTAL', 'ANTICIPOS'];
-    filas = regs.map(r => ({
-      'COD':             r.codigoConductor,
-      'NOMBRE':          r.nombreConductor,
-      'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
-      'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
-      'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
-      'DIETAS':          fmt2(r.resultado?.DIETAS),
-      'TOTAL':           fmt2(r.resultado?.TOTAL),
-      'ANTICIPOS':       fmt2(r.anticipos),
-    }));
+  if (formato === 'resumido') {
+    // Agrupar por conductor y sumar importes
+    const mapa = {};
+    regs.forEach(r => {
+      const cod = r.codigoConductor;
+      if (!mapa[cod]) {
+        mapa[cod] = {
+          cod, nombre: r.nombreConductor, nReg: 0,
+          PLUS_EFICIENCIA: 0, DISPONIBILIDAD: 0, DIETAS: 0, TOTAL_CAU: 0, ANTICIPOS: 0,
+          H_EXTRA: 0, H_PRESEN: 0, NOCTURNO: 0, DIET_NAC: 0, DIET_INTER: 0, MEJORA: 0, TOTAL: 0,
+        };
+      }
+      const m = mapa[cod];
+      m.nReg++;
+      m.ANTICIPOS += parseFloat(r.anticipos || 0);
+      if (plat === 'CAUDETE') {
+        m.PLUS_EFICIENCIA += parseFloat(r.resultado?.PLUS_EFICIENCIA || 0);
+        m.DISPONIBILIDAD  += parseFloat(r.resultado?.DISPONIBILIDAD  || 0);
+        m.DIETAS          += parseFloat(r.resultado?.DIETAS          || 0);
+        m.TOTAL_CAU       += parseFloat(r.resultado?.TOTAL           || 0);
+      } else {
+        m.H_EXTRA   += parseFloat(r.resultado?.H_EXTRA   || 0);
+        m.H_PRESEN  += parseFloat(r.resultado?.H_PRESEN  || 0);
+        m.NOCTURNO  += parseFloat(r.resultado?.NOCTURNO  || 0);
+        m.DIET_NAC  += parseFloat(r.resultado?.DIET_NAC  || 0);
+        m.DIET_INTER+= parseFloat(r.resultado?.DIET_INTER|| 0);
+        m.MEJORA    += parseFloat(r.resultado?.MEJORA    || 0);
+        m.TOTAL     += parseFloat(r.resultado?.sumDietas || 0);
+      }
+    });
+
+    const conductores = Object.values(mapa).sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+    if (plat === 'CAUDETE') {
+      headers = ['COD','NOMBRE','Nº REG','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
+      filas = conductores.map(m => ({
+        'COD':             m.cod,
+        'NOMBRE':          m.nombre,
+        'Nº REG':          m.nReg,
+        'PLUS_EFICIENCIA': fmt2(m.PLUS_EFICIENCIA),
+        'DISPONIBILIDAD':  fmt2(m.DISPONIBILIDAD),
+        'DIETAS':          fmt2(m.DIETAS),
+        'TOTAL':           fmt2(m.TOTAL_CAU),
+        'ANTICIPOS':       fmt2(m.ANTICIPOS),
+      }));
+    } else {
+      headers = ['COD','NOMBRE','Nº REG','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
+      filas = conductores.map(m => ({
+        'COD':        m.cod,
+        'NOMBRE':     m.nombre,
+        'Nº REG':     m.nReg,
+        'H_EXTRA':    fmt2(m.H_EXTRA),
+        'H_PRESEN':   fmt2(m.H_PRESEN),
+        'NOCTURNO':   fmt2(m.NOCTURNO),
+        'DIET_NAC':   fmt2(m.DIET_NAC),
+        'DIET_INTER': fmt2(m.DIET_INTER),
+        'MEJORA':     fmt2(m.MEJORA),
+        'TOTAL':      fmt2(m.TOTAL),
+        'ANTICIPOS':  fmt2(m.ANTICIPOS),
+      }));
+    }
+
   } else {
-    headers = ['COD', 'NOMBRE', 'PERÍODO', 'H_EXTRA', 'H_PRESEN', 'NOCTURNO', 'DIET_NAC', 'DIET_INTER', 'ANTICIPOS', 'MEJORA'];
-    filas = regs.map(r => ({
-      'COD':        r.codigoConductor,
-      'NOMBRE':     r.nombreConductor,
-      'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
-      'H_EXTRA':    fmt2(r.resultado?.H_EXTRA),
-      'H_PRESEN':   fmt2(r.resultado?.H_PRESEN),
-      'NOCTURNO':   fmt2(r.resultado?.NOCTURNO),
-      'DIET_NAC':   fmt2(r.resultado?.DIET_NAC),
-      'DIET_INTER': fmt2(r.resultado?.DIET_INTER),
-      'ANTICIPOS':  fmt2(r.anticipos),
-      'MEJORA':     fmt2(r.resultado?.MEJORA),
-    }));
+    // Detallado — una fila por registro
+    if (plat === 'CAUDETE') {
+      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
+      filas = regs.map(r => ({
+        'COD':             r.codigoConductor,
+        'NOMBRE':          r.nombreConductor,
+        'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
+        'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
+        'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
+        'DIETAS':          fmt2(r.resultado?.DIETAS),
+        'TOTAL':           fmt2(r.resultado?.TOTAL),
+        'ANTICIPOS':       fmt2(r.anticipos),
+      }));
+    } else {
+      headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
+      filas = regs.map(r => ({
+        'COD':        r.codigoConductor,
+        'NOMBRE':     r.nombreConductor,
+        'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
+        'H_EXTRA':    fmt2(r.resultado?.H_EXTRA),
+        'H_PRESEN':   fmt2(r.resultado?.H_PRESEN),
+        'NOCTURNO':   fmt2(r.resultado?.NOCTURNO),
+        'DIET_NAC':   fmt2(r.resultado?.DIET_NAC),
+        'DIET_INTER': fmt2(r.resultado?.DIET_INTER),
+        'ANTICIPOS':  fmt2(r.anticipos),
+        'MEJORA':     fmt2(r.resultado?.MEJORA),
+      }));
+    }
   }
 
-  _informe = { tipo: 'gestoria', datos: regs, headers, filas, titulo: `Gestoria_${plat}` };
-  mostrarPreview(headers, filas, `Gestoría — ${plat}`);
+  const titulo = `Gestoria_${plat}_${formato}`;
+  _informe = { tipo: 'gestoria', datos: regs, headers, filas, titulo };
+  mostrarPreview(headers, filas, `Gestoría — ${plat} (${formato})`);
 }
 
 // ============================================================
