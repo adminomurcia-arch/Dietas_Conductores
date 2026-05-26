@@ -178,7 +178,7 @@ function calcFILARDI({ totalKm, diasTrab, coefNac, nRebote, nUK, nNDLF, nAcarreo
 }
 
 // ---- CAUDETE ----
-function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, extras, fechaSalida, fechaLlegada }) {
+function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPalet, nRebote, nNacional, coefNac, extras, fechaSalida, fechaLlegada }) {
   const tarDF = getTarifa('DOMINGO_FESTIVOS', 'CAUDETE');
 
   // Plus Eficiencia = (fecha llegada - fecha salida + 1) × 8,75
@@ -202,7 +202,11 @@ function calcCAUDETE({ diasTrab, restoHoras, nDomingos, nFestivos, nCarga, nPale
                         + extras;
   const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
 
-  return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+  // Desglose nacional / internacional
+  const DIET_NAC   = diasTrab > 0 ? (DIETAS / diasTrab) * coefNac : 0;
+  const DIET_INTER = DIETAS - DIET_NAC;
+
+  return { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL, DIET_NAC, DIET_INTER };
 }
 
 // ---- MOSTRAR RESULTADO ----
@@ -435,7 +439,9 @@ function calcularDietasParaConductor(conductor, datos) {
                  + f.nRebote    * getTarifa('REBOTE', 'CAUDETE')
                  + f.extras;
     const TOTAL = PLUS_EFICIENCIA + DISPONIBILIDAD + DIETAS;
-    res = { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL };
+    const DIET_NAC   = f.diasTrab > 0 ? (DIETAS / f.diasTrab) * f.coefNac : 0;
+    const DIET_INTER = DIETAS - DIET_NAC;
+    res = { PLUS_EFICIENCIA, DISPONIBILIDAD, DIETAS, TOTAL, DIET_NAC, DIET_INTER };
   }
 
   return res;
