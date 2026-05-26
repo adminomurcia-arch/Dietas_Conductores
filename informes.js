@@ -119,7 +119,7 @@ function previsualizarRRHH() {
 
   if (formato === 'detallado') {
     headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
-               'DÍAS','KM','COEF_NAC','DOM_FEST',
+               'DÍAS','RESTO_HORAS','KM','COEF_NAC','DOM_FEST',
                'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','NACIONAL',
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
                'SUM_DIETAS','H_EXTRA','H_PRESEN','NOCTURNO',
@@ -135,7 +135,7 @@ function previsualizarRRHH() {
       'EQUIPAJE': cr.EQUIPAJE || '—', 'PAREJA': cr.PAREJA || '—',
       'TRACTORA': r.tractora || cr.tractoraAsignada || '',
       'SALIDA': r.fechaSalida, 'LLEGADA': r.fechaLlegada,
-      'DÍAS': r.diasTrabajados, 'KM': r.totalKm,
+      'DÍAS': r.diasTrabajados, 'RESTO_HORAS': r.restoHoras || 0, 'KM': r.totalKm,
       'COEF_NAC': r.coefNacional, 'DOM_FEST': (r.nDomingos||0) + (r.nFestivos||0),
       'CARGA': r.nCarga, 'PALET': r.nPalet, 'REBOTE': r.nRebote,
       '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF, 'NACIONAL': r.nNacional,
