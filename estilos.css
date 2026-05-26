@@ -316,16 +316,7 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
 /* ---- INFORMES ---- */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-#tab-informes.active {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 110px);
-  overflow: hidden;
-}
-#tab-informes.active .inf-layout {
-  flex: 1;
-  min-height: 0;
-}
+#tab-informes.active { display: block; } /* el grid está en .inf-layout hijo */
 
 .inf-layout {
   display: grid;
