@@ -161,7 +161,42 @@
     .add-foto { aspect-ratio:1; border-radius:8px; border:2px dashed var(--border);
                 display:flex; flex-direction:column; align-items:center; justify-content:center;
                 cursor:pointer; color:var(--soft); font-size:11px; gap:4px; background:var(--bg); }
-    .add-foto span { font-size:24px; }
+    .gasto-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .gasto-row input, .gasto-row select {
+      width: 100%;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-family: var(--font);
+      font-size: 13px;
+      background: var(--calc-bg);
+      color: var(--text);
+      box-sizing: border-box;
+    }
+    .gasto-row .gasto-comentario {
+      grid-column: 1 / -1;
+    }
+    .gasto-del {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: none;
+      border: none;
+      color: var(--danger, #c0392b);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
 
     /* OFFLINE */
     .offline-badge { position:fixed; top:0; left:0; right:0; background:#c0392b; color:#fff;
@@ -397,11 +432,28 @@
       </div>
     </div>
     <input type="hidden" id="m-extras" value="0">
-    <div class="field">
-      <label>Gastos de Viaje (€) <span style="font-size:10px;color:var(--soft)">informativo</span></label>
-      <input type="number" id="m-gastos" min="0" value="0"
-             step="0.01" inputmode="decimal">
+    <input type="hidden" id="m-gastos" value="0">
+  </div>
+
+  <!-- GASTOS DE VIAJE -->
+  <div class="section">
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Gastos de Viaje</span>
+      <span style="font-size:10px;font-weight:400;color:var(--soft);text-transform:none;letter-spacing:0">informativo · no suma en dietas</span>
     </div>
+    <div id="m-gastos-lista"></div>
+    <div id="m-gastos-total" style="display:none;justify-content:space-between;align-items:center;
+         padding:10px 14px;background:var(--calc-bg);border-radius:8px;margin-top:8px;
+         font-weight:600;font-size:14px">
+      <span>Total gastos</span>
+      <span id="m-gastos-total-val" style="color:var(--primary)">0,00 €</span>
+    </div>
+    <button onclick="mAddGasto()"
+      style="width:100%;margin-top:10px;padding:12px;border:1.5px dashed var(--primary);
+             border-radius:10px;background:transparent;color:var(--primary);
+             font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">
+      + Añadir gasto
+    </button>
   </div>
 
   <!-- RESULTADO -->
@@ -489,6 +541,48 @@ enableNetwork(_db).catch(() => {});
 let _conductor  = null;
 let _tarifas    = [];
 let _tractoras  = [];
+// ---- GASTOS DE VIAJE ----
+let _gastosData = [];
+const TIPOS_GASTO = ['Peaje','Parking','Combustible','Ferry','Alojamiento','Manutención','Otro'];
+
+function mAddGasto() {
+  _gastosData.push({ fecha: _hoy, tipo: 'Peaje', importe: '', comentario: '' });
+  mRenderGastos();
+}
+function mDelGasto(i) {
+  _gastosData.splice(i, 1);
+  mRenderGastos();
+}
+function mGastoChange(i, campo, val) {
+  _gastosData[i][campo] = val;
+  mRenderGastos();
+}
+function mRenderGastos() {
+  const lista  = document.getElementById('m-gastos-lista');
+  const totDiv = document.getElementById('m-gastos-total');
+  const totVal = document.getElementById('m-gastos-total-val');
+  const hidGas = document.getElementById('m-gastos');
+  lista.innerHTML = _gastosData.map((g, i) => `
+    <div class="gasto-row">
+      <button class="gasto-del" onclick="mDelGasto(${i})">✕</button>
+      <input type="date" value="${g.fecha}" onchange="mGastoChange(${i},'fecha',this.value)">
+      <select onchange="mGastoChange(${i},'tipo',this.value)">
+        ${TIPOS_GASTO.map(t => `<option value="${t}" ${g.tipo===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <input type="number" min="0" step="0.01" inputmode="decimal"
+             placeholder="Importe (€)" value="${g.importe}"
+             onchange="mGastoChange(${i},'importe',this.value)">
+      <input type="text" placeholder="Comentario (opcional)" value="${g.comentario}"
+             onchange="mGastoChange(${i},'comentario',this.value)">
+    </div>
+  `).join('');
+  const total = _gastosData.reduce((s, g) => s + (parseFloat(g.importe) || 0), 0);
+  hidGas.value = total.toFixed(2);
+  totDiv.style.display = _gastosData.length ? 'flex' : 'none';
+  totVal.textContent = total.toFixed(2).replace('.', ',') + ' €';
+}
+// ---- FIN GASTOS ----
+
 let _fotosData  = [];
 let _hoy        = new Date().toISOString().slice(0,10);
 const OFFLINE_KEY = 'dietas_offline_regs';
@@ -874,6 +968,7 @@ window.mGuardar = async function() {
     dietaVlissingen: parseFloat(document.getElementById('m-vliss').value)   || 0,
     extras:          parseFloat(document.getElementById('m-extras').value)  || 0,
     gastosViaje:     parseFloat(document.getElementById('m-gastos').value)  || 0,
+    detalleGastos:   _gastosData.map(g => ({...g})),
     anticipos:       0,
     modo:            'movil',
     origenMovil:     true,
@@ -1000,6 +1095,8 @@ window.mNuevoRegistro = function() {
 window.mLimpiar = function() {
   _fotosData = [];
   renderFotos();
+  _gastosData = [];
+  mRenderGastos();
   ['m-fsal','m-hsal','m-flleg','m-hlleg','m-dias','m-resto','m-coef',
    'm-kmsal','m-kmvuel','m-kmtotal','m-acarreos','m-vliss','m-extras','m-gastos',
    'm-dom','m-fest'].forEach(id => {
