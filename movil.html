@@ -582,6 +582,9 @@ function mRenderGastos() {
   totVal.textContent = total.toFixed(2).replace('.', ',') + ' €';
 }
 // ---- FIN GASTOS ----
+window.mAddGasto    = mAddGasto;
+window.mDelGasto    = mDelGasto;
+window.mGastoChange = mGastoChange;
 
 let _fotosData  = [];
 let _hoy        = new Date().toISOString().slice(0,10);
