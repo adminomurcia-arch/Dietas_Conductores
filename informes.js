@@ -107,11 +107,10 @@ function previsualizarGestoria() {
     const conductores = Object.values(mapa).sort((a,b) => a.nombre.localeCompare(b.nombre));
 
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','Nº REG','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
         'COD':             m.cod,
         'NOMBRE':          m.nombre,
-        'Nº REG':          m.nReg,
         'PLUS_EFICIENCIA': fmt2(m.PLUS_EFICIENCIA),
         'DISPONIBILIDAD':  fmt2(m.DISPONIBILIDAD),
         'DIETAS':          fmt2(m.DIETAS),
@@ -119,11 +118,10 @@ function previsualizarGestoria() {
         'ANTICIPOS':       fmt2(m.ANTICIPOS),
       }));
     } else {
-      headers = ['COD','NOMBRE','Nº REG','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
         'COD':        m.cod,
         'NOMBRE':     m.nombre,
-        'Nº REG':     m.nReg,
         'H_EXTRA':    fmt2(m.H_EXTRA),
         'H_PRESEN':   fmt2(m.H_PRESEN),
         'NOCTURNO':   fmt2(m.NOCTURNO),
