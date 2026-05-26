@@ -316,7 +316,16 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
 /* ---- INFORMES ---- */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-#tab-informes.active { display: block; } /* el grid está en .inf-layout hijo */
+#tab-informes.active {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 110px);
+  overflow: hidden;
+}
+#tab-informes.active .inf-layout {
+  flex: 1;
+  min-height: 0;
+}
 
 .inf-layout {
   display: grid;
@@ -389,7 +398,7 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
   background: var(--primary);
   color: #fff;
   padding: 9px 12px;
-  text-align: left;
+  text-align: center;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
