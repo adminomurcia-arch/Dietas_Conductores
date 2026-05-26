@@ -406,7 +406,7 @@ function descargarXLSX(headers, filas, nombre) {
   function celda(h, val) {
     const v = esc(val);
     if (TEXT_COLS.has(h)) {
-      return `<Cell ss:StyleID="text"><Data ss:Type="String">&#8203;${v}</Data></Cell>`;
+      return `<Cell ss:StyleID="text" ss:Formula="=TEXTO(&quot;${v}&quot;,&quot;@&quot;)"><Data ss:Type="String">${v}</Data></Cell>`;
     }
     const s = String(val ?? '').trim();
     const num = parseFloat(s.replace(',', '.'));
