@@ -397,42 +397,58 @@ function descargarCSV(csv, nombre) {
 }
 
 function descargarXLSX(headers, filas, nombre) {
-  if (typeof XLSX !== 'undefined') {
-    const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA']);
-    const ws = {};
-    const allRows = [headers, ...filas.map(f => headers.map(h => f[h] ?? ''))];
+  const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA']);
 
-    allRows.forEach((row, R) => {
-      row.forEach((val, C) => {
-        const ref = XLSX.utils.encode_cell({ r: R, c: C });
-        const h   = headers[C];
-        if (R === 0) {
-          // Cabecera siempre texto
-          ws[ref] = { t: 's', v: String(val) };
-        } else if (TEXT_COLS.has(h)) {
-          // quotePrefix:true es el equivalente al apóstrofo de Excel — impide reinterpretación como número
-          ws[ref] = { t: 's', v: String(val), z: '@', quotePrefix: true };
-        } else {
-          // Resto: valor normal
-          const num = parseFloat(String(val).replace(',', '.'));
-          ws[ref] = isNaN(num) || String(val).trim() === '' || String(val).includes('→')
-            ? { t: 's', v: String(val) }
-            : { t: 'n', v: num };
-        }
-      });
-    });
-
-    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: allRows.length - 1, c: headers.length - 1 } });
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 12) }));
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Informe');
-    XLSX.writeFile(wb, nombre, { cellStyles: true });
-  } else {
-    const csv = arrayToCSV(headers, filas);
-    descargarCSV(csv, nombre.replace('.xlsx', '.csv'));
-    showToast('XLSX no disponible — exportado como CSV', '');
+  function esc(v) {
+    return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  function celda(h, val) {
+    const v = esc(val);
+    if (TEXT_COLS.has(h)) {
+      return `<Cell ss:StyleID="text"><Data ss:Type="String">${v}</Data></Cell>`;
+    }
+    const s = String(val ?? '').trim();
+    const num = parseFloat(s.replace(',', '.'));
+    if (s !== '' && !isNaN(num) && !s.includes('→') && !s.includes(' ')) {
+      return `<Cell><Data ss:Type="Number">${num}</Data></Cell>`;
+    }
+    return `<Cell><Data ss:Type="String">${v}</Data></Cell>`;
+  }
+
+  let rows = '<Row>' + headers.map(h =>
+    `<Cell ss:StyleID="header"><Data ss:Type="String">${esc(h)}</Data></Cell>`
+  ).join('') + '</Row>';
+
+  filas.forEach(f => {
+    rows += '<Row>' + headers.map(h => celda(h, f[h] ?? '')).join('') + '</Row>';
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="header">
+      <Interior ss:Color="#4a7c59" ss:Pattern="Solid"/>
+      <Font ss:Color="#FFFFFF" ss:Bold="1" ss:Size="10"/>
+    </Style>
+    <Style ss:ID="text">
+      <NumberFormat ss:Format="@"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="Informe">
+    <Table>${rows}</Table>
+  </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = nombre.replace('.xlsx', '.xls');
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function descargarJSON(data, nombre) {
