@@ -81,8 +81,8 @@ function previsualizarGestoria() {
       if (!mapa[cod]) {
         mapa[cod] = {
           cod, nombre: r.nombreConductor, nReg: 0,
-          PLUS_EFICIENCIA: 0, DISPONIBILIDAD: 0, DIETAS: 0, TOTAL_CAU: 0, ANTICIPOS: 0,
-          H_EXTRA: 0, H_PRESEN: 0, NOCTURNO: 0, DIET_NAC: 0, DIET_INTER: 0, MEJORA: 0, TOTAL: 0,
+          PLUS_EFICIENCIA: 0, DISPONIBILIDAD: 0, DIETAS: 0, DIET_NAC: 0, DIET_INTER: 0, TOTAL_CAU: 0, ANTICIPOS: 0,
+          H_EXTRA: 0, H_PRESEN: 0, NOCTURNO: 0, MEJORA: 0, TOTAL: 0,
         };
       }
       const m = mapa[cod];
@@ -92,6 +92,8 @@ function previsualizarGestoria() {
         m.PLUS_EFICIENCIA += parseFloat(r.resultado?.PLUS_EFICIENCIA || 0);
         m.DISPONIBILIDAD  += parseFloat(r.resultado?.DISPONIBILIDAD  || 0);
         m.DIETAS          += parseFloat(r.resultado?.DIETAS          || 0);
+        m.DIET_NAC        += parseFloat(r.resultado?.DIET_NAC        || 0);
+        m.DIET_INTER      += parseFloat(r.resultado?.DIET_INTER      || 0);
         m.TOTAL_CAU       += parseFloat(r.resultado?.TOTAL           || 0);
       } else {
         m.H_EXTRA   += parseFloat(r.resultado?.H_EXTRA   || 0);
@@ -107,13 +109,15 @@ function previsualizarGestoria() {
     const conductores = Object.values(mapa).sort((a,b) => a.nombre.localeCompare(b.nombre));
 
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
         'COD':             m.cod,
         'NOMBRE':          m.nombre,
         'PLUS_EFICIENCIA': fmt2(m.PLUS_EFICIENCIA),
         'DISPONIBILIDAD':  fmt2(m.DISPONIBILIDAD),
         'DIETAS':          fmt2(m.DIETAS),
+        'DIET_NAC':        fmt2(m.DIET_NAC),
+        'DIET_INTER':      fmt2(m.DIET_INTER),
         'TOTAL':           fmt2(m.TOTAL_CAU),
         'ANTICIPOS':       fmt2(m.ANTICIPOS),
       }));
@@ -136,7 +140,7 @@ function previsualizarGestoria() {
   } else {
     // Detallado — una fila por registro
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = regs.map(r => ({
         'COD':             r.codigoConductor,
         'NOMBRE':          r.nombreConductor,
@@ -144,6 +148,8 @@ function previsualizarGestoria() {
         'PLUS_EFICIENCIA': fmt2(r.resultado?.PLUS_EFICIENCIA),
         'DISPONIBILIDAD':  fmt2(r.resultado?.DISPONIBILIDAD),
         'DIETAS':          fmt2(r.resultado?.DIETAS),
+        'DIET_NAC':        fmt2(r.resultado?.DIET_NAC),
+        'DIET_INTER':      fmt2(r.resultado?.DIET_INTER),
         'TOTAL':           fmt2(r.resultado?.TOTAL),
         'ANTICIPOS':       fmt2(r.anticipos),
       }));
