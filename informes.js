@@ -394,28 +394,38 @@ function descargarCSV(csv, nombre) {
 }
 
 function descargarXLSX(headers, filas, nombre) {
-  // Usar SheetJS si está disponible, si no, fallback a CSV
   if (typeof XLSX !== 'undefined') {
-    // Columnas que deben exportarse como texto aunque parezcan números
     const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA']);
+    const ws = {};
+    const allRows = [headers, ...filas.map(f => headers.map(h => f[h] ?? ''))];
 
-    const data = [headers, ...filas.map(f => headers.map(h => {
-      const v = f[h] ?? '';
-      // Forzar texto en columnas de código para preservar los ceros iniciales
-      return TEXT_COLS.has(h) ? { t: 's', v: String(v) } : v;
-    }))];
+    allRows.forEach((row, R) => {
+      row.forEach((val, C) => {
+        const ref = XLSX.utils.encode_cell({ r: R, c: C });
+        const h   = headers[C];
+        if (R === 0) {
+          // Cabecera siempre texto
+          ws[ref] = { t: 's', v: String(val) };
+        } else if (TEXT_COLS.has(h)) {
+          // quotePrefix:true es el equivalente al apóstrofo de Excel — impide reinterpretación como número
+          ws[ref] = { t: 's', v: String(val), z: '@', quotePrefix: true };
+        } else {
+          // Resto: valor normal
+          const num = parseFloat(String(val).replace(',', '.'));
+          ws[ref] = isNaN(num) || String(val).trim() === '' || String(val).includes('→')
+            ? { t: 's', v: String(val) }
+            : { t: 'n', v: num };
+        }
+      });
+    });
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
-
-    // Ancho de columnas
-    const colWidths = headers.map(h => ({ wch: Math.max(h.length + 2, 12) }));
-    ws['!cols'] = colWidths;
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: allRows.length - 1, c: headers.length - 1 } });
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 12) }));
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Informe');
-    XLSX.writeFile(wb, nombre);
+    XLSX.writeFile(wb, nombre, { cellStyles: true });
   } else {
-    // Fallback a CSV
     const csv = arrayToCSV(headers, filas);
     descargarCSV(csv, nombre.replace('.xlsx', '.csv'));
     showToast('XLSX no disponible — exportado como CSV', '');
