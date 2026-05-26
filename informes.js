@@ -117,7 +117,7 @@ function previsualizarGestoria() {
       }
     });
 
-    const conductores = Object.values(mapa).sort((a,b) => a.nombre.localeCompare(b.nombre));
+    const conductores = Object.values(mapa).sort((a,b) => String(a.cod).localeCompare(String(b.cod)));
 
     if (plat === 'CAUDETE') {
       headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
