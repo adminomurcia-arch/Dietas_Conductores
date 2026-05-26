@@ -26,7 +26,8 @@ function previsualizarConductor() {
   const cod   = document.getElementById('inf-cod-conductor').value.trim();
   const desde = document.getElementById('inf-desde').value;
   const hasta = document.getElementById('inf-hasta').value;
-  const regs  = filtrarRegistros(desde, hasta, '', cod);
+  const regsRaw = filtrarRegistros(desde, hasta, '', cod);
+  const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   const headers = ['Código', 'Nombre', 'Equipaje', 'Pareja', 'Tractora', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
@@ -68,7 +69,8 @@ function previsualizarGestoria() {
   const formato = document.getElementById('inf-gest-formato').value;
   const desde   = document.getElementById('inf-gest-desde').value;
   const hasta   = document.getElementById('inf-gest-hasta').value;
-  const regs    = filtrarRegistros(desde, hasta, plat, '');
+  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
+  const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
@@ -203,7 +205,8 @@ function previsualizarRRHH() {
   const formato = document.getElementById('inf-rrhh-formato').value;
   const desde   = document.getElementById('inf-rrhh-desde').value;
   const hasta   = document.getElementById('inf-rrhh-hasta').value;
-  const regs    = filtrarRegistros(desde, hasta, plat, '');
+  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
+  const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
