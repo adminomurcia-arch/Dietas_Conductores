@@ -396,12 +396,22 @@ function descargarCSV(csv, nombre) {
 function descargarXLSX(headers, filas, nombre) {
   // Usar SheetJS si está disponible, si no, fallback a CSV
   if (typeof XLSX !== 'undefined') {
-    const data = [headers, ...filas.map(f => headers.map(h => f[h] ?? ''))];
-    const ws   = XLSX.utils.aoa_to_sheet(data);
-    // Estilo de cabecera (solo disponible en versión pro, pero el ancho sí)
+    // Columnas que deben exportarse como texto aunque parezcan números
+    const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA']);
+
+    const data = [headers, ...filas.map(f => headers.map(h => {
+      const v = f[h] ?? '';
+      // Forzar texto en columnas de código para preservar los ceros iniciales
+      return TEXT_COLS.has(h) ? { t: 's', v: String(v) } : v;
+    }))];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Ancho de columnas
     const colWidths = headers.map(h => ({ wch: Math.max(h.length + 2, 12) }));
     ws['!cols'] = colWidths;
-    const wb   = XLSX.utils.book_new();
+
+    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Informe');
     XLSX.writeFile(wb, nombre);
   } else {
