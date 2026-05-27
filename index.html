@@ -443,8 +443,11 @@
         <h3>Conductor</h3>
         <p>Detalle individual o masivo</p>
         <div class="field">
-          <label>Código (vacío = todos)</label>
-          <input type="text" id="inf-cod-conductor" placeholder="Ej: 10001">
+          <label>Código o nombre (vacío = todos)</label>
+          <input type="text" id="inf-cod-conductor" placeholder="Ej: 10001 o García…"
+                 list="inf-conductores-list" oninput="infFiltrarConductor(this)"
+                 autocomplete="off">
+          <datalist id="inf-conductores-list"></datalist>
         </div>
         <div class="field">
           <label>Plataforma</label>
