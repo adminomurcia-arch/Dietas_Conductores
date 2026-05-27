@@ -643,7 +643,9 @@
     <div id="liq-gastos" class="liq-content" style="display:none">
       <div class="liq-toolbar">
         <div class="liq-filtros">
-          <input type="text" id="liq-g-conductor" placeholder="Código conductor">
+          <input type="text" id="liq-g-conductor" placeholder="Código o nombre…"
+                 list="liq-g-conductores-list" autocomplete="off">
+          <datalist id="liq-g-conductores-list"></datalist>
           <input type="date" id="liq-g-desde"><span>—</span><input type="date" id="liq-g-hasta">
           <select id="liq-g-estado">
             <option value="pendiente">Pendientes</option>
@@ -664,7 +666,7 @@
           <thead><tr>
             <th><input type="checkbox" id="chk-g-todos" onchange="liqGastosToggleTodos()"></th>
             <th>Conductor</th><th>IBAN</th><th>Período</th>
-            <th>Total Gastos</th><th>Estado</th><th>Acciones</th>
+            <th>Concepto</th><th>Total Gastos</th><th>Estado</th><th>Acciones</th>
           </tr></thead>
           <tbody id="tbody-liq-gastos"></tbody>
         </table>
