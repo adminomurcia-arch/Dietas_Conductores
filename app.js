@@ -736,8 +736,8 @@ function poblarInfConductoresDatalist() {
   const dl = document.getElementById('inf-conductores-list');
   if (!dl) return;
   dl.innerHTML = getConductores()
-    .sort((a,b) => String(a.COD).localeCompare(String(b.COD)))
-    .map(c => `<option value="${String(c.COD).padStart(6,'0')}">${String(c.COD).padStart(6,'0')} — ${c.Nombre}</option>`)
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
     .join('');
 }
 
