@@ -13,7 +13,11 @@ function filtrarRegistros(desde, hasta, plataforma, conductorCod) {
   if (desde)        regs = regs.filter(r => r.fechaSalida >= desde);
   if (hasta)        regs = regs.filter(r => r.fechaSalida <= hasta);
   if (plataforma)   regs = regs.filter(r => r.plataforma === plataforma);
-  if (conductorCod) regs = regs.filter(r => String(r.codigoConductor) === String(conductorCod));
+  if (conductorCod) regs = regs.filter(r => {
+    const a = String(r.codigoConductor).replace(/^0+/,'');
+    const b = String(conductorCod).replace(/^0+/,'');
+    return a === b;
+  });
   return regs;
 }
 
@@ -25,7 +29,7 @@ function fmt2(n) { return parseFloat(n || 0).toLocaleString('es-ES', { minimumFr
 function previsualizarConductor() {
   const rawCod = document.getElementById('inf-cod-conductor').value.trim();
   // Si el usuario seleccionó del datalist puede venir "10042 — García, Juan" — extraer solo el código
-  const match  = rawCod.match(/^(\d{5,6})/);
+  const match  = rawCod.match(/^(\d+)/);
   const cod    = match ? match[1] : rawCod;
   const desde = document.getElementById('inf-desde').value;
   const hasta = document.getElementById('inf-hasta').value;
@@ -216,7 +220,7 @@ function previsualizarRRHH() {
 
   if (formato === 'detallado') {
     headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
-               'DÍAS','RESTO_HORAS','KM','COEF_NAC','DOM_FEST',
+               'DÍAS','RESTO_HORAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','COEF_NAC','DOM_FEST',
                'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','NACIONAL',
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
                'SUM_DIETAS','H_EXTRA','H_PRESEN','NOCTURNO',
@@ -232,7 +236,8 @@ function previsualizarRRHH() {
       'EQUIPAJE': cr.EQUIPAJE || '—', 'PAREJA': cr.PAREJA || '—',
       'TRACTORA': r.tractora || cr.tractoraAsignada || '',
       'SALIDA': r.fechaSalida, 'LLEGADA': r.fechaLlegada,
-      'DÍAS': r.diasTrabajados, 'RESTO_HORAS': r.restoHoras || 0, 'KM': r.totalKm,
+      'DÍAS': r.diasTrabajados, 'RESTO_HORAS': r.restoHoras || 0,
+      'KM_SALIDA': r.kmSalida || 0, 'KM_VUELTA': r.kmVuelta || 0, 'KM_TOTAL': r.totalKm || 0,
       'COEF_NAC': r.coefNacional, 'DOM_FEST': (r.nDomingos||0) + (r.nFestivos||0),
       'CARGA': r.nCarga, 'PALET': r.nPalet, 'REBOTE': r.nRebote,
       '24H': r.n24h, 'PAUSA': r.nPausa, 'UK': r.nUK, 'NDLF': r.nNDLF, 'NACIONAL': r.nNacional,
@@ -247,7 +252,7 @@ function previsualizarRRHH() {
       'DIETAS_CAU': fmt2(r.resultado?.DIETAS),
     };});
   } else {
-    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM','TOTAL'];
+    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
     const condsRs = getConductores();
     const getCondRs = cod => condsRs.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
     filas = regs.map(r => {
@@ -258,7 +263,9 @@ function previsualizarRRHH() {
         'EQUIPAJE': crs.EQUIPAJE || '—', 'PAREJA': crs.PAREJA || '—',
         'TRACTORA': r.tractora || crs.tractoraAsignada || '—',
         'SALIDA': r.fechaSalida, 'LLEGADA': r.fechaLlegada,
-        'DÍAS': r.diasTrabajados, 'KM': r.totalKm,
+        'DÍAS': r.diasTrabajados,
+        'KM_SALIDA': r.kmSalida || 0, 'KM_VUELTA': r.kmVuelta || 0, 'KM_TOTAL': r.totalKm || 0,
+        'GASTOS_VIAJE': fmt2(r.gastosViaje),
         'TOTAL': fmt2(r.resultado?.sumDietas || r.resultado?.TOTAL),
       };
     });
