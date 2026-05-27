@@ -315,6 +315,8 @@ async function guardarRegistro() {
   if (!sinKmVal) {
     if (!fs) { showToast('La fecha de salida es obligatoria', 'error'); document.getElementById('fechaSalida').focus(); return; }
     if (!fl) { showToast('La fecha de llegada es obligatoria', 'error'); document.getElementById('fechaLlegada').focus(); return; }
+    // [2] Fecha llegada no puede ser anterior a fecha salida
+    if (fl < fs) { showToast('La fecha de llegada no puede ser anterior a la de salida', 'error'); document.getElementById('fechaLlegada').focus(); return; }
   }
 
   // Validar km obligatorios (salvo COMODÍN/PESCADO)
@@ -323,22 +325,31 @@ async function guardarRegistro() {
     const kmV = parseKm(document.getElementById('kmVuelta').value);
     if (!kmS) { showToast('El Km de salida es obligatorio', 'error'); document.getElementById('kmSalida').focus(); return; }
     if (!kmV) { showToast('El Km de vuelta es obligatorio', 'error'); document.getElementById('kmVuelta').focus(); return; }
+    // [2] Km vuelta no puede ser menor que km salida del mismo registro
+    if (kmV < kmS) { showToast('El Km de vuelta no puede ser menor que el Km de salida', 'error'); document.getElementById('kmVuelta').focus(); return; }
   }
 
+  // [3] coefNacional no puede ser mayor que diasTrabajados
+  const diasTrab   = parseFloat(document.getElementById('diasTrabajados').value) || 0;
+  const coefNacEl  = document.getElementById('coefNacional');
+  const coefNacVal = parseFloat(coefNacEl.value) || 0;
+  if (coefNacVal > diasTrab && diasTrab > 0) {
+    coefNacEl.value = diasTrab;
+    showToast(`⚠️ Días conduciendo en España ajustado a ${diasTrab} (no puede superar los días trabajados)`, '');
+  }
 
   // Validar solapamiento de fechas con otros registros del mismo conductor
+  // [1] Permitir mismo día: solapamiento real excluye el caso fs=fl con registro anterior de fl=fs
   const codCond = document.getElementById('codConductor').value.trim();
   const registrosCond = getRegistros().filter(r =>
     r.codigoConductor === codCond && r.id !== editId
   );
-  const solapado = registrosCond.find(r => {
-    return fs <= r.fechaLlegada && fl >= r.fechaSalida;
-  });
+  const solapado = registrosCond.find(r => fs < r.fechaLlegada && fl > r.fechaSalida);
   if (solapado && !sinKmVal) {
     if (!confirm(`⚠️ Las fechas se solapan con un registro existente (${solapado.fechaSalida} → ${solapado.fechaLlegada}). ¿Continuar igualmente?`)) return;
   }
 
-  // Validar km salida ≥ km vuelta del registro anterior de la misma tractora
+  // [4] Km salida ≥ km vuelta del registro anterior de la misma tractora — aviso pero no bloquea
   const tractoraSel = document.getElementById('tractora').value;
   if (tractoraSel && !sinKmVal) {
     const kmSActual = parseKm(document.getElementById('kmSalida').value);
@@ -348,9 +359,7 @@ async function guardarRegistro() {
     if (registrosTractora.length) {
       const ultimo = registrosTractora[0];
       if (ultimo.kmVuelta && kmSActual && kmSActual < ultimo.kmVuelta) {
-        showToast(`⚠️ Km salida (${kmSActual.toLocaleString('es-ES')}) menor que km vuelta del registro anterior de esta tractora (${Number(ultimo.kmVuelta).toLocaleString('es-ES')})`, 'error');
-        document.getElementById('kmSalida').focus();
-        return;
+        if (!confirm(`⚠️ Km salida (${kmSActual.toLocaleString('es-ES')}) menor que km vuelta del registro anterior de esta tractora (${Number(ultimo.kmVuelta).toLocaleString('es-ES')}). ¿Continuar igualmente?`)) return;
       }
     }
   }
@@ -421,6 +430,11 @@ async function guardarRegistro() {
       datosRegistro.creadoPor   = regOriginal.creadoPor   || 'admin';
       datosRegistro.creadoEn    = regOriginal.creadoEn    || regOriginal.fechaCreacion || ahora;
       datosRegistro.estadoDietas = regOriginal.estadoDietas;
+    // Si el admin marcó "Aprobar al guardar", pasar a pendiente
+    const chkAprobar = document.getElementById('chk-aprobar');
+    if (chkAprobar && chkAprobar.closest('#chk-aprobar-wrap')?.style.display !== 'none' && chkAprobar.checked) {
+      datosRegistro.estadoDietas = 'pendiente';
+    }
       datosRegistro.estadoGastos = regOriginal.estadoGastos;
       datosRegistro.esDuplicado  = regOriginal.esDuplicado || false;
       datosRegistro.registroPareja = regOriginal.registroPareja || '';
@@ -590,6 +604,8 @@ function limpiarFormulario() {
   delete document.getElementById('formRegistro').dataset.editId;
   document.getElementById('btn-guardar').textContent = '💾 Guardar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'none';
+  const chkWrap = document.getElementById('chk-aprobar-wrap');
+  if (chkWrap) chkWrap.style.display = 'none';
 }
 
 function cancelarEdicion() {
@@ -639,68 +655,79 @@ function renderHistorial() {
     return;
   }
 
-  // Contar pendientes de validación para aviso
-  const nPendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion').length;
-  let html = '';
-  if (nPendVal > 0) {
-    html += `<div style="margin:8px;padding:8px 12px;background:#fce7f3;border-radius:6px;
-             font-size:12px;color:#9d174d;font-weight:500">
-      📱 ${nPendVal} registro(s) pendiente(s) de validación
-    </div>`;
-  }
+  // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
+  const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
+    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
+  const resto   = regs.filter(r => r.estadoDietas !== 'pendiente_validacion')
+    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
+  const ordenados = [...pendVal, ...resto];
 
-  html += regs.map(r => {
-    const total = r.plataforma === 'CAUDETE'
-      ? `${(r.resultado?.TOTAL || 0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`
-      : `${(r.resultado?.sumDietas || 0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
-    const edDietas = r.estadoDietas || 'pendiente';
-    const edGastos = r.estadoGastos || 'pendiente';
-    const esPendVal = edDietas === 'pendiente_validacion';
-    // Distintivo origen
-    const origenBadge = r.origenMovil
-      ? `<span style="font-size:10px;background:#fce7f3;color:#9d174d;padding:1px 6px;
-           border-radius:10px;font-weight:600">📱 Móvil</span>`
-      : `<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 6px;
-           border-radius:10px;font-weight:600">🖥️ PC</span>`;
+  const fmt2 = v => v != null ? Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : '—';
 
-    const dobleBadge = (r.equipaje === 'DOBLE' && r.registroPareja)
-      ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;
-           border-radius:10px;font-weight:600;cursor:pointer"
-           onclick="editarRegistro('${r.registroPareja}')">👥 DOBLE</span>`
-      : '';
+  let html = `<table class="hist-tabla">
+    <thead><tr>
+      <th>Conductor</th>
+      <th>Plat.</th>
+      <th>Período</th>
+      <th>Días</th>
+      <th>Km</th>
+      <th>Total</th>
+      <th>Estado</th>
+      <th>Acciones</th>
+    </tr></thead>
+    <tbody>`;
 
-    return `<div class="hist-item${esPendVal ? ' hist-item-pendval' : ''}">
-      <div class="hist-nombre">${r.nombreConductor}
-        <span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span>
-        ${origenBadge}
-        ${dobleBadge}
-      </div>
-      <div class="hist-meta"><strong>${r.codigoConductor}</strong> · ${r.fechaSalida} → ${r.fechaLlegada} · ${r.diasTrabajados} días</div>
-      <div class="hist-meta" style="font-family:monospace;font-size:11px;color:#6b7566">
-        ${r.kmSalida ? 'Sal: ' + Number(r.kmSalida).toLocaleString('es-ES') : ''}
-        ${r.kmVuelta ? ' · Vuel: ' + Number(r.kmVuelta).toLocaleString('es-ES') : ''}
-        ${r.totalKm  ? ' · Total: ' + Number(r.totalKm).toLocaleString('es-ES') + ' km' : ''}
-      </div>
-      ${esPendVal
-        ? `<div class="hist-meta" style="color:#9d174d;font-weight:500;margin-top:3px">⏳ Pendiente de validación</div>`
-        : `<div class="hist-meta" style="margin-top:3px;font-weight:500;color:#4a7c59">${total}</div>`
-      }
-      <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
-        <span class="estado-badge estado-${edDietas}" style="cursor:pointer"
+  html += ordenados.map(r => {
+    const total      = r.plataforma === 'CAUDETE'
+      ? fmt2(r.resultado?.TOTAL)
+      : fmt2(r.resultado?.sumDietas);
+    const edDietas   = r.estadoDietas || 'pendiente';
+    const edGastos   = r.estadoGastos || 'pendiente';
+    const esPendVal  = edDietas === 'pendiente_validacion';
+    const origenIcon = r.origenMovil ? '📱' : '🖥️';
+    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : '';
+
+    return `<tr style="${rowStyle}">
+      <td>
+        <span style="font-weight:600">${r.nombreConductor}</span>
+        <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
+        ${r.equipaje==='DOBLE' && r.registroPareja
+          ? `<span style="font-size:10px;color:#92400e;cursor:pointer" onclick="editarRegistro('${r.registroPareja}')"> 👥</span>` : ''}
+        <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
+      </td>
+      <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
+      <td style="text-align:center">${r.diasTrabajados || '—'}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.totalKm ? Number(r.totalKm).toLocaleString('es-ES') + ' km' : '—'}</td>
+      <td style="font-weight:600;white-space:nowrap;color:${esPendVal?'#9d174d':'#4a7c59'}">
+        ${esPendVal ? '⏳ Pendiente' : total}
+      </td>
+      <td>
+        <span class="estado-badge estado-${edDietas}" style="cursor:pointer;display:block;margin-bottom:2px"
           onclick="abrirModalEstado('${r.id}','dietas','${edDietas}')">💰 ${edDietas}</span>
-        <span class="estado-badge estado-${edGastos}" style="cursor:pointer"
+        <span class="estado-badge estado-${edGastos}" style="cursor:pointer;display:block"
           onclick="abrirModalEstado('${r.id}','gastos','${edGastos}')">🧾 ${edGastos}</span>
-      </div>
-      <div style="display:flex;gap:4px;margin-top:6px">
-        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px"
+      </td>
+      <td style="white-space:nowrap">
+        ${esPendVal ? `<button class="btn btn-primary" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
+          onclick="editarRegistro('${r.id}')">✅ Validar y editar</button>` : ''}
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
           onclick="editarRegistro('${r.id}')">✏️ Editar</button>
-        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:#c0392b"
-          onclick="borrarRegistro('${r.id}')">🗑️</button>
-      </div>
-    </div>`;
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:#c0392b;display:block;width:100%"
+          onclick="borrarRegistro('${r.id}')">🗑️ Borrar</button>
+      </td>
+    </tr>`;
   }).join('');
 
+  html += '</tbody></table>';
   lista.innerHTML = html;
+}
+
+async function validarDesdeHistorial(id) {
+  if (!confirm('¿Aprobar este registro del móvil?')) return;
+  await setEstadoDietas(id, 'pendiente');
+  showToast('Registro aprobado ✓', 'success');
+  renderHistorial();
 }
 
 // ---- TABLAS BASE DE DATOS ----
@@ -999,6 +1026,23 @@ async function editarRegistro(id) {
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
 
+  // Mostrar/ocultar opción de aprobar si viene del móvil pendiente de validación
+  let checkAprobar = document.getElementById('chk-aprobar-wrap');
+  if (!checkAprobar) {
+    checkAprobar = document.createElement('div');
+    checkAprobar.id = 'chk-aprobar-wrap';
+    checkAprobar.style.cssText = 'display:none;align-items:center;gap:8px;margin-top:8px;padding:10px 14px;background:#f0fdf4;border:1.5px solid #4a7c59;border-radius:8px';
+    checkAprobar.innerHTML = `
+      <input type="checkbox" id="chk-aprobar" checked style="width:16px;height:16px;accent-color:#4a7c59">
+      <label for="chk-aprobar" style="font-size:13px;font-weight:500;color:#2d6a4f;cursor:pointer">
+        ✅ Aprobar registro al guardar (viene del móvil pendiente de validación)
+      </label>`;
+    document.getElementById('btn-guardar').parentElement.insertBefore(
+      checkAprobar, document.getElementById('btn-guardar')
+    );
+  }
+  checkAprobar.style.display = r.estadoDietas === 'pendiente_validacion' ? 'flex' : 'none';
+
   // Navegar al formulario
   if (!document.getElementById('sidebar').classList.contains('closed')) toggleSidebar();
   document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
@@ -1007,15 +1051,29 @@ async function editarRegistro(id) {
   setTimeout(() => {
     calcularTiempos();
 
-    // Reconstruir operaciones
+    // Reconstruir operaciones con detalle si viene del móvil
     ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
       document.getElementById(`lista-${tipo}`).innerHTML = '');
-    const tipoMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
-                      n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
-                      nUK:'uk', nNDLF:'ndlf' };
-    Object.entries(tipoMap).forEach(([campo, tipo]) => {
+    const opMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                    n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                    nUK:'uk', nNDLF:'ndlf' };
+    const opDetalleMap = { carga:'opCarga', palet:'opPalet', rebote:'opRebote',
+                           '24horas':'op24h', pausa:'opPausa', nacional:'opNacional',
+                           uk:'opUK', ndlf:'opNDLF' };
+    Object.entries(opMap).forEach(([campo, tipo]) => {
       const n = r[campo] || 0;
-      for (let i = 0; i < n; i++) addOperacion(tipo);
+      const detalles = r[opDetalleMap[tipo]] || [];
+      for (let i = 0; i < n; i++) {
+        addOperacion(tipo);
+        const lista = document.getElementById(`lista-${tipo}`);
+        const rows  = lista.querySelectorAll('.operacion-row');
+        const row   = rows[rows.length - 1];
+        if (row && detalles[i]) {
+          const inputs = row.querySelectorAll('input');
+          if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
+          if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+        }
+      }
     });
 
     // Rellenar campos del modo Resumido
