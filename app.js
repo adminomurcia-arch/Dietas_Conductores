@@ -670,8 +670,7 @@ function renderHistorial() {
       <th>Conductor</th>
       <th>Plat.</th>
       <th>Período</th>
-      <th>Km Sal.</th>
-      <th>Km Lle.</th>
+      <th>Km Sal./Lle.</th>
       <th>Días</th>
       <th>Km Tot.</th>
       <th>Total</th>
@@ -700,8 +699,7 @@ function renderHistorial() {
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
-      <td style="font-size:11px;white-space:nowrap;text-align:right">${r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') : '—'}</td>
-      <td style="font-size:11px;white-space:nowrap;text-align:right">${r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') : '—'}</td>
+      <td style="font-size:12px;white-space:nowrap;text-align:right">${r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') : '—'}<br>${r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') : '—'}</td>
       <td style="text-align:center">${r.diasTrabajados || '—'}</td>
       <td style="font-size:11px;white-space:nowrap;text-align:right">${r.totalKm ? Number(r.totalKm).toLocaleString('es-ES') + ' km' : '—'}</td>
       <td style="font-weight:600;white-space:nowrap;color:${esPendVal?'#9d174d':'#4a7c59'}">
