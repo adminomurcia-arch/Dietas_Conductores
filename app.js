@@ -18,6 +18,7 @@ window.addEventListener('beforeunload', e => {
 window._appReady = function() {
   renderTablas();
   renderHistorial();
+  poblarInfConductoresDatalist();
   poblarSelectTractoras();
   setModo('detallado');
   fijarLimiteFechas();
@@ -731,6 +732,22 @@ async function validarDesdeHistorial(id) {
 }
 
 // ---- TABLAS BASE DE DATOS ----
+function poblarInfConductoresDatalist() {
+  const dl = document.getElementById('inf-conductores-list');
+  if (!dl) return;
+  dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.COD).localeCompare(String(b.COD)))
+    .map(c => `<option value="${String(c.COD).padStart(6,'0')}">${String(c.COD).padStart(6,'0')} — ${c.Nombre}</option>`)
+    .join('');
+}
+
+function infFiltrarConductor(input) {
+  // Si el usuario seleccionó una opción del datalist, extraer solo el código
+  const val = input.value;
+  const match = val.match(/^(\d{5,6})/);
+  if (match) input.value = match[1];
+}
+
 function renderTablas() {
   // Conductores
   document.getElementById('tbody-conductores').innerHTML =
