@@ -280,7 +280,34 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
 
 .lista-historial { flex: 1; overflow-y: auto; padding: 8px; }
 
-.hist-item {
+.hist-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.hist-tabla thead th {
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.hist-tabla tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.hist-tabla tbody tr:hover { background: var(--calc-bg); }
+.hist-tabla tbody td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.hist-item { display: none; } /* ocultar estilo antiguo si queda */
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
