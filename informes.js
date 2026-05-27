@@ -23,7 +23,10 @@ function fmt2(n) { return parseFloat(n || 0).toLocaleString('es-ES', { minimumFr
 // PREVISUALIZACIÓN — Conductor
 // ============================================================
 function previsualizarConductor() {
-  const cod   = document.getElementById('inf-cod-conductor').value.trim();
+  const rawCod = document.getElementById('inf-cod-conductor').value.trim();
+  // Si el usuario seleccionó del datalist puede venir "10042 — García, Juan" — extraer solo el código
+  const match  = rawCod.match(/^(\d{5,6})/);
+  const cod    = match ? match[1] : rawCod;
   const desde = document.getElementById('inf-desde').value;
   const hasta = document.getElementById('inf-hasta').value;
   const regsRaw = filtrarRegistros(desde, hasta, '', cod);
