@@ -1267,7 +1267,16 @@ async function liqDietasLiquidar() {
 }
 
 function cargarLiqGastos() {
-  const cod    = document.getElementById('liq-g-conductor').value.trim();
+  // Popular datalist
+  const dl = document.getElementById('liq-g-conductores-list');
+  if (dl) dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
+    .join('');
+
+  const rawCod = document.getElementById('liq-g-conductor').value.trim();
+  const match  = rawCod.match(/^(\d{5,6})/);
+  const cod    = match ? match[1] : rawCod;
   const desde  = document.getElementById('liq-g-desde').value;
   const hasta  = document.getElementById('liq-g-hasta').value;
   const estado = document.getElementById('liq-g-estado').value;
@@ -1281,11 +1290,20 @@ function cargarLiqGastos() {
   if (desde) regs = regs.filter(r => r.fechaSalida >= desde);
   if (hasta) regs = regs.filter(r => r.fechaSalida <= hasta);
 
+  // Ordenar por código
+  regs.sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+
   const conductores = getConductores();
   const tbody = document.getElementById('tbody-liq-gastos');
   tbody.innerHTML = regs.map(r => {
     const c     = conductores.find(x => String(x.Codigo) === String(r.codigoConductor));
     const total = r.gastosDetalle?.reduce((s,g) => s + g.importe, 0) || r.gastosViaje || 0;
+    // Concepto: lista de conceptos únicos del detalle
+    const conceptos = r.gastosDetalle?.length
+      ? [...new Set(r.gastosDetalle.map(g => g.concepto || g.tipo || ''))].filter(Boolean).join(', ')
+      : (r.detalleGastos?.length
+        ? [...new Set(r.detalleGastos.map(g => g.tipo || ''))].filter(Boolean).join(', ')
+        : '—');
     return `<tr>
       <td><input type="checkbox" class="chk-liq-g" data-id="${r.id}"
           data-total="${total}" data-iban="${c?.IBAN||''}"
@@ -1294,11 +1312,15 @@ function cargarLiqGastos() {
       <td>${r.nombreConductor}<br><small>${r.codigoConductor}</small></td>
       <td style="font-size:11px;font-family:monospace">${c?.IBAN||'—'}</td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td style="font-size:11px;color:#555">${conceptos}</td>
       <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge estado-${r.estadoGastos||'pendiente'}">${r.estadoGastos||'pendiente'}</span></td>
-      <td><button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')">✏️</button></td>
+      <td>
+        <button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')">✏️</button>
+        <button class="btn-icon" onclick="editarRegistro('${r.id}')" title="Editar registro">📋</button>
+      </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
 
   actualizarTotalLiqGastos();
 }
