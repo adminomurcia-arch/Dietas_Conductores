@@ -72,6 +72,7 @@ function previsualizarConductor() {
 // PREVISUALIZACIÓN — Gestoría
 // ============================================================
 function previsualizarGestoria() {
+  try {
   const plat    = document.getElementById('inf-plataforma-gestoria').value;
   const formato = document.getElementById('inf-gest-formato').value;
   const desde   = document.getElementById('inf-gest-desde').value;
@@ -202,18 +203,23 @@ function previsualizarGestoria() {
   const titulo = `Gestoria_${plat}_${formato}`;
   _informe = { tipo: 'gestoria', datos: regs, headers, filas, titulo };
   mostrarPreview(headers, filas, `Gestoría — ${plat} (${formato})`);
+  } catch(err) { showToast('Error: ' + err.message, 'error'); console.error(err); }
 }
 
 // ============================================================
 // PREVISUALIZACIÓN — RRHH
 // ============================================================
 function previsualizarRRHH() {
-  const plat    = document.getElementById('inf-rrhh-plataforma').value;
-  const formato = document.getElementById('inf-rrhh-formato').value;
-  const desde   = document.getElementById('inf-rrhh-desde').value;
-  const hasta   = document.getElementById('inf-rrhh-hasta').value;
-  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
-  const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+  const plat     = document.getElementById('inf-rrhh-plataforma').value;
+  const formato  = document.getElementById('inf-rrhh-formato').value;
+  const equipaje = document.getElementById('inf-rrhh-equipaje').value;
+  const estado   = document.getElementById('inf-rrhh-estado').value;
+  const desde    = document.getElementById('inf-rrhh-desde').value;
+  const hasta    = document.getElementById('inf-rrhh-hasta').value;
+  let regsRaw    = filtrarRegistros(desde, hasta, plat, '');
+  if (equipaje) regsRaw = regsRaw.filter(r => r.equipaje === equipaje);
+  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  const regs = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
