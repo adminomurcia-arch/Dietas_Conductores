@@ -457,20 +457,18 @@ async function guardarRegistro() {
         });
         const datosPareja = {
           ...datosRegistro,
-          codigoConductor: regPareja.codigoConductor,
-          nombreConductor: regPareja.nombreConductor,
-          tractora:        regPareja.tractora        || datosRegistro.tractora,
-          equipaje:        regPareja.equipaje        || datosRegistro.equipaje,
-          pareja:          regPareja.pareja          || datosRegistro.pareja,
-          registroPareja:  editId,
-          modificadoPor:   'admin',
+          codigoConductor:   regPareja.codigoConductor,
+          nombreConductor:   regPareja.nombreConductor,
+          tractora:          regPareja.tractora          || datosRegistro.tractora,
+          equipaje:          regPareja.equipaje          || datosRegistro.equipaje,
+          pareja:            regPareja.pareja,
+          registroPareja:    editId,
+          modificadoPor:     'admin',
           fechaModificacion: ahora,
-          // NO sobreescribir gastos propios de la pareja
-          gastosViaje:   regPareja.gastosViaje   ?? 0,
-          gastosDetalle: regPareja.gastosDetalle ?? [],
-          anticipos:     regPareja.anticipos     ?? 0,
-          // Usar resultado recalculado con PrecioKmt de la pareja
-          resultado:     resultadoParejaEdit,
+          gastosViaje:       regPareja.gastosViaje   ?? 0,
+          gastosDetalle:     regPareja.gastosDetalle ?? [],
+          anticipos:         regPareja.anticipos     ?? 0,
+          resultado:         resultadoParejaEdit,
         };
         await updateRegistro(idPareja, datosPareja);
         showToast('Registro de pareja actualizado también ✓', 'success');
