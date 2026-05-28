@@ -210,6 +210,7 @@ function previsualizarGestoria() {
 // PREVISUALIZACIÓN — RRHH
 // ============================================================
 function previsualizarRRHH() {
+  try {
   const plat     = document.getElementById('inf-rrhh-plataforma').value;
   const formato  = document.getElementById('inf-rrhh-formato').value;
   const equipaje = document.getElementById('inf-rrhh-equipaje').value;
@@ -280,6 +281,7 @@ function previsualizarRRHH() {
   const titulo = `RRHH_${plat || 'Todas'}_${formato}`;
   _informe = { tipo: 'rrhh', datos: regs, headers, filas, titulo };
   mostrarPreview(headers, filas, `RRHH — ${plat || 'Todas'} (${formato})`);
+  } catch(err) { showToast('Error RRHH: ' + err.message, 'error'); console.error(err); }
 }
 
 // ============================================================
