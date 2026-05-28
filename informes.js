@@ -210,7 +210,6 @@ function previsualizarGestoria() {
 // PREVISUALIZACIÓN — RRHH
 // ============================================================
 function previsualizarRRHH() {
-  try {
   const plat     = document.getElementById('inf-rrhh-plataforma').value;
   const formato  = document.getElementById('inf-rrhh-formato').value;
   const equipaje = document.getElementById('inf-rrhh-equipaje').value;
@@ -281,7 +280,6 @@ function previsualizarRRHH() {
   const titulo = `RRHH_${plat || 'Todas'}_${formato}`;
   _informe = { tipo: 'rrhh', datos: regs, headers, filas, titulo };
   mostrarPreview(headers, filas, `RRHH — ${plat || 'Todas'} (${formato})`);
-  } catch(err) { showToast('Error RRHH: ' + err.message, 'error'); console.error(err); }
 }
 
 // ============================================================
@@ -332,7 +330,7 @@ function accionInformeEmail() {
       if (!c || !c.Email) return;
       const asunto = encodeURIComponent(`Liquidación de dietas — ${c.Nombre}`);
       const cuerpo = encodeURIComponent(generarCuerpoEmail(c, registros));
-      window.open(`mailto:${c.Email}?subject=${asunto}&body=${cuerpo}`, '_blank');
+      window.location.href = `mailto:${c.Email}?subject=${asunto}&body=${cuerpo}`;
       enviados++;
     });
     if (enviados === 0) showToast('Ningún conductor tiene email registrado', 'error');
@@ -357,8 +355,9 @@ function abrirVentanaImpresion(esPDF) {
   const win = window.open('', '_blank');
   win.document.write(htmlParaImprimir(_informe.titulo, _informe.headers, _informe.filas));
   win.document.close();
-  if (esPDF) showToast('Usa "Guardar como PDF" en el diálogo de impresión', '');
-  else win.onload = () => win.print();
+  // Tanto PDF como impresión lanzan el diálogo — en PDF el usuario elige "Guardar como PDF"
+  win.addEventListener('load', () => win.print());
+  setTimeout(() => { try { win.print(); } catch(e){} }, 800);
 }
 
 function accionInformeExcel() {
@@ -550,6 +549,21 @@ function cargarExcel(event) {
 // ============================================================
 // MODAL EMAIL MANUAL (Gestoría / RRHH)
 // ============================================================
+function copiarCuerpoEmail() {
+  const asunto = document.getElementById('email-asunto').value.trim() || `Informe ${_informe.titulo}`;
+  const nota   = document.getElementById('email-nota').value.trim();
+  let cuerpo   = nota ? nota + '\n\n' : '';
+  cuerpo += `${asunto}\nGenerado: ${new Date().toLocaleString('es-ES')}\nRegistros: ${_informe.filas.length}\n\n`;
+  cuerpo += _informe.headers.join(' | ') + '\n' + '─'.repeat(60) + '\n';
+  _informe.filas.forEach(f => {
+    cuerpo += _informe.headers.map(h => f[h] ?? '').join(' | ') + '\n';
+  });
+  cuerpo += '\n\nUn saludo,\nDpto. de Administración';
+  navigator.clipboard.writeText(cuerpo)
+    .then(() => showToast('Cuerpo copiado al portapapeles ✓', 'success'))
+    .catch(() => showToast('No se pudo copiar al portapapeles', 'error'));
+}
+
 function cerrarModalEmail() {
   document.getElementById('modal-email').style.display = 'none';
 }
@@ -583,7 +597,8 @@ function enviarEmailManual() {
     + `?subject=${encodeURIComponent(asunto)}`
     + `&body=${encodeURIComponent(cuerpo)}`;
 
-  window.open(href, '_blank');
+  // location.href respeta mejor el cliente predeterminado que window.open
+  window.location.href = href;
   cerrarModalEmail();
-  showToast('Email preparado en Outlook ✓', 'success');
+  showToast('Abriendo cliente de correo… Si no se abre, usa "Copiar cuerpo" ✓', 'success');
 }
