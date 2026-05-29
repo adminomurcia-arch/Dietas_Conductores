@@ -807,15 +807,12 @@ function poblarInfConductoresDatalist() {
   if (!dl) return;
   dl.innerHTML = getConductores()
     .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
-    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
+    .map(c => `<option value="${c.Codigo} — ${c.Nombre}"></option>`)
     .join('');
 }
 
 function infFiltrarConductor(input) {
-  // Si el usuario seleccionó una opción del datalist, extraer solo el código
-  const val = input.value;
-  const match = val.match(/^(\d{5,6})/);
-  if (match) input.value = match[1];
+  // No hacer nada en oninput — la extracción se hace al previsualizar
 }
 
 function renderTablas() {
