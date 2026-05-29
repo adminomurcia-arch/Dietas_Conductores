@@ -317,26 +317,72 @@ function accionInformeEmail() {
   if (!_informe.datos?.length) return;
 
   if (_informe.tipo === 'conductor') {
-    // Conductor: email automático a cada conductor usando su email de la BD
     const conductores = getConductores();
     const porConductor = {};
     _informe.datos.forEach(r => {
       if (!porConductor[r.codigoConductor]) porConductor[r.codigoConductor] = [];
       porConductor[r.codigoConductor].push(r);
     });
-    let enviados = 0;
-    Object.entries(porConductor).forEach(([codigo, registros]) => {
-      const c = conductores.find(x => String(x.Codigo) === String(codigo));
-      if (!c || !c.Email) return;
-      const asunto = encodeURIComponent(`Liquidación de dietas — ${c.Nombre}`);
-      const cuerpo = encodeURIComponent(generarCuerpoEmail(c, registros));
-      window.location.href = `mailto:${c.Email}?subject=${asunto}&body=${cuerpo}`;
-      enviados++;
+
+    const items = Object.entries(porConductor).map(([codigo, registros]) => {
+      const c         = conductores.find(x => String(x.Codigo) === String(codigo));
+      const nombre    = c?.Nombre || registros[0].nombreConductor;
+      const email     = c?.Email  || '';
+      const asunto    = encodeURIComponent(`Liquidación de dietas — ${nombre}`);
+      const cuerpo    = encodeURIComponent(generarCuerpoEmail(c || { Nombre: nombre }, registros));
+      const href      = email ? `mailto:${email}?subject=${asunto}&body=${cuerpo}` : '';
+      const enviado   = registros.every(r => r.emailEnviado);
+      const ids       = registros.map(r => r.id);
+      return { cod: codigo, nombre, email, href, nRegs: registros.length, enviado, ids };
     });
-    if (enviados === 0) showToast('Ningún conductor tiene email registrado', 'error');
-    else showToast(`${enviados} email(s) preparados en Outlook ✓`, 'success');
+
+    window._emailItems = items;
+
+    // Crear modal si no existe
+    let modal = document.getElementById('modal-email-masivo');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-email-masivo';
+      modal.className = 'modal';
+      modal.style.display = 'none';
+      modal.innerHTML = `
+        <div class="modal-box" style="max-width:600px;width:95%">
+          <div class="modal-header">
+            <h3>📧 Envío de liquidaciones</h3>
+            <button onclick="document.getElementById('modal-email-masivo').style.display='none'" class="btn-icon">✕</button>
+          </div>
+          <div id="modal-email-masivo-lista" style="max-height:420px;overflow-y:auto;padding:8px 0"></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="enviarTodosScript()">🚀 Enviar TODOS por Script</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('modal-email-masivo').style.display='none'">Cerrar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+
+    document.getElementById('modal-email-masivo-lista').innerHTML = items.map(item => `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${item.nombre}</div>
+          <div style="font-size:11px;color:#888">
+            ${item.email || '⚠️ Sin email'} · ${item.nRegs} reg.
+            ${item.enviado ? ' · <span style="color:#4a7c59;font-weight:600">✓ Enviado</span>' : ''}
+          </div>
+        </div>
+        ${item.href ? `
+          <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+            onclick="window.location.href=decodeURIComponent('${encodeURIComponent(item.href)}')">📧 Outlook</button>
+          <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+            onclick="enviarUnoScript('${item.cod}')">🚀 Script</button>`
+        : `<span style="font-size:11px;color:#c0392b">Sin email</span>`}
+      </div>`).join('');
+
+    modal.style.display = 'flex';
+    const sinEmail = items.filter(i => !i.email).length;
+    if (sinEmail) showToast(`⚠️ ${sinEmail} conductor(es) sin email`, '');
+
   } else {
-    // Gestoría / RRHH: abrir modal para introducir destinatario manualmente
+    // Gestoría / RRHH: modal con destinatario manual
     const asuntoDefault = _informe.tipo === 'gestoria'
       ? `Informe Gestoría — ${_informe.titulo}`
       : `Informe RRHH — ${_informe.titulo}`;
@@ -344,6 +390,27 @@ function accionInformeEmail() {
     document.getElementById('email-destino').value = '';
     document.getElementById('email-nota').value = '';
     document.getElementById('modal-email').style.display = 'flex';
+  }
+}
+
+// Enviar uno solo por script
+function enviarUnoScript(cod) {
+  const item = (window._emailItems || []).find(i => i.cod === cod);
+  if (!item) return;
+  if (typeof window.enviarLiquidacionesMasivo === 'function') {
+    window.enviarLiquidacionesMasivo({ ids: item.ids });
+    document.getElementById('modal-email-masivo').style.display = 'none';
+  }
+}
+
+// Enviar todos por script
+function enviarTodosScript() {
+  const items = (window._emailItems || []).filter(i => i.email);
+  if (!items.length) { showToast('Ningún conductor con email', 'error'); return; }
+  const ids = items.flatMap(i => i.ids);
+  if (typeof window.enviarLiquidacionesMasivo === 'function') {
+    window.enviarLiquidacionesMasivo({ ids });
+    document.getElementById('modal-email-masivo').style.display = 'none';
   }
 }
 
@@ -355,9 +422,8 @@ function abrirVentanaImpresion(esPDF) {
   const win = window.open('', '_blank');
   win.document.write(htmlParaImprimir(_informe.titulo, _informe.headers, _informe.filas));
   win.document.close();
-  // Tanto PDF como impresión lanzan el diálogo — en PDF el usuario elige "Guardar como PDF"
-  win.addEventListener('load', () => win.print());
-  setTimeout(() => { try { win.print(); } catch(e){} }, 800);
+  if (esPDF) showToast('Usa "Guardar como PDF" en el diálogo de impresión', '');
+  else win.onload = () => win.print();
 }
 
 function accionInformeExcel() {
@@ -549,21 +615,6 @@ function cargarExcel(event) {
 // ============================================================
 // MODAL EMAIL MANUAL (Gestoría / RRHH)
 // ============================================================
-function copiarCuerpoEmail() {
-  const asunto = document.getElementById('email-asunto').value.trim() || `Informe ${_informe.titulo}`;
-  const nota   = document.getElementById('email-nota').value.trim();
-  let cuerpo   = nota ? nota + '\n\n' : '';
-  cuerpo += `${asunto}\nGenerado: ${new Date().toLocaleString('es-ES')}\nRegistros: ${_informe.filas.length}\n\n`;
-  cuerpo += _informe.headers.join(' | ') + '\n' + '─'.repeat(60) + '\n';
-  _informe.filas.forEach(f => {
-    cuerpo += _informe.headers.map(h => f[h] ?? '').join(' | ') + '\n';
-  });
-  cuerpo += '\n\nUn saludo,\nDpto. de Administración';
-  navigator.clipboard.writeText(cuerpo)
-    .then(() => showToast('Cuerpo copiado al portapapeles ✓', 'success'))
-    .catch(() => showToast('No se pudo copiar al portapapeles', 'error'));
-}
-
 function cerrarModalEmail() {
   document.getElementById('modal-email').style.display = 'none';
 }
@@ -597,8 +648,7 @@ function enviarEmailManual() {
     + `?subject=${encodeURIComponent(asunto)}`
     + `&body=${encodeURIComponent(cuerpo)}`;
 
-  // location.href respeta mejor el cliente predeterminado que window.open
-  window.location.href = href;
+  window.open(href, '_blank');
   cerrarModalEmail();
-  showToast('Abriendo cliente de correo… Si no se abre, usa "Copiar cuerpo" ✓', 'success');
+  showToast('Email preparado en Outlook ✓', 'success');
 }
