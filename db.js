@@ -457,6 +457,10 @@ export async function setEstadoGastos(id, estado) {
   await updateRegistro(id, { estadoGastos: estado, fechaPagoGastos: estado === 'pagado' ? new Date().toISOString() : null });
 }
 
+export async function marcarEmailEnviado(id) {
+  await updateRegistro(id, { emailEnviado: true, fechaEmailEnviado: new Date().toISOString() });
+}
+
 export async function liquidarRegistros(ids) {
   await Promise.all(ids.map(id => setEstadoDietas(id, 'liquidado')));
 }
