@@ -713,6 +713,13 @@
             <option value="CAUDETE">CAUDETE</option>
           </select>
           <input type="text" id="liq-h-conductor" placeholder="Código conductor">
+          <select id="liq-h-estado">
+            <option value="">Todos los estados</option>
+            <option value="liquidado">💚 Liquidado</option>
+            <option value="pagado">✅ Pagado</option>
+            <option value="pendiente">🟡 Pendiente</option>
+            <option value="bloqueado">🔒 Bloqueado</option>
+          </select>
           <input type="date" id="liq-h-desde"><span>—</span><input type="date" id="liq-h-hasta">
           <button class="btn btn-ghost" onclick="cargarHistorialLiq()">🔍 Filtrar</button>
           <button class="btn btn-ghost" onclick="exportarHistorialLiq()">📊 Exportar CSV</button>
