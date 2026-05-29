@@ -145,7 +145,18 @@ function autocompletar() {
   // Equipaje: mostrar valor del conductor y ajustar coefNacional por defecto
   const equipaje = c?.EQUIPAJE || '';
   document.getElementById('equipaje').value = equipaje;
-  if (equipaje === 'SIMPLE') {
+  const catUpp = (c?.CATEGORIA || '').toUpperCase();
+  const esSinKmCat = ['COMODIN','PESCADO'].includes(catUpp);
+  if (esSinKmCat) {
+    // COMODÍN/PESCADO: coefNacional = días del mes actual (todo nacional por defecto)
+    const fs = document.getElementById('fechaSalida').value;
+    if (fs) {
+      const [ySal, mSal] = fs.split('-').map(Number);
+      const diasMes = new Date(ySal, mSal, 0).getDate();
+      document.getElementById('coefNacional').value = diasMes;
+      document.getElementById('diasTrabajados').value = diasMes;
+    }
+  } else if (equipaje === 'SIMPLE') {
     document.getElementById('coefNacional').value = 2.7;
   } else if (equipaje === 'DOBLE') {
     document.getElementById('coefNacional').value = 1.30;
@@ -444,30 +455,68 @@ async function guardarRegistro() {
     showToast('Registro actualizado ✓', 'success');
 
     // Si es DOBLE y tiene registro pareja vinculado, ofrecer actualizar el otro
-    const regActual = getRegistros().find(r => r.id === editId);
-    const idPareja  = regActual?.registroPareja;
+    // IMPORTANTE: usar regOriginal (leído antes del update) para obtener registroPareja
+    const idPareja = regOriginal?.registroPareja;
     if (idPareja && datosRegistro.equipaje === 'DOBLE') {
       const regPareja = getRegistros().find(r => r.id === idPareja);
-      if (regPareja && confirm(`¿Aplicar los mismos cambios al registro de ${regPareja.nombreConductor}?`)) {
+      if (regPareja && confirm(`¿Aplicar los mismos cambios operativos al registro de ${regPareja.nombreConductor}?`)) {
         // Recalcular resultado con el PrecioKmt propio de la pareja
         const condParejaBuscar = buscarConductor(regPareja.codigoConductor);
         const resultadoParejaEdit = calcularDietasParaConductor(condParejaBuscar, {
           ...datosRegistro,
-          // Mantener los gastos y anticipos que ya tenía la pareja (no sobreescribir)
+          equipaje: regPareja.equipaje || datosRegistro.equipaje,
         });
+        // Solo propagar campos operativos (fechas, km, operaciones, plataforma, categoria...)
+        // NUNCA propagar: nombreConductor, codigoConductor, gastos, anticipos, tractora propia
         const datosPareja = {
-          ...datosRegistro,
+          // Campos operativos compartidos
+          plataforma:        datosRegistro.plataforma,
+          categoria:         datosRegistro.categoria,
+          fechaSalida:       datosRegistro.fechaSalida,
+          fechaLlegada:      datosRegistro.fechaLlegada,
+          horaSalida:        datosRegistro.horaSalida,
+          horaLlegada:       datosRegistro.horaLlegada,
+          diasTrabajados:    datosRegistro.diasTrabajados,
+          restoHoras:        datosRegistro.restoHoras,
+          coefNacional:      datosRegistro.coefNacional,
+          nDomingos:         datosRegistro.nDomingos,
+          nFestivos:         datosRegistro.nFestivos,
+          festivosEnLiquidacion: datosRegistro.festivosEnLiquidacion,
+          totalKm:           datosRegistro.totalKm,
+          nCarga:            datosRegistro.nCarga,
+          nPalet:            datosRegistro.nPalet,
+          nRebote:           datosRegistro.nRebote,
+          n24h:              datosRegistro.n24h,
+          nPausa:            datosRegistro.nPausa,
+          nNacional:         datosRegistro.nNacional,
+          nUK:               datosRegistro.nUK,
+          nNDLF:             datosRegistro.nNDLF,
+          acarreos:          datosRegistro.acarreos,
+          dietaVlissingen:   datosRegistro.dietaVlissingen,
+          extrasConcepto:    datosRegistro.extrasConcepto,
+          extras:            datosRegistro.extras,
+          modo:              datosRegistro.modo,
+          // Campos propios de la pareja — NO se tocan
           codigoConductor:   regPareja.codigoConductor,
           nombreConductor:   regPareja.nombreConductor,
-          tractora:          regPareja.tractora          || datosRegistro.tractora,
+          tractora:          regPareja.tractora          ?? datosRegistro.tractora,
           equipaje:          regPareja.equipaje          || datosRegistro.equipaje,
           pareja:            regPareja.pareja,
+          gastosViaje:       regPareja.gastosViaje       ?? 0,
+          gastosDetalle:     regPareja.gastosDetalle     ?? [],
+          anticipos:         regPareja.anticipos         ?? 0,
+          kmSalida:          regPareja.kmSalida          ?? datosRegistro.kmSalida,
+          kmVuelta:          regPareja.kmVuelta          ?? datosRegistro.kmVuelta,
+          // Trazabilidad
           registroPareja:    editId,
           modificadoPor:     'admin',
           fechaModificacion: ahora,
-          gastosViaje:       regPareja.gastosViaje   ?? 0,
-          gastosDetalle:     regPareja.gastosDetalle ?? [],
-          anticipos:         regPareja.anticipos     ?? 0,
+          creadoPor:         regPareja.creadoPor         || 'admin',
+          creadoEn:          regPareja.creadoEn          || ahora,
+          estadoDietas:      regPareja.estadoDietas,
+          estadoGastos:      regPareja.estadoGastos,
+          esDuplicado:       regPareja.esDuplicado       ?? true,
+          // Resultado recalculado con PrecioKmt de la pareja
           resultado:         resultadoParejaEdit,
         };
         await updateRegistro(idPareja, datosPareja);
@@ -526,28 +575,43 @@ async function guardarRegistro() {
 }
 
 // ---- GASTOS DETALLADOS ----
-function addGasto() {
+function addGasto(datos) {
   const lista = document.getElementById('lista-gastos');
   const row   = document.createElement('div');
   row.className = 'gasto-row';
   const hoy = new Date().toISOString().slice(0,10);
 
-  // Construir opciones de conceptos
   const opts = getConceptos().map(c =>
-    `<option value="${c.nombre}">${c.nombre}</option>`
+    `<option value="${c.nombre}"${datos?.concepto === c.nombre ? ' selected' : ''}>${c.nombre}</option>`
   ).join('');
 
+  const fecha   = datos?.fecha   || hoy;
+  const lugar   = datos?.lugar   || '';
+  const moneda  = datos?.moneda  || '€';
+  const importe = datos?.importe != null ? datos.importe : '';
+
   row.innerHTML = `
-    <input type="date" value="${hoy}" max="${hoy}">
-    <select>${opts}</select>
-    <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
-    <select><option value="€">€ EUR</option><option value="£">£ GBP</option>
-      <option value="$">$ USD</option><option value="Otro">Otro</option></select>
-    <input type="number" min="0" step="0.01" value="0" placeholder="Importe"
-           oninput="actualizarTotalGastos()">
-    <button type="button" class="btn-del" onclick="this.parentElement.remove();actualizarTotalGastos()">🗑</button>
+    <input type="date" value="${fecha}" max="${hoy}" title="Fecha">
+    <select title="Concepto">${opts}</select>
+    <input type="text" placeholder="Lugar" value="${lugar}" title="Lugar"
+           oninput="this.value=this.value.toUpperCase()">
+    <select title="Moneda">
+      <option value="€"${moneda==='€'?' selected':''}>€ EUR</option>
+      <option value="£"${moneda==='£'?' selected':''}>£ GBP</option>
+      <option value="$"${moneda==='$'?' selected':''}>$ USD</option>
+      <option value="Otro"${moneda==='Otro'?' selected':''}>Otro</option>
+    </select>
+    <input type="number" min="0" step="0.01" value="${importe}" placeholder="0,00"
+           style="font-weight:600;color:var(--primary);text-align:right"
+           title="Importe" oninput="actualizarTotalGastos()" onfocus="this.select()">
+    <button type="button" class="btn-del" title="Eliminar"
+      onclick="this.parentElement.remove();actualizarTotalGastos()">🗑</button>
   `;
   lista.appendChild(row);
+  if (!datos) {
+    const imp = row.querySelector('input[type="number"]');
+    if (imp) imp.focus();
+  }
   actualizarTotalGastos();
 }
 
@@ -1102,21 +1166,10 @@ async function editarRegistro(id) {
       if (el) el.value = r[campo] || 0;
     });
 
-    // Reconstruir gastos de viaje
+    // Reconstruir gastos de viaje — usando addGasto(datos) directamente
     document.getElementById('lista-gastos').innerHTML = '';
     if (r.gastosDetalle && r.gastosDetalle.length) {
-      r.gastosDetalle.forEach(g => {
-        addGasto();
-        const rows = document.querySelectorAll('#lista-gastos .gasto-row');
-        const row  = rows[rows.length - 1];
-        const inputs  = row.querySelectorAll('input');
-        const selects = row.querySelectorAll('select');
-        inputs[0].value  = g.fecha    || '';
-        selects[0].value = g.concepto || '';
-        inputs[1].value  = g.lugar    || '';
-        selects[1].value = g.moneda   || '€';
-        inputs[2].value  = g.importe  || 0;
-      });
+      r.gastosDetalle.forEach(g => addGasto(g));
       actualizarTotalGastos();
     } else if (r.gastosViaje && !r.gastosDetalle?.length) {
       document.getElementById('gastosViaje').value = r.gastosViaje || 0;
@@ -1264,6 +1317,33 @@ async function liqDietasLiquidar() {
   cargarLiqDietas();
 }
 
+// ---- DETECTOR DE DUPLICADOS EN GASTOS ----
+function detectarDuplicadosGastos(regs) {
+  // Genera una clave por conductor+importe+fecha+periodo
+  // Dos gastos son "duplicados sospechosos" si comparten las 4 dimensiones
+  const claves = new Map();
+  regs.forEach(r => {
+    const gastos = r.gastosDetalle?.length ? r.gastosDetalle : (r.gastosViaje ? [{ importe: r.gastosViaje, fecha: r.fechaSalida, concepto: '—' }] : []);
+    gastos.forEach(g => {
+      const clave = `${r.codigoConductor}|${g.importe}|${g.fecha || ''}|${r.fechaSalida}|${r.fechaLlegada}`;
+      if (!claves.has(clave)) claves.set(clave, []);
+      claves.get(clave).push(r.id);
+    });
+  });
+  // IDs de registros que tienen al menos un gasto duplicado
+  const idsDuplicados = new Set();
+  claves.forEach((ids, clave) => {
+    if (ids.length > 1) ids.forEach(id => idsDuplicados.add(id));
+  });
+  return idsDuplicados;
+}
+
+function filtrarDuplicadosGastos() {
+  const chk = document.getElementById('liq-g-solo-dup');
+  if (chk) chk.checked = !chk.checked;
+  cargarLiqGastos();
+}
+
 function cargarLiqGastos() {
   // Popular datalist
   const dl = document.getElementById('liq-g-conductores-list');
@@ -1278,6 +1358,7 @@ function cargarLiqGastos() {
   const desde  = document.getElementById('liq-g-desde').value;
   const hasta  = document.getElementById('liq-g-hasta').value;
   const estado = document.getElementById('liq-g-estado').value;
+  const soloDup = document.getElementById('liq-g-solo-dup')?.checked || false;
 
   // Solo registros con gastos > 0
   let regs = getRegistros().filter(r =>
@@ -1291,31 +1372,51 @@ function cargarLiqGastos() {
   // Ordenar por código
   regs.sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
 
+  // Detectar duplicados en el conjunto filtrado
+  const idsDup = detectarDuplicadosGastos(regs);
+
+  // Actualizar contador de duplicados en UI
+  const contDup = document.getElementById('liq-g-cont-dup');
+  if (contDup) {
+    contDup.textContent = idsDup.size > 0
+      ? `⚠️ ${idsDup.size} registro(s) con posibles duplicados`
+      : '✅ Sin duplicados detectados';
+    contDup.style.color = idsDup.size > 0 ? '#b45309' : '#166534';
+  }
+
+  // Filtrar solo duplicados si está marcado
+  if (soloDup) regs = regs.filter(r => idsDup.has(r.id));
+
   const conductores = getConductores();
   const tbody = document.getElementById('tbody-liq-gastos');
   tbody.innerHTML = regs.map(r => {
     const c     = conductores.find(x => String(x.Codigo) === String(r.codigoConductor));
     const total = r.gastosDetalle?.reduce((s,g) => s + g.importe, 0) || r.gastosViaje || 0;
+    const esDup = idsDup.has(r.id);
     // Concepto: lista de conceptos únicos del detalle
     const conceptos = r.gastosDetalle?.length
       ? [...new Set(r.gastosDetalle.map(g => g.concepto || g.tipo || ''))].filter(Boolean).join(', ')
       : (r.detalleGastos?.length
         ? [...new Set(r.detalleGastos.map(g => g.tipo || ''))].filter(Boolean).join(', ')
         : '—');
-    return `<tr>
+    const dupBadge = esDup
+      ? `<span title="Posible duplicado detectado" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#b45309;border-radius:8px;font-weight:600;margin-left:4px">⚠️ DUP</span>`
+      : '';
+    const rowStyle = esDup ? 'background:#fffbeb;' : '';
+    return `<tr style="${rowStyle}">
       <td><input type="checkbox" class="chk-liq-g" data-id="${r.id}"
           data-total="${total}" data-iban="${c?.IBAN||''}"
           data-nombre="${r.nombreConductor}"
           onchange="actualizarTotalLiqGastos()"></td>
-      <td>${r.nombreConductor}<br><small>${r.codigoConductor}</small></td>
+      <td>${r.nombreConductor}${dupBadge}<br><small>${r.codigoConductor}</small></td>
       <td style="font-size:11px;font-family:monospace">${c?.IBAN||'—'}</td>
-      <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td style="white-space:nowrap">${r.fechaSalida} → ${r.fechaLlegada}</td>
       <td style="font-size:11px;color:#555">${conceptos}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
       <td><span class="estado-badge estado-${r.estadoGastos||'pendiente'}">${r.estadoGastos||'pendiente'}</span></td>
-      <td>
-        <button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')">✏️</button>
-        <button class="btn-icon" onclick="editarRegistro('${r.id}')" title="Editar registro">📋</button>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')" title="Cambiar estado">✏️</button>
+        <button class="btn-icon" onclick="editarRegistro('${r.id}')" title="Editar gastos del registro">📋</button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
