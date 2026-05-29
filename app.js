@@ -1318,8 +1318,15 @@ async function liqDietasLiquidar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
-  await liquidarRegistros(ids);
-  showToast(`${ids.length} registros liquidados ✓`, 'success');
+
+  // Incluir también los registros pareja de los DOBLE
+  const idsConPareja = new Set(ids);
+  getRegistros().forEach(r => {
+    if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
+  });
+
+  await liquidarRegistros([...idsConPareja]);
+  showToast(`${idsConPareja.size} registros liquidados ✓`, 'success');
   cargarLiqDietas();
 }
 
