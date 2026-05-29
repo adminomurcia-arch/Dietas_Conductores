@@ -803,17 +803,40 @@ async function validarDesdeHistorial(id) {
 
 // ---- TABLAS BASE DE DATOS ----
 function poblarInfConductoresDatalist() {
-  const dl = document.getElementById('inf-conductores-list');
-  if (!dl) return;
-  dl.innerHTML = getConductores()
-    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
-    .map(c => `<option value="${c.Codigo} — ${c.Nombre}"></option>`)
-    .join('');
+  // no se usa datalist — autocomplete dinámico
 }
 
-function infFiltrarConductor(input) {
-  // No hacer nada en oninput — la extracción se hace al previsualizar
+function infAutocompleteFiltrar(input) {
+  const q     = input.value.trim().toLowerCase();
+  const lista = document.getElementById('inf-autocomplete-lista');
+  if (!q) { lista.style.display = 'none'; return; }
+  const matches = getConductores()
+    .filter(c => String(c.Codigo).includes(q) || c.Nombre.toLowerCase().includes(q))
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .slice(0, 20);
+  if (!matches.length) { lista.style.display = 'none'; return; }
+  lista.innerHTML = matches.map(c => `
+    <div onclick="infAutocompleteSeleccionar('${c.Codigo}','${c.Nombre.replace(/'/g,"\\'")}')"
+         style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+         onmouseover="this.style.background='var(--calc-bg)'"
+         onmouseout="this.style.background=''">
+      <span style="font-family:var(--font-mono);color:var(--primary);margin-right:8px">${c.Codigo}</span>
+      ${c.Nombre}
+    </div>`).join('');
+  lista.style.display = 'block';
 }
+
+function infAutocompleteSeleccionar(codigo, nombre) {
+  document.getElementById('inf-cod-conductor').value = `${codigo} — ${nombre}`;
+  document.getElementById('inf-autocomplete-lista').style.display = 'none';
+}
+
+function infAutocompleteOcultar() {
+  const l = document.getElementById('inf-autocomplete-lista');
+  if (l) l.style.display = 'none';
+}
+
+function infFiltrarConductor(input) { /* legacy */ }
 
 function renderTablas() {
   // Conductores
