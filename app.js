@@ -807,13 +807,15 @@ function poblarInfConductoresDatalist() {
   if (!dl) return;
   dl.innerHTML = getConductores()
     .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
-    .map(c => `<option value="${c.Codigo} — ${c.Nombre}"></option>`)
+    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
     .join('');
 }
 
 function infFiltrarConductor(input) {
-  // El datalist pone "10042 — García, Juan" — lo dejamos visible tal cual
-  // previsualizarConductor extrae el código con match(/^(\d+)/)
+  // Si el usuario seleccionó una opción del datalist, extraer solo el código
+  const val = input.value;
+  const match = val.match(/^(\d{5,6})/);
+  if (match) input.value = match[1];
 }
 
 function renderTablas() {
