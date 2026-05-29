@@ -1593,14 +1593,22 @@ async function liqValidarTodos() {
 
 // ---- HISTORIAL DE LIQUIDACIONES ----
 function cargarHistorialLiq() {
-  const plat  = document.getElementById('liq-h-plat').value;
-  const cod   = document.getElementById('liq-h-conductor').value.trim();
-  const desde = document.getElementById('liq-h-desde').value;
-  const hasta = document.getElementById('liq-h-hasta').value;
+  const plat   = document.getElementById('liq-h-plat').value;
+  const cod    = document.getElementById('liq-h-conductor').value.trim();
+  const estado = document.getElementById('liq-h-estado')?.value || '';
+  const desde  = document.getElementById('liq-h-desde').value;
+  const hasta  = document.getElementById('liq-h-hasta').value;
 
-  let regs = getRegistros().filter(r =>
-    r.estadoDietas === 'liquidado' || r.estadoDietas === 'pagado' || r.estadoGastos === 'pagado'
-  );
+  // Sin filtro de estado: mostrar liquidado, pagado o gastos pagados (comportamiento original)
+  // Con filtro de estado: aplicar exactamente el estado seleccionado
+  let regs;
+  if (estado) {
+    regs = getRegistros().filter(r => r.estadoDietas === estado || r.estadoGastos === estado);
+  } else {
+    regs = getRegistros().filter(r =>
+      r.estadoDietas === 'liquidado' || r.estadoDietas === 'pagado' || r.estadoGastos === 'pagado'
+    );
+  }
   if (plat)  regs = regs.filter(r => r.plataforma === plat);
   if (cod)   regs = regs.filter(r => String(r.codigoConductor).includes(cod));
   if (desde) regs = regs.filter(r => r.fechaSalida  >= desde);
