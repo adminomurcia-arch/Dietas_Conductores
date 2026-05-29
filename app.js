@@ -524,12 +524,18 @@ async function guardarRegistro() {
       }
     }
   } else {
+    // SALVAGUARDA: nunca crear registro nuevo si editId tiene valor (por si acaso)
+    if (document.getElementById('formRegistro').dataset.editId) {
+      showToast('Error: se detectó edición activa pero no se procesó. Recarga y vuelve a intentarlo.', 'error');
+      console.error('guardarRegistro: editId en dataset pero no en variable local — abortando addRegistro');
+      return;
+    }
     datosRegistro.creadoPor = 'admin';
     datosRegistro.creadoEn  = ahora;
     const regGuardado = await addRegistro(datosRegistro);
     showToast('Registro guardado ✓', 'success');
 
-    // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja
+    // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja (SOLO en creación nueva)
     if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
