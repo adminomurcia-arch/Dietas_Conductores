@@ -94,7 +94,7 @@ function calcularDietas() {
   if (!f.plataforma) return null;
 
   let res = {};
-  if (f.categoria === 'PESCADO') res = calcPESCADO(f);
+  if (f.categoria === 'PESCADO' || f.categoria === 'COMODIN') res = calcPESCADO(f);
   else if (f.plataforma === 'TJG')     res = calcTJG(f);
   else if (f.plataforma === 'FILARDI') res = calcFILARDI(f);
   else if (f.plataforma === 'CAUDETE') res = calcCAUDETE(f);
@@ -281,11 +281,22 @@ function calcularTiempos() {
     showToast('La fecha de llegada debe ser posterior a la de salida', 'error');
     return;
   }
-  if (!fs || !fl) return;
+  if (!fs) return;
+
+  const categoria = document.getElementById('categoria').value.toUpperCase();
+  const esSinKm   = ['COMODIN','PESCADO'].includes(categoria);
 
   let dias = 0, resto = 0;
 
-  if (plataforma === 'CAUDETE') {
+  if (esSinKm) {
+    // COMODÍN/PESCADO: días = todos los días del mes de fechaSalida (salvo modificación manual)
+    const [ySal, mSal] = fs.split('-').map(Number);
+    dias = new Date(ySal, mSal, 0).getDate(); // getDate() con día 0 = último día del mes anterior = días del mes
+    // coefNacional = dias (todo nacional, siempre)
+    document.getElementById('coefNacional').value = dias;
+  } else if (!fl) {
+    return;
+  } else if (plataforma === 'CAUDETE') {
     const hs = document.getElementById('horaSalida').value;
     const hl = document.getElementById('horaLlegada').value;
     if (!hs || !hl) return;
@@ -372,7 +383,7 @@ function calcularDietasParaConductor(conductor, datos) {
   const precioKm = conductor?.PrecioKmt || 0;
 
   let res = {};
-  if (f.categoria === 'PESCADO') {
+  if (f.categoria === 'PESCADO' || f.categoria === 'COMODIN') {
     const sumDietas = f.totalKm * precioKm;
     const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
     const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
