@@ -317,72 +317,26 @@ function accionInformeEmail() {
   if (!_informe.datos?.length) return;
 
   if (_informe.tipo === 'conductor') {
+    // Conductor: email automático a cada conductor usando su email de la BD
     const conductores = getConductores();
     const porConductor = {};
     _informe.datos.forEach(r => {
       if (!porConductor[r.codigoConductor]) porConductor[r.codigoConductor] = [];
       porConductor[r.codigoConductor].push(r);
     });
-
-    const items = Object.entries(porConductor).map(([codigo, registros]) => {
-      const c       = conductores.find(x => String(x.Codigo) === String(codigo));
-      const nombre  = c?.Nombre || registros[0].nombreConductor;
-      const email   = c?.Email  || '';
-      const enviado = registros.every(r => r.emailEnviado);
-      const ids     = registros.map(r => r.id);
-      const cuerpo  = generarCuerpoEmail(c || { Nombre: nombre }, registros);
-      return { cod: codigo, nombre, email, cuerpo, nRegs: registros.length, enviado, ids };
+    let enviados = 0;
+    Object.entries(porConductor).forEach(([codigo, registros]) => {
+      const c = conductores.find(x => String(x.Codigo) === String(codigo));
+      if (!c || !c.Email) return;
+      const asunto = encodeURIComponent(`Liquidación de dietas — ${c.Nombre}`);
+      const cuerpo = encodeURIComponent(generarCuerpoEmail(c, registros));
+      window.open(`mailto:${c.Email}?subject=${asunto}&body=${cuerpo}`, '_blank');
+      enviados++;
     });
-
-    window._emailItems = items;
-
-    let modal = document.getElementById('modal-email-masivo');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'modal-email-masivo';
-      modal.className = 'modal';
-      modal.style.display = 'none';
-      modal.innerHTML = `
-        <div class="modal-box" style="max-width:620px;width:95%">
-          <div class="modal-header">
-            <h3>📧 Envío de liquidaciones</h3>
-            <button onclick="document.getElementById('modal-email-masivo').style.display='none'" class="btn-icon">✕</button>
-          </div>
-          <div style="padding:8px 16px;font-size:11px;color:#888;border-bottom:1px solid var(--border)">
-            📋 <b>Copiar</b> — copia asunto y cuerpo al portapapeles para pegar en Outlook &nbsp;|&nbsp;
-            🚀 <b>Script</b> — envía automáticamente por Google
-          </div>
-          <div id="modal-email-masivo-lista" style="max-height:400px;overflow-y:auto;padding:8px 0"></div>
-          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="enviarTodosScript()">🚀 Enviar TODOS por Script</button>
-            <button class="btn btn-ghost" onclick="document.getElementById('modal-email-masivo').style.display='none'">Cerrar</button>
-          </div>
-        </div>`;
-      document.body.appendChild(modal);
-    }
-
-    document.getElementById('modal-email-masivo-lista').innerHTML = items.map(item => `
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border)">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${item.nombre}</div>
-          <div style="font-size:11px;color:#888">
-            ${item.email || '⚠️ Sin email'} · ${item.nRegs} reg.
-            ${item.enviado ? ' · <span style="color:#4a7c59;font-weight:600">✓ Enviado</span>' : ''}
-          </div>
-        </div>
-        ${item.email ? `
-          <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;white-space:nowrap"
-            onclick="copiarEmailConductor('${item.cod}')">📋 Copiar</button>
-          <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;white-space:nowrap"
-            onclick="enviarUnoScript('${item.cod}')">🚀 Script</button>`
-        : `<span style="font-size:11px;color:#c0392b">Sin email</span>`}
-      </div>`).join('');
-
-    modal.style.display = 'flex';
-    const sinEmail = items.filter(i => !i.email).length;
-    if (sinEmail) showToast(`⚠️ ${sinEmail} conductor(es) sin email`, '');
-
+    if (enviados === 0) showToast('Ningún conductor tiene email registrado', 'error');
+    else showToast(`${enviados} email(s) preparados en Outlook ✓`, 'success');
   } else {
+    // Gestoría / RRHH: abrir modal para introducir destinatario manualmente
     const asuntoDefault = _informe.tipo === 'gestoria'
       ? `Informe Gestoría — ${_informe.titulo}`
       : `Informe RRHH — ${_informe.titulo}`;
@@ -390,35 +344,6 @@ function accionInformeEmail() {
     document.getElementById('email-destino').value = '';
     document.getElementById('email-nota').value = '';
     document.getElementById('modal-email').style.display = 'flex';
-  }
-}
-
-function copiarEmailConductor(cod) {
-  const item = (window._emailItems || []).find(i => i.cod === cod);
-  if (!item) return;
-  const asunto = `Liquidación de dietas — ${item.nombre}`;
-  const texto  = `Para: ${item.email}\nAsunto: ${asunto}\n\n${item.cuerpo}`;
-  navigator.clipboard.writeText(texto)
-    .then(() => showToast(`📋 Email de ${item.nombre} copiado — pégalo en Outlook ✓`, 'success'))
-    .catch(() => showToast('No se pudo copiar al portapapeles', 'error'));
-}
-
-function enviarUnoScript(cod) {
-  const item = (window._emailItems || []).find(i => i.cod === cod);
-  if (!item) return;
-  if (typeof window.enviarLiquidacionesMasivo === 'function') {
-    window.enviarLiquidacionesMasivo({ ids: item.ids });
-    document.getElementById('modal-email-masivo').style.display = 'none';
-  }
-}
-
-function enviarTodosScript() {
-  const items = (window._emailItems || []).filter(i => i.email);
-  if (!items.length) { showToast('Ningún conductor con email', 'error'); return; }
-  const ids = items.flatMap(i => i.ids);
-  if (typeof window.enviarLiquidacionesMasivo === 'function') {
-    window.enviarLiquidacionesMasivo({ ids });
-    document.getElementById('modal-email-masivo').style.display = 'none';
   }
 }
 
