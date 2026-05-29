@@ -1764,3 +1764,42 @@ function showToast(msg, tipo = '') {
   t.className = `toast ${tipo} show`;
   setTimeout(() => t.className = 'toast', 3000);
 }
+
+// =============================================
+// ENVÍO DE LIQUIDACIONES POR EMAIL
+// =============================================
+const WEBHOOK_URL   = 'https://script.google.com/macros/s/AKfycbzSzXhako36YtFdyP8OOKhV8WjQ9k5tTTlAGswT_TtBLyQWOtEkvHEaDrTW-PlT0PUT2w/exec';
+const TOKEN_SECRETO = 'olano2024sec';
+
+// Llamado desde informes.js — envío masivo con filtros
+window.enviarLiquidacionesMasivo = async function({ desde, hasta, plataforma, ids }) {
+  showToast('Enviando liquidaciones…', '');
+  try {
+    const resp = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'liquidaciones',
+        token: TOKEN_SECRETO,
+        desde, hasta, plataforma, ids: ids || []
+      })
+    });
+    // no-cors no devuelve body — marcar como enviados localmente
+    if (ids?.length) {
+      await Promise.all(ids.map(id => marcarEmailEnviado(id)));
+    } else {
+      const regs = getRegistros().filter(r =>
+        r.estadoDietas === 'liquidado' &&
+        (!desde || r.fechaSalida >= desde) &&
+        (!hasta  || r.fechaSalida <= hasta) &&
+        (!plataforma || r.plataforma === plataforma)
+      );
+      await Promise.all(regs.map(r => marcarEmailEnviado(r.id)));
+    }
+    showToast('Liquidaciones enviadas ✓', 'success');
+    renderHistorial();
+  } catch(err) {
+    showToast('Error al enviar: ' + err.message, 'error');
+  }
+};
