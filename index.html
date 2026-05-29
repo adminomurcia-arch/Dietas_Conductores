@@ -653,8 +653,17 @@
             <option value="bloqueado">Bloqueados</option>
           </select>
           <button class="btn btn-ghost" onclick="cargarLiqGastos()">🔍 Filtrar</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;
+                        padding:6px 10px;background:#fef3c7;border-radius:6px;border:1px solid #fcd34d"
+                 title="Mostrar solo registros con posibles gastos duplicados">
+            <input type="checkbox" id="liq-g-solo-dup" onchange="cargarLiqGastos()"
+                   style="accent-color:#b45309">
+            <span style="color:#b45309;font-weight:500">⚠️ Solo duplicados</span>
+          </label>
         </div>
         <div class="liq-acciones">
+          <span id="liq-g-cont-dup" style="font-size:11px;padding:4px 10px;border-radius:6px;
+                background:#f0fdf4;color:#166534">✅ Sin duplicados</span>
           <span id="liq-g-total" class="liq-total">0,00 €</span>
           <button class="btn btn-ghost" onclick="liqGastosMarcarTodos()">☑️ Marcar todos</button>
           <button class="btn btn-secondary" onclick="liqGastosPagar()">🧾 Pagar seleccionados</button>
