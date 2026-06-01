@@ -31,15 +31,21 @@ function previsualizarConductor() {
   // Si el usuario seleccionó del datalist puede venir "10042 — García, Juan" — extraer solo el código
   const match  = rawCod.match(/^(\d+)/);
   const cod    = match ? match[1] : rawCod;
-  const desde = document.getElementById('inf-desde').value;
-  const hasta = document.getElementById('inf-hasta').value;
-  const regsRaw = filtrarRegistros(desde, hasta, '', cod);
+  const desde    = document.getElementById('inf-desde').value;
+  const hasta    = document.getElementById('inf-hasta').value;
+  const plat     = document.getElementById('inf-conductor-plataforma')?.value || '';
+  const equipaje = document.getElementById('inf-conductor-equipaje')?.value   || '';
+  const estado   = document.getElementById('inf-conductor-estado')?.value     || '';
+  let regsRaw = filtrarRegistros(desde, hasta, plat, cod);
+  if (equipaje) regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
+  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
   const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['Código', 'Nombre', 'Equipaje', 'Pareja', 'Tractora', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
+  const headers = ['Código', 'Nombre', 'Equipaje', 'Pareja', 'Tractora', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Estado', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
   const fmtKm = v => (v && Number(v) > 0) ? Number(v).toLocaleString('es-ES') : '—';
   const fmtN  = v => (v && Number(v) > 0) ? Number(v) : '—';
+  const ESTADO_LABEL = { pendiente: 'Pendiente', liquidado: 'Liquidado', pagado: 'Pagado', bloqueado: 'Bloqueado', pendiente_validacion: 'Pend. validación' };
   const conds = getConductores();
   const getCond = cod => conds.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
   const filas = regs.map(r => {
@@ -54,6 +60,7 @@ function previsualizarConductor() {
     'Llegada':      r.fechaLlegada,
     'Días':         r.diasTrabajados,
     'Total Dietas': fmt2(r.plataforma === 'CAUDETE' ? r.resultado?.TOTAL : r.resultado?.sumDietas) + ' €',
+    'Estado':       ESTADO_LABEL[r.estadoDietas || 'pendiente'] || r.estadoDietas || 'Pendiente',
     '24H/PAUSA':    fmtN((r.n24h || 0) + (r.nPausa || 0)),
     'Cargas/Desc.': fmtN(r.nCarga),
     'Mov. Palets':  fmtN(r.nPalet),
