@@ -604,17 +604,22 @@ function cargarExcel(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
+      if (!data.registros && !data.conductores && !data.tarifas) {
+        showToast('Fichero no reconocido como backup válido', 'error');
+        return;
+      }
       if (data.conductores) saveConductores(data.conductores);
       if (data.tarifas)     saveTarifas(data.tarifas);
       if (data.registros)   saveRegistros(data.registros);
-      renderTablas();
-      renderHistorial();
-      showToast('Datos importados correctamente ✓', 'success');
-    } catch {
-      showToast('Error al leer el fichero', 'error');
+      try { renderTablas(); }   catch(e2) { console.warn('renderTablas:', e2); }
+      try { renderHistorial(); } catch(e2) { console.warn('renderHistorial:', e2); }
+      showToast(`Importado: ${(data.registros||[]).length} registros, ${(data.conductores||[]).length} conductores ✓`, 'success');
+    } catch(err) {
+      console.error('Error importando backup:', err);
+      showToast('Error al leer el fichero: ' + err.message, 'error');
     }
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'utf-8');
   event.target.value = '';
 }
 
