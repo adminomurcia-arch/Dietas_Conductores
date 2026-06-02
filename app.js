@@ -148,13 +148,16 @@ function autocompletar() {
   const catUpp = (c?.CATEGORIA || '').toUpperCase();
   const esSinKmCat = ['COMODIN','PESCADO'].includes(catUpp);
   if (esSinKmCat) {
-    // COMODÍN/PESCADO: coefNacional = días del mes actual (todo nacional por defecto)
+    // COMODÍN/PESCADO: días se calculan al rellenar fechas (calcularTiempos)
+    // Solo actualizar coefNacional si ya hay fechas en el formulario
     const fs = document.getElementById('fechaSalida').value;
-    if (fs) {
-      const [ySal, mSal] = fs.split('-').map(Number);
-      const diasMes = new Date(ySal, mSal, 0).getDate();
-      document.getElementById('coefNacional').value = diasMes;
-      document.getElementById('diasTrabajados').value = diasMes;
+    const fl = document.getElementById('fechaLlegada').value;
+    if (fs && fl) {
+      const diasFechas = Math.round((parseFecha(fl) - parseFecha(fs)) / 86400000) + 1;
+      if (diasFechas > 0) {
+        document.getElementById('coefNacional').value   = diasFechas;
+        document.getElementById('diasTrabajados').value = diasFechas;
+      }
     }
   } else if (equipaje === 'SIMPLE') {
     document.getElementById('coefNacional').value = 2.7;
@@ -223,18 +226,23 @@ function adaptarPlataforma(plataforma, categoria) {
   document.getElementById('kms-nota').style.display    = esCaudete ? '' : 'none';
   const kmS = document.getElementById('kmSalida');
   const kmV = document.getElementById('kmVuelta');
+  const tkEl = document.getElementById('totalKm');
   if (sinKm) {
     kmS.value = ''; kmV.value = '';
-    document.getElementById('totalKm').value = 12000;
+    if (!parseKm(tkEl.value)) tkEl.value = (12000).toLocaleString('es-ES');
     kmS.readOnly = kmV.readOnly = true;
+    tkEl.readOnly = false;
+    tkEl.classList.remove('readonly', 'calc');
     // Ocultar campos de entrada — no tiene sentido para PESCADO/COMODIN
     kmS.closest('.field').style.display = 'none';
     kmV.closest('.field').style.display = 'none';
   } else {
     kmS.readOnly = kmV.readOnly = false;
+    tkEl.readOnly = true;
+    tkEl.classList.add('readonly', 'calc');
     kmS.closest('.field').style.display = '';
     kmV.closest('.field').style.display = '';
-    if (!plataforma) document.getElementById('totalKm').value = '';
+    if (!plataforma) tkEl.value = '';
   }
 
   // Bloques de operaciones por plataforma
@@ -448,9 +456,81 @@ async function guardarRegistro() {
       datosRegistro.estadoDietas = 'pendiente';
     }
       datosRegistro.estadoGastos = regOriginal.estadoGastos;
+      datosRegistro.esDuplicado  = regOriginal.esDuplicado || false;
+      datosRegistro.registroPareja = regOriginal.registroPareja || '';
     }
     await updateRegistro(editId, datosRegistro);
     showToast('Registro actualizado ✓', 'success');
+
+    // Si es DOBLE y tiene registro pareja vinculado, ofrecer actualizar el otro
+    // IMPORTANTE: usar regOriginal (leído antes del update) para obtener registroPareja
+    const idPareja = regOriginal?.registroPareja;
+    if (idPareja && datosRegistro.equipaje === 'DOBLE') {
+      const regPareja = getRegistros().find(r => r.id === idPareja);
+      if (regPareja && confirm(`¿Aplicar los mismos cambios operativos al registro de ${regPareja.nombreConductor}?`)) {
+        // Recalcular resultado con el PrecioKmt propio de la pareja
+        const condParejaBuscar = buscarConductor(regPareja.codigoConductor);
+        const resultadoParejaEdit = calcularDietasParaConductor(condParejaBuscar, {
+          ...datosRegistro,
+          equipaje: regPareja.equipaje || datosRegistro.equipaje,
+        });
+        // Solo propagar campos operativos (fechas, km, operaciones, plataforma, categoria...)
+        // NUNCA propagar: nombreConductor, codigoConductor, gastos, anticipos, tractora propia
+        const datosPareja = {
+          // Campos operativos compartidos
+          plataforma:        datosRegistro.plataforma,
+          categoria:         datosRegistro.categoria,
+          fechaSalida:       datosRegistro.fechaSalida,
+          fechaLlegada:      datosRegistro.fechaLlegada,
+          horaSalida:        datosRegistro.horaSalida,
+          horaLlegada:       datosRegistro.horaLlegada,
+          diasTrabajados:    datosRegistro.diasTrabajados,
+          restoHoras:        datosRegistro.restoHoras,
+          coefNacional:      datosRegistro.coefNacional,
+          nDomingos:         datosRegistro.nDomingos,
+          nFestivos:         datosRegistro.nFestivos,
+          festivosEnLiquidacion: datosRegistro.festivosEnLiquidacion,
+          totalKm:           datosRegistro.totalKm,
+          nCarga:            datosRegistro.nCarga,
+          nPalet:            datosRegistro.nPalet,
+          nRebote:           datosRegistro.nRebote,
+          n24h:              datosRegistro.n24h,
+          nPausa:            datosRegistro.nPausa,
+          nNacional:         datosRegistro.nNacional,
+          nUK:               datosRegistro.nUK,
+          nNDLF:             datosRegistro.nNDLF,
+          acarreos:          datosRegistro.acarreos,
+          dietaVlissingen:   datosRegistro.dietaVlissingen,
+          extrasConcepto:    datosRegistro.extrasConcepto,
+          extras:            datosRegistro.extras,
+          modo:              datosRegistro.modo,
+          // Campos propios de la pareja — NO se tocan
+          codigoConductor:   regPareja.codigoConductor,
+          nombreConductor:   regPareja.nombreConductor,
+          tractora:          regPareja.tractora          ?? datosRegistro.tractora,
+          equipaje:          regPareja.equipaje          || datosRegistro.equipaje,
+          pareja:            regPareja.pareja,
+          gastosViaje:       regPareja.gastosViaje       ?? 0,
+          gastosDetalle:     regPareja.gastosDetalle     ?? [],
+          anticipos:         regPareja.anticipos         ?? 0,
+          kmSalida:          regPareja.kmSalida          ?? datosRegistro.kmSalida,
+          kmVuelta:          regPareja.kmVuelta          ?? datosRegistro.kmVuelta,
+          // Trazabilidad
+          registroPareja:    editId,
+          modificadoPor:     'admin',
+          fechaModificacion: ahora,
+          creadoPor:         regPareja.creadoPor         || 'admin',
+          creadoEn:          regPareja.creadoEn          || ahora,
+          estadoDietas:      regPareja.estadoDietas,
+          estadoGastos:      regPareja.estadoGastos,
+          esDuplicado:       regPareja.esDuplicado       ?? true,
+          // Resultado recalculado con PrecioKmt de la pareja
+          resultado:         resultadoParejaEdit,
+        };
+        await updateRegistro(idPareja, datosPareja);
+        showToast('Registro de pareja actualizado también ✓', 'success');
+      }
+    }
   } else {
     // SALVAGUARDA: nunca crear registro nuevo si editId tiene valor (por si acaso)
     if (document.getElementById('formRegistro').dataset.editId) {
@@ -464,7 +544,7 @@ async function guardarRegistro() {
     showToast('Registro guardado ✓', 'success');
 
     // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja (SOLO en creación nueva)
-    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja) {
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
       if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
@@ -477,11 +557,10 @@ async function guardarRegistro() {
           tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
           equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
           pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
+          registroPareja:  regGuardado.id,
           creadoPor:       'admin',
           creadoEn:        ahora,
-          // Sin registroPareja ni esDuplicado: cada registro es independiente desde el primer momento
-          registroPareja:  '',
-          esDuplicado:     false,
+          esDuplicado:     true,   // evita bucle de duplicación
           // Copiar conteos de operaciones del registro original
           nCarga:    datosRegistro.nCarga,
           nPalet:    datosRegistro.nPalet,
@@ -498,8 +577,9 @@ async function guardarRegistro() {
           // Usar resultado recalculado con PrecioKmt de la pareja
           resultado:     resultadoPareja,
         };
-        await addRegistro(datosPareja);
-        showToast(`Registro creado para ${condPareja.Nombre} ✓`, 'success');
+        const regPareja = await addRegistro(datosPareja);
+        await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
+        showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
     }
   }
@@ -689,7 +769,8 @@ function renderHistorial() {
       <td>
         <span style="font-weight:600">${r.nombreConductor}</span>
         <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
-
+        ${r.equipaje==='DOBLE' && r.registroPareja
+          ? `<span style="font-size:10px;color:#92400e;cursor:pointer" onclick="editarRegistro('${r.registroPareja}')"> 👥</span>` : ''}
         <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
@@ -1126,7 +1207,19 @@ async function borrarRegistro(id) {
     showToast('Error al borrar: ' + e.message, 'error');
     return;
   }
-  showToast('Registro eliminado');
+  // Ofrecer borrar el registro vinculado de la pareja
+  if (reg?.registroPareja && reg?.equipaje === 'DOBLE') {
+    const regPareja = getRegistros().find(r => r.id === reg.registroPareja);
+    if (regPareja && confirm(`¿Eliminar también el registro vinculado de ${regPareja.nombreConductor}?`)) {
+      if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(reg.registroPareja);
+      await window.deleteRegistro(reg.registroPareja);
+      showToast('Ambos registros eliminados');
+    } else {
+      showToast('Registro eliminado');
+    }
+  } else {
+    showToast('Registro eliminado');
+  }
   renderHistorial();
 }
 
@@ -1234,8 +1327,14 @@ async function liqDietasLiquidar() {
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
 
-  await liquidarRegistros(ids);
-  showToast(`${ids.length} registro(s) liquidados ✓`, 'success');
+  // Incluir también los registros pareja de los DOBLE
+  const idsConPareja = new Set(ids);
+  getRegistros().forEach(r => {
+    if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
+  });
+
+  await liquidarRegistros([...idsConPareja]);
+  showToast(`${idsConPareja.size} registros liquidados ✓`, 'success');
   cargarLiqDietas();
 }
 
