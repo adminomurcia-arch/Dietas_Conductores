@@ -289,10 +289,11 @@ function calcularTiempos() {
   let dias = 0, resto = 0;
 
   if (esSinKm) {
-    // COMODÍN/PESCADO: días = todos los días del mes de fechaSalida (salvo modificación manual)
-    const [ySal, mSal] = fs.split('-').map(Number);
-    dias = new Date(ySal, mSal, 0).getDate(); // getDate() con día 0 = último día del mes anterior = días del mes
-    // coefNacional = dias (todo nacional, siempre)
+    // COMODÍN/PESCADO: días = fechaLlegada - fechaSalida + 1 (igual que el resto)
+    if (!fl) return;
+    dias = Math.round((parseFecha(fl) - parseFecha(fs)) / 86400000) + 1;
+    if (dias < 1) dias = 0;
+    // coefNacional = días calculados (todo nacional por defecto)
     document.getElementById('coefNacional').value = dias;
   } else if (!fl) {
     return;
@@ -329,7 +330,8 @@ function parseKm(str) {
 function calcularKms() {
   const cat = document.getElementById('categoria').value.toUpperCase();
   if (cat === 'COMODIN' || cat === 'PESCADO') {
-    document.getElementById('totalKm').value = (12000).toLocaleString('es-ES');
+    const tkEl = document.getElementById('totalKm');
+    if (!parseKm(tkEl.value)) tkEl.value = (12000).toLocaleString('es-ES');
     calcularDietas();
     return;
   }
