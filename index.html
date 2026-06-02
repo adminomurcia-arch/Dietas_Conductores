@@ -281,7 +281,8 @@
         </div>
         <div class="field">
           <label>Total Km</label>
-          <input type="text" id="totalKm" readonly class="readonly calc">
+          <input type="text" id="totalKm" readonly class="readonly calc"
+            oninput="calcularDietas()" onblur="formatKm(this)">
         </div>
       </div>
     </section>
@@ -472,8 +473,6 @@
             <option value="">Todos</option>
             <option value="pendiente">Pendiente</option>
             <option value="liquidado">Liquidado</option>
-            <option value="pagado">Pagado</option>
-            <option value="bloqueado">Bloqueado</option>
           </select>
         </div>
         <div class="field">
