@@ -741,8 +741,6 @@ function renderHistorial() {
   const contDup  = {};
   regs.forEach(r => { const k = claveDup(r); contDup[k] = (contDup[k] || 0) + 1; });
   const idsDuplicados = new Set(regs.filter(r => contDup[claveDup(r)] > 1).map(r => r.id));
-
-  // Filtrar solo duplicados si está activado el checkbox
   if (fSoloDup) regs = regs.filter(r => idsDuplicados.has(r.id));
 
   // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
@@ -1342,19 +1340,17 @@ async function liqDietasLiquidar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
 
-  // Incluir también los registros pareja de los DOBLE
   const idsConPareja = new Set(ids);
   getRegistros().forEach(r => {
     if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
   });
 
-  // Mostrar modal de confirmación con numLiquidacion editable
   const numAuto = generarNumLiquidacion();
   const numEditado = prompt(
     `Va a liquidar ${idsConPareja.size} registro(s).\n\nNúmero de liquidación (editable):`,
     numAuto
   );
-  if (numEditado === null) return; // cancelado
+  if (numEditado === null) return;
   const numFinal = numEditado.trim().toUpperCase() || numAuto;
 
   await liquidarRegistros([...idsConPareja], numFinal);
