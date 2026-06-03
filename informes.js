@@ -37,7 +37,7 @@ function previsualizarConductor() {
   const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
-  const headers = ['Liquidación', 'Código', 'Nombre', 'Equipaje', 'Pareja', 'Tractora', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
+  const headers = ['Código', 'Nombre', 'Equipaje', 'Pareja', 'Tractora', 'Salida', 'Llegada', 'Días', 'Total Dietas', 'Km Salida', 'Km Vuelta', 'Total Km', '24H/PAUSA', 'Cargas/Desc.', 'Mov. Palets', 'Rebote', 'Gastos Viaje'];
   const fmtKm = v => (v && Number(v) > 0) ? Number(v).toLocaleString('es-ES') : '—';
   const fmtN  = v => (v && Number(v) > 0) ? Number(v) : '—';
   const conds = getConductores();
@@ -45,7 +45,6 @@ function previsualizarConductor() {
   const filas = regs.map(r => {
     const c = getCond(r.codigoConductor);
     return {
-    'Liquidación':  r.numLiquidacion || '—',
     'Código':       r.codigoConductor,
     'Nombre':       r.nombreConductor,
     'Equipaje':     c.EQUIPAJE    || '—',
@@ -78,9 +77,7 @@ function previsualizarGestoria() {
   const formato = document.getElementById('inf-gest-formato').value;
   const desde   = document.getElementById('inf-gest-desde').value;
   const hasta   = document.getElementById('inf-gest-hasta').value;
-  const estado  = document.getElementById('inf-gest-estado').value;
-  let regsRaw   = filtrarRegistros(desde, hasta, plat, '');
-  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
   const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -101,8 +98,6 @@ function previsualizarGestoria() {
       const m = mapa[cod];
       m.nReg++;
       m.ANTICIPOS += parseFloat(r.anticipos || 0);
-      // Guardar última liquidación del conductor (puede haber varios registros de distintas liquidaciones)
-      if (r.numLiquidacion) m.numLiquidacion = r.numLiquidacion;
       if (plat === 'CAUDETE') {
         const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
         const diasTrab = parseFloat(r.diasTrabajados          || 0);
@@ -133,9 +128,8 @@ function previsualizarGestoria() {
     const conductores = Object.values(mapa).sort((a,b) => String(a.cod).localeCompare(String(b.cod)));
 
     if (plat === 'CAUDETE') {
-      headers = ['LIQUIDACIÓN','COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
-        'LIQUIDACIÓN':     m.numLiquidacion || '—',
         'COD':             m.cod,
         'NOMBRE':          m.nombre,
         'PLUS_EFICIENCIA': fmt2(m.PLUS_EFICIENCIA),
@@ -147,9 +141,8 @@ function previsualizarGestoria() {
         'ANTICIPOS':       fmt2(m.ANTICIPOS),
       }));
     } else {
-      headers = ['LIQUIDACIÓN','COD','NOMBRE','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
-        'LIQUIDACIÓN': m.numLiquidacion || '—',
         'COD':        m.cod,
         'NOMBRE':     m.nombre,
         'H_EXTRA':    fmt2(m.H_EXTRA),
@@ -166,7 +159,7 @@ function previsualizarGestoria() {
   } else {
     // Detallado — una fila por registro
     if (plat === 'CAUDETE') {
-      headers = ['LIQUIDACIÓN','COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = regs.map(r => {
         const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
         const diasTrab = parseFloat(r.diasTrabajados          || 0);
@@ -178,7 +171,6 @@ function previsualizarGestoria() {
           ? parseFloat(r.resultado.DIET_INTER)
           : dietas - dietNac;
         return {
-          'LIQUIDACIÓN':     r.numLiquidacion || '—',
           'COD':             r.codigoConductor,
           'NOMBRE':          r.nombreConductor,
           'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
@@ -192,9 +184,8 @@ function previsualizarGestoria() {
         };
       });
     } else {
-      headers = ['LIQUIDACIÓN','COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
+      headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
       filas = regs.map(r => ({
-        'LIQUIDACIÓN': r.numLiquidacion || '—',
         'COD':        r.codigoConductor,
         'NOMBRE':     r.nombreConductor,
         'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
@@ -234,7 +225,7 @@ function previsualizarRRHH() {
   let headers, filas;
 
   if (formato === 'detallado') {
-    headers = ['LIQUIDACIÓN','COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
+    headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
                'DÍAS','RESTO_HORAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','COEF_NAC','DOM_FEST',
                'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','NACIONAL',
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
@@ -246,7 +237,6 @@ function previsualizarRRHH() {
     filas = regs.map(r => {
       const cr = getCondR(r.codigoConductor);
       return {
-      'LIQUIDACIÓN': r.numLiquidacion || '—',
       'COD': r.codigoConductor, 'NOMBRE': r.nombreConductor,
       'PLATAFORMA': r.plataforma, 'CATEGORÍA': r.categoria,
       'EQUIPAJE': cr.EQUIPAJE || '—', 'PAREJA': cr.PAREJA || '—',
@@ -268,13 +258,12 @@ function previsualizarRRHH() {
       'DIETAS_CAU': fmt2(r.resultado?.DIETAS),
     };});
   } else {
-    headers = ['LIQUIDACIÓN','COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
+    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
     const condsRs = getConductores();
     const getCondRs = cod => condsRs.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
     filas = regs.map(r => {
       const crs = getCondRs(r.codigoConductor);
       return {
-        'LIQUIDACIÓN': r.numLiquidacion || '—',
         'COD': r.codigoConductor, 'NOMBRE': r.nombreConductor,
         'PLATAFORMA': r.plataforma,
         'EQUIPAJE': crs.EQUIPAJE || '—', 'PAREJA': crs.PAREJA || '—',
@@ -487,31 +476,53 @@ function descargarJSON(data, nombre) {
 }
 
 function generarCuerpoEmail(conductor, registros) {
-  let txt = `Estimado/a ${conductor.Nombre},\n\nDetalle de su liquidación de dietas:\n\n`;
-  registros.forEach(r => {
+  const fmtKm = v => (v && Number(v) > 0) ? Number(v).toLocaleString('es-ES') + ' km' : '—';
+  const lin = (label, val) => val ? `  ${label}: ${val}\n` : '';
+
+  let txt = `Estimado/a ${conductor.Nombre},\n\n`;
+  txt += `Le comunicamos el detalle de su liquidación de dietas:\n\n`;
+
+  registros.forEach((r, i) => {
     txt += `────────────────────────────────\n`;
-    txt += `Período: ${r.fechaSalida} → ${r.fechaLlegada}\n`;
-    const kmTxt = (r.totalKm && Number(r.totalKm) > 0) ? Number(r.totalKm).toLocaleString("es-ES") : "—";
-    txt += `Días trabajados: ${r.diasTrabajados} | Total Km: ${kmTxt}\n`;
-    if (r.resultado) {
-      if (r.plataforma === 'CAUDETE') {
-        txt += `Plus Eficiencia: ${fmt2(r.resultado.PLUS_EFICIENCIA)} €\n`;
-        txt += `Disponibilidad:  ${fmt2(r.resultado.DISPONIBILIDAD)} €\n`;
-        txt += `Dietas:          ${fmt2(r.resultado.DIETAS)} €\n`;
-        txt += `TOTAL:           ${fmt2(r.resultado.TOTAL)} €\n`;
-      } else {
-        txt += `Total Dietas:       ${fmt2(r.resultado.sumDietas)} €\n`;
-        txt += `H. Extra:           ${fmt2(r.resultado.H_EXTRA)} €\n`;
-        txt += `H. Presencia:       ${fmt2(r.resultado.H_PRESEN)} €\n`;
-        txt += `Nocturno:           ${fmt2(r.resultado.NOCTURNO)} €\n`;
-        txt += `Dieta Nacional:     ${fmt2(r.resultado.DIET_NAC)} €\n`;
-        if (r.resultado.DIET_INTER) txt += `Dieta Internacional:${fmt2(r.resultado.DIET_INTER)} €\n`;
-        if (r.resultado.MEJORA !== undefined) txt += `Mejora:             ${fmt2(r.resultado.MEJORA)} €\n`;
-        if (r.gastosViaje) txt += `Gastos de Viaje:    ${fmt2(r.gastosViaje)} €\n`;
-      }
+    txt += `Registro ${i + 1}\n`;
+    txt += `────────────────────────────────\n`;
+    txt += lin('Plataforma',      r.plataforma);
+    txt += lin('Período',         `${r.fechaSalida} → ${r.fechaLlegada}`);
+    txt += lin('Tractora',        r.tractora);
+    txt += lin('Días trabajados', r.diasTrabajados);
+    txt += lin('Días nacionales', r.coefNacional);
+    const kmS = r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') + ' km' : null;
+    const kmV = r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') + ' km' : null;
+    txt += lin('Km salida',       kmS);
+    txt += lin('Km vuelta',       kmV);
+    txt += lin('Total Km',        fmtKm(r.totalKm));
+
+    // Operaciones (solo las que tienen valor > 0)
+    const ops = [];
+    if (r.nCarga   > 0) ops.push(`Cargas/descargas: ${r.nCarga}`);
+    if (r.nPalet   > 0) ops.push(`Mov. palets: ${r.nPalet}`);
+    if (r.nRebote  > 0) ops.push(`Rebotes: ${r.nRebote}`);
+    if (r.n24h     > 0) ops.push(`Pausas 24h: ${r.n24h}`);
+    if (r.nPausa   > 0) ops.push(`Pausas: ${r.nPausa}`);
+    if (r.nNacional> 0) ops.push(`Días nacional: ${r.nNacional}`);
+    if (r.nUK      > 0) ops.push(`UK: ${r.nUK}`);
+    if (r.nNDLF    > 0) ops.push(`NDLF: ${r.nNDLF}`);
+    if (r.nDomingos> 0) ops.push(`Domingos: ${r.nDomingos}`);
+    if (r.nFestivos> 0) ops.push(`Festivos: ${r.nFestivos}`);
+    if (r.acarreos > 0) ops.push(`Acarreos: ${r.acarreos}`);
+    if (r.dietaVlissingen > 0) ops.push(`Vlissingen: ${r.dietaVlissingen}`);
+    if (r.restoHoras > 0) ops.push(`Resto horas: ${r.restoHoras}`);
+    if (r.extrasConcepto) ops.push(`Extras (${r.extrasConcepto}): ${r.extras}`);
+
+    if (ops.length) {
+      txt += `  Operaciones:\n`;
+      ops.forEach(o => { txt += `    · ${o}\n`; });
     }
+
+    if (r.numLiquidacion) txt += lin('Núm. liquidación', r.numLiquidacion);
     txt += '\n';
   });
+
   txt += `Un saludo,\nDpto. de Administración\n`;
   return txt;
 }
