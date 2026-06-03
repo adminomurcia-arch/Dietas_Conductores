@@ -786,7 +786,6 @@ function renderHistorial() {
           onclick="abrirModalEstado('${r.id}','dietas','${edDietas}')">💰 ${edDietas}</span>
         <span class="estado-badge estado-${edGastos}" style="cursor:pointer;display:block"
           onclick="abrirModalEstado('${r.id}','gastos','${edGastos}')">🧾 ${edGastos}</span>
-        ${r.numLiquidacion ? `<span style="font-size:10px;color:#6b7566;display:block;margin-top:3px">🔖 ${r.numLiquidacion}</span>` : ''}
       </td>
       <td style="white-space:nowrap">
         ${esPendVal ? `<button class="btn btn-primary" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
@@ -1650,6 +1649,7 @@ function cargarHistorialLiq() {
       <td>${r.nombreConductor}</td>
       <td>${r.codigoConductor}</td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td style="font-size:11px;color:var(--soft)">${r.numLiquidacion || '—'}</td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
       <td style="text-align:center">${r.diasTrabajados}</td>
       <td style="font-family:var(--font-mono);text-align:right;font-weight:600;color:var(--primary)">${fmt2(dietas)} €</td>
@@ -1657,7 +1657,7 @@ function cargarHistorialLiq() {
       <td style="text-align:center;font-size:12px;color:var(--soft)">${fLiq}</td>
       <td>${estadoBadge}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:#888">Sin registros liquidados</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:#888">Sin registros liquidados</td></tr>';
 
   document.getElementById('liq-h-total').textContent = fmt2(totalDietas) + ' €';
 }
@@ -1668,7 +1668,7 @@ function exportarHistorialLiq() {
   if (!rows.length || rows[0].cells.length < 2) {
     showToast('No hay datos para exportar', 'error'); return;
   }
-  const headers = ['Conductor','Código','Plataforma','Período','Días','Total Dietas','Gastos Viaje','Fecha Liquidación','Estado'];
+  const headers = ['Conductor','Código','Plataforma','Núm. Liquidación','Período','Días','Total Dietas','Gastos Viaje','Fecha Liquidación','Estado'];
   const esc = v => `"${String(v).replace(/"/g,'""')}"`;
   const lines = [headers.map(esc).join(';')];
   rows.forEach(row => {
