@@ -462,7 +462,6 @@ export async function marcarEmailEnviado(id) {
 }
 
 export async function liquidarRegistros(ids, numLiquidacion) {
-  // numLiquidacion viene confirmado/editado desde el modal de confirmación
   const fechaLiq = new Date().toISOString();
   await Promise.all(ids.map(id =>
     updateRegistro(id, {
@@ -474,7 +473,6 @@ export async function liquidarRegistros(ids, numLiquidacion) {
 }
 
 export function generarNumLiquidacion() {
-  // Genera el siguiente número de liquidación para el mes actual
   const ahora = new Date();
   const aaaa  = ahora.getFullYear();
   const mm    = String(ahora.getMonth() + 1).padStart(2, '0');
