@@ -249,6 +249,11 @@
         <span>🧳 <span id="m-equipaje">—</span></span>
         <span>👥 <span id="m-pareja">—</span></span>
       </div>
+      <div id="aviso-doble" style="display:none;margin-top:8px;background:#fff3cd;border:1px solid #f0ad4e;
+           border-radius:8px;padding:8px 12px;font-size:12px;color:#856404;line-height:1.4">
+        ⚠️ <strong>Conductor DOBLE:</strong> solo uno de los dos conductores de la pareja debe enviar el registro. 
+        El sistema lo asignará automáticamente al otro.
+      </div>
     </div>
     <button class="btn-salir" onclick="mCerrar()">Salir</button>
   </div>
@@ -660,6 +665,7 @@ window.mLogin = async function() {
     else if (equipaje === 'DOBLE')  document.getElementById('m-coef').value = 1.30;
 
     document.getElementById('m-pareja').textContent = _conductor.PAREJA || '—';
+    document.getElementById('aviso-doble').style.display = equipaje === 'DOBLE' ? 'block' : 'none';
 
     const tractAsig = _conductor.tractoraAsignada || localStorage.getItem(`tractora_${_conductor.Codigo}`) || '';
     if (tractAsig) {
