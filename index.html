@@ -117,6 +117,16 @@
       <input type="date" id="filtroHasta" onchange="renderHistorial()"
         style="flex:1;font-size:11px;padding:5px 6px;border:1.5px solid var(--border);border-radius:6px">
     </div>
+    <div style="margin-top:6px">
+      <input type="text" id="filtroNumLiq" placeholder="Núm. liquidación…" oninput="renderHistorial()"
+        style="width:100%;font-size:11px;padding:5px 6px;border:1.5px solid var(--border);border-radius:6px;text-transform:uppercase;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+      <label style="font-size:11px;color:var(--soft);white-space:nowrap;cursor:pointer">
+        <input type="checkbox" id="filtroDuplicados" onchange="renderHistorial()" style="margin-right:4px">
+        ⚠️ Solo duplicados
+      </label>
+    </div>
     <button type="button" onclick="limpiarFiltrosHistorial()"
       style="width:100%;margin-top:6px;padding:5px;font-size:11px;background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--soft)">
       ✕ Limpiar filtros
@@ -483,6 +493,10 @@
             <input type="date" id="inf-hasta">
           </div>
         </div>
+        <div class="field">
+          <label>Núm. Liquidación</label>
+          <input type="text" id="inf-conductor-num-liq" placeholder="LIQ-2025-06-001" style="text-transform:uppercase">
+        </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarConductor()">🔍 Previsualizar</button>
       </div>
 
@@ -512,6 +526,20 @@
             <span>—</span>
             <input type="date" id="inf-gest-hasta">
           </div>
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="inf-gest-estado" onchange="toggleGestoriaNumLiq()">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="liquidado">Liquidado</option>
+          </select>
+        </div>
+        <div class="field" id="field-gest-num-liq" style="display:none">
+          <label>Núm. Liquidación</label>
+          <select id="inf-gest-num-liq">
+            <option value="">Todas las liquidaciones</option>
+          </select>
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarGestoria()">🔍 Previsualizar</button>
       </div>
@@ -559,6 +587,10 @@
             <span>—</span>
             <input type="date" id="inf-rrhh-hasta">
           </div>
+        </div>
+        <div class="field">
+          <label>Núm. Liquidación</label>
+          <input type="text" id="inf-rrhh-num-liq" placeholder="LIQ-2025-06-001" style="text-transform:uppercase">
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarRRHH()">🔍 Previsualizar</button>
       </div>
@@ -722,6 +754,8 @@
             <option value="bloqueado">🔒 Bloqueado</option>
           </select>
           <input type="date" id="liq-h-desde"><span>—</span><input type="date" id="liq-h-hasta">
+          <input type="text" id="liq-h-num-liq" placeholder="Núm. liquidación…"
+            style="text-transform:uppercase;width:160px">
           <button class="btn btn-ghost" onclick="cargarHistorialLiq()">🔍 Filtrar</button>
           <button class="btn btn-ghost" onclick="exportarHistorialLiq()">📊 Exportar CSV</button>
         </div>
@@ -733,7 +767,7 @@
         <table class="data-table">
           <thead><tr>
             <th>Conductor</th><th>Código</th><th>Plataforma</th>
-            <th>Período</th><th>Días</th><th>Total Dietas</th>
+            <th>Núm. Liquidación</th><th>Período</th><th>Días</th><th>Total Dietas</th>
             <th>Gastos Viaje</th><th>Fecha Liquidación</th><th>Estado</th>
           </tr></thead>
           <tbody id="tbody-historial-liq"></tbody>
@@ -1060,7 +1094,7 @@
   import { initDB, getConductores, getTarifas, getRegistros, getTarifa,
            buscarConductor, upsertConductor, eliminarConductor,
            addRegistro, updateRegistro, deleteRegistro,
-           setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros,
+           setEstadoDietas, setEstadoGastos, liquidarRegistros, pagarGastosRegistros, generarNumLiquidacion,
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
            getConceptos, upsertConcepto, eliminarConcepto,
            updateTractoraConductor, setOnRegistrosChange } from './db.js';
@@ -1078,7 +1112,8 @@
   window.deleteRegistro       = deleteRegistro;
   window.setEstadoDietas      = setEstadoDietas;
   window.setEstadoGastos      = setEstadoGastos;
-  window.liquidarRegistros    = liquidarRegistros;
+  window.liquidarRegistros       = liquidarRegistros;
+  window.generarNumLiquidacion  = generarNumLiquidacion;
   window.pagarGastosRegistros = pagarGastosRegistros;
   window.getTractoras         = getTractoras;
   window.upsertTractora       = upsertTractora;
