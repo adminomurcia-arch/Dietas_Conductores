@@ -457,80 +457,9 @@ async function guardarRegistro() {
     }
       datosRegistro.estadoGastos = regOriginal.estadoGastos;
       datosRegistro.esDuplicado  = regOriginal.esDuplicado || false;
-      datosRegistro.registroPareja = regOriginal.registroPareja || '';
     }
     await updateRegistro(editId, datosRegistro);
     showToast('Registro actualizado ✓', 'success');
-
-    // Si es DOBLE y tiene registro pareja vinculado, ofrecer actualizar el otro
-    // IMPORTANTE: usar regOriginal (leído antes del update) para obtener registroPareja
-    const idPareja = regOriginal?.registroPareja;
-    if (idPareja && datosRegistro.equipaje === 'DOBLE') {
-      const regPareja = getRegistros().find(r => r.id === idPareja);
-      if (regPareja && confirm(`¿Aplicar los mismos cambios operativos al registro de ${regPareja.nombreConductor}?`)) {
-        // Recalcular resultado con el PrecioKmt propio de la pareja
-        const condParejaBuscar = buscarConductor(regPareja.codigoConductor);
-        const resultadoParejaEdit = calcularDietasParaConductor(condParejaBuscar, {
-          ...datosRegistro,
-          equipaje: regPareja.equipaje || datosRegistro.equipaje,
-        });
-        // Solo propagar campos operativos (fechas, km, operaciones, plataforma, categoria...)
-        // NUNCA propagar: nombreConductor, codigoConductor, gastos, anticipos, tractora propia
-        const datosPareja = {
-          // Campos operativos compartidos
-          plataforma:        datosRegistro.plataforma,
-          categoria:         datosRegistro.categoria,
-          fechaSalida:       datosRegistro.fechaSalida,
-          fechaLlegada:      datosRegistro.fechaLlegada,
-          horaSalida:        datosRegistro.horaSalida,
-          horaLlegada:       datosRegistro.horaLlegada,
-          diasTrabajados:    datosRegistro.diasTrabajados,
-          restoHoras:        datosRegistro.restoHoras,
-          coefNacional:      datosRegistro.coefNacional,
-          nDomingos:         datosRegistro.nDomingos,
-          nFestivos:         datosRegistro.nFestivos,
-          festivosEnLiquidacion: datosRegistro.festivosEnLiquidacion,
-          totalKm:           datosRegistro.totalKm,
-          nCarga:            datosRegistro.nCarga,
-          nPalet:            datosRegistro.nPalet,
-          nRebote:           datosRegistro.nRebote,
-          n24h:              datosRegistro.n24h,
-          nPausa:            datosRegistro.nPausa,
-          nNacional:         datosRegistro.nNacional,
-          nUK:               datosRegistro.nUK,
-          nNDLF:             datosRegistro.nNDLF,
-          acarreos:          datosRegistro.acarreos,
-          dietaVlissingen:   datosRegistro.dietaVlissingen,
-          extrasConcepto:    datosRegistro.extrasConcepto,
-          extras:            datosRegistro.extras,
-          modo:              datosRegistro.modo,
-          // Campos propios de la pareja — NO se tocan
-          codigoConductor:   regPareja.codigoConductor,
-          nombreConductor:   regPareja.nombreConductor,
-          tractora:          regPareja.tractora          ?? datosRegistro.tractora,
-          equipaje:          regPareja.equipaje          || datosRegistro.equipaje,
-          pareja:            regPareja.pareja,
-          gastosViaje:       regPareja.gastosViaje       ?? 0,
-          gastosDetalle:     regPareja.gastosDetalle     ?? [],
-          anticipos:         regPareja.anticipos         ?? 0,
-          kmSalida:          regPareja.kmSalida          ?? datosRegistro.kmSalida,
-          kmVuelta:          regPareja.kmVuelta          ?? datosRegistro.kmVuelta,
-          // Trazabilidad
-          registroPareja:    editId,
-          modificadoPor:     'admin',
-          fechaModificacion: ahora,
-          creadoPor:         regPareja.creadoPor         || 'admin',
-          creadoEn:          regPareja.creadoEn          || ahora,
-          estadoDietas:      regPareja.estadoDietas,
-          estadoGastos:      regPareja.estadoGastos,
-          esDuplicado:       regPareja.esDuplicado       ?? true,
-          // Resultado recalculado con PrecioKmt de la pareja
-          resultado:         resultadoParejaEdit,
-        };
-        await updateRegistro(idPareja, datosPareja);
-        showToast('Registro de pareja actualizado también ✓', 'success');
-      }
-    }
   } else {
     // SALVAGUARDA: nunca crear registro nuevo si editId tiene valor (por si acaso)
     if (document.getElementById('formRegistro').dataset.editId) {
@@ -557,10 +486,8 @@ async function guardarRegistro() {
           tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
           equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
           pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-          registroPareja:  regGuardado.id,
           creadoPor:       'admin',
           creadoEn:        ahora,
-          esDuplicado:     true,   // evita bucle de duplicación
           // Copiar conteos de operaciones del registro original
           nCarga:    datosRegistro.nCarga,
           nPalet:    datosRegistro.nPalet,
@@ -577,8 +504,7 @@ async function guardarRegistro() {
           // Usar resultado recalculado con PrecioKmt de la pareja
           resultado:     resultadoPareja,
         };
-        const regPareja = await addRegistro(datosPareja);
-        await updateRegistro(regGuardado.id, { registroPareja: regPareja.id });
+        await addRegistro(datosPareja);
         showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
       }
     }
@@ -697,13 +623,12 @@ function toggleSidebar() {
 }
 
 window.limpiarFiltrosHistorial = function limpiarFiltrosHistorial() {
-  ['filtroHistorial','filtroDesde','filtroHasta','filtroNumLiq'].forEach(id => {
+  ['filtroHistorial','filtroDesde','filtroHasta'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   ['filtroPlataforma','filtroEstado','filtroEquipaje','filtroOrigen'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const dupEl = document.getElementById('filtroDuplicados'); if (dupEl) dupEl.checked = false;
   renderHistorial();
 };
 
@@ -716,8 +641,6 @@ function renderHistorial() {
   const fOrigen   = document.getElementById('filtroOrigen')?.value      || '';
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
-  const fNumLiq   = (document.getElementById('filtroNumLiq')?.value     || '').trim().toUpperCase();
-  const fSoloDup  = document.getElementById('filtroDuplicados')?.checked || false;
 
   let regs = getRegistros().slice().reverse();
   if (filtro)    regs = regs.filter(r =>
@@ -729,19 +652,11 @@ function renderHistorial() {
   if (fOrigen)   regs = regs.filter(r => fOrigen === 'movil' ? r.origenMovil : !r.origenMovil);
   if (fDesde)    regs = regs.filter(r => r.fechaSalida  >= fDesde);
   if (fHasta)    regs = regs.filter(r => r.fechaLlegada <= fHasta);
-  if (fNumLiq)   regs = regs.filter(r => (r.numLiquidacion || '').toUpperCase().includes(fNumLiq));
 
   if (!regs.length) {
     lista.innerHTML = '<p style="padding:16px;color:#888;font-size:12px">Sin registros</p>';
     return;
   }
-
-  // Detector de duplicados: mismo conductor + misma fechaSalida
-  const claveDup = r => `${r.codigoConductor}|${r.fechaSalida}`;
-  const contDup  = {};
-  regs.forEach(r => { const k = claveDup(r); contDup[k] = (contDup[k] || 0) + 1; });
-  const idsDuplicados = new Set(regs.filter(r => contDup[claveDup(r)] > 1).map(r => r.id));
-  if (fSoloDup) regs = regs.filter(r => idsDuplicados.has(r.id));
 
   // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
   const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
@@ -773,19 +688,16 @@ function renderHistorial() {
     const edDietas   = r.estadoDietas || 'pendiente';
     const edGastos   = r.estadoGastos || 'pendiente';
     const esPendVal  = edDietas === 'pendiente_validacion';
-    const esDup      = idsDuplicados.has(r.id);
     const origenIcon = r.origenMovil ? '📱' : '🖥️';
-    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : esDup ? 'background:#fff8e1;' : '';
+    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : '';
 
     return `<tr style="${rowStyle}">
       <td>
         <span style="font-weight:600">${r.nombreConductor}</span>
         <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
-        ${esDup ? '<span title="Posible duplicado: mismo conductor y fecha de salida" style="font-size:10px;color:#e67e22;margin-left:4px;cursor:help">⚠️ DUP</span>' : ''}
         ${r.equipaje==='DOBLE' && r.registroPareja
           ? `<span style="font-size:10px;color:#92400e;cursor:pointer" onclick="editarRegistro('${r.registroPareja}')"> 👥</span>` : ''}
         <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
-        ${r.numLiquidacion ? `<br><span style="font-size:10px;color:#6b7566">🔖 ${r.numLiquidacion}</span>` : ''}
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
@@ -1339,22 +1251,16 @@ function liqDietasMarcarTodos() {
 async function liqDietasLiquidar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+  if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
 
+  // Incluir también los registros pareja de los DOBLE
   const idsConPareja = new Set(ids);
   getRegistros().forEach(r => {
     if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
   });
 
-  const numAuto = generarNumLiquidacion();
-  const numEditado = prompt(
-    `Va a liquidar ${idsConPareja.size} registro(s).\n\nNúmero de liquidación (editable):`,
-    numAuto
-  );
-  if (numEditado === null) return;
-  const numFinal = numEditado.trim().toUpperCase() || numAuto;
-
-  await liquidarRegistros([...idsConPareja], numFinal);
-  showToast(`${idsConPareja.size} registros liquidados — ${numFinal} ✓`, 'success');
+  await liquidarRegistros([...idsConPareja]);
+  showToast(`${idsConPareja.size} registros liquidados ✓`, 'success');
   cargarLiqDietas();
 }
 
@@ -1633,7 +1539,6 @@ function cargarHistorialLiq() {
   const estado = document.getElementById('liq-h-estado')?.value || '';
   const desde  = document.getElementById('liq-h-desde').value;
   const hasta  = document.getElementById('liq-h-hasta').value;
-  const numLiq = (document.getElementById('liq-h-num-liq')?.value || '').trim().toUpperCase();
 
   // Sin filtro de estado: mostrar liquidado, pagado o gastos pagados (comportamiento original)
   // Con filtro de estado: aplicar exactamente el estado seleccionado
@@ -1645,11 +1550,10 @@ function cargarHistorialLiq() {
       r.estadoDietas === 'liquidado' || r.estadoDietas === 'pagado' || r.estadoGastos === 'pagado'
     );
   }
-  if (plat)   regs = regs.filter(r => r.plataforma === plat);
-  if (cod)    regs = regs.filter(r => String(r.codigoConductor).includes(cod));
-  if (desde)  regs = regs.filter(r => r.fechaSalida  >= desde);
-  if (hasta)  regs = regs.filter(r => r.fechaLlegada <= hasta);
-  if (numLiq) regs = regs.filter(r => (r.numLiquidacion || '').toUpperCase().includes(numLiq));
+  if (plat)  regs = regs.filter(r => r.plataforma === plat);
+  if (cod)   regs = regs.filter(r => String(r.codigoConductor).includes(cod));
+  if (desde) regs = regs.filter(r => r.fechaSalida  >= desde);
+  if (hasta) regs = regs.filter(r => r.fechaLlegada <= hasta);
 
   // Ordenar por fecha liquidación desc
   regs.sort((a, b) => (b.fechaLiquidacion || '').localeCompare(a.fechaLiquidacion || ''));
@@ -1671,7 +1575,6 @@ function cargarHistorialLiq() {
       <td>${r.nombreConductor}</td>
       <td>${r.codigoConductor}</td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
-      <td style="font-size:11px;color:var(--soft)">${r.numLiquidacion || '—'}</td>
       <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
       <td style="text-align:center">${r.diasTrabajados}</td>
       <td style="font-family:var(--font-mono);text-align:right;font-weight:600;color:var(--primary)">${fmt2(dietas)} €</td>
@@ -1679,7 +1582,7 @@ function cargarHistorialLiq() {
       <td style="text-align:center;font-size:12px;color:var(--soft)">${fLiq}</td>
       <td>${estadoBadge}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:#888">Sin registros liquidados</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:#888">Sin registros liquidados</td></tr>';
 
   document.getElementById('liq-h-total').textContent = fmt2(totalDietas) + ' €';
 }
@@ -1690,7 +1593,7 @@ function exportarHistorialLiq() {
   if (!rows.length || rows[0].cells.length < 2) {
     showToast('No hay datos para exportar', 'error'); return;
   }
-  const headers = ['Conductor','Código','Plataforma','Núm. Liquidación','Período','Días','Total Dietas','Gastos Viaje','Fecha Liquidación','Estado'];
+  const headers = ['Conductor','Código','Plataforma','Período','Días','Total Dietas','Gastos Viaje','Fecha Liquidación','Estado'];
   const esc = v => `"${String(v).replace(/"/g,'""')}"`;
   const lines = [headers.map(esc).join(';')];
   rows.forEach(row => {
