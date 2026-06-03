@@ -374,24 +374,27 @@ function accionInformeEmail() {
   if (!_informe.datos?.length) return;
 
   if (_informe.tipo === 'conductor') {
-    // Conductor: email automático a cada conductor usando su email de la BD
+    // Conductor: cola de emails uno a uno para evitar bloqueo de popups
     const conductores = getConductores();
     const porConductor = {};
     _informe.datos.forEach(r => {
       if (!porConductor[r.codigoConductor]) porConductor[r.codigoConductor] = [];
       porConductor[r.codigoConductor].push(r);
     });
-    let enviados = 0;
+    // Construir cola solo con conductores que tienen email
+    _emailCola = [];
     Object.entries(porConductor).forEach(([codigo, registros]) => {
       const c = conductores.find(x => String(x.Codigo) === String(codigo));
       if (!c || !c.Email) return;
-      const asunto = encodeURIComponent(`Liquidación de dietas — ${c.Nombre}`);
-      const cuerpo = encodeURIComponent(generarCuerpoEmail(c, registros));
-      window.open(`mailto:${c.Email}?subject=${asunto}&body=${cuerpo}`, '_blank');
-      enviados++;
+      const registrosOrdenados = registros.slice().sort((a, b) => (a.fechaSalida || '').localeCompare(b.fechaSalida || ''));
+      _emailCola.push({ conductor: c, registros: registrosOrdenados });
     });
-    if (enviados === 0) showToast('Ningún conductor tiene email registrado', 'error');
-    else showToast(`${enviados} email(s) preparados en Outlook ✓`, 'success');
+    if (_emailCola.length === 0) {
+      showToast('Ningún conductor tiene email registrado', 'error');
+      return;
+    }
+    _emailColaIdx = 0;
+    ecMostrarActual();
   } else {
     // Gestoría / RRHH: abrir modal para introducir destinatario manualmente
     const asuntoDefault = _informe.tipo === 'gestoria'
@@ -702,4 +705,49 @@ function enviarEmailManual() {
   window.open(href, '_blank');
   cerrarModalEmail();
   showToast('Email preparado en Outlook ✓', 'success');
+}
+
+// ============================================================
+// COLA DE ENVÍO MASIVO DE EMAILS (Informe Conductor)
+// ============================================================
+let _emailCola    = [];
+let _emailColaIdx = 0;
+
+function ecMostrarActual() {
+  const total  = _emailCola.length;
+  const idx    = _emailColaIdx;
+  if (idx >= total) { ecCerrarCola(); return; }
+
+  const { conductor: c, registros } = _emailCola[idx];
+  document.getElementById('ec-contador').textContent  = `${idx + 1} de ${total}`;
+  document.getElementById('ec-nombre').textContent    = `${c.Codigo} — ${c.Nombre}`;
+  document.getElementById('ec-email').textContent     = c.Email;
+  document.getElementById('ec-registros').textContent = `${registros.length} viaje${registros.length !== 1 ? 's' : ''}`;
+  document.getElementById('modal-email-cola').style.display = 'flex';
+}
+
+function ecAbrirOutlook() {
+  const { conductor: c, registros } = _emailCola[_emailColaIdx];
+  const asunto = `Liquidación de dietas — ${c.Nombre}`;
+  const cuerpo = generarCuerpoEmail(c, registros);
+  const href = `mailto:${encodeURIComponent(c.Email)}`
+    + `?subject=${encodeURIComponent(asunto)}`
+    + `&body=${encodeURIComponent(cuerpo)}`;
+  window.open(href, '_blank');
+}
+
+function ecSiguiente() {
+  _emailColaIdx++;
+  if (_emailColaIdx >= _emailCola.length) {
+    ecCerrarCola();
+    showToast(`${_emailCola.length} email(s) preparados en Outlook ✓`, 'success');
+  } else {
+    ecMostrarActual();
+  }
+}
+
+function ecCerrarCola() {
+  document.getElementById('modal-email-cola').style.display = 'none';
+  _emailCola    = [];
+  _emailColaIdx = 0;
 }
