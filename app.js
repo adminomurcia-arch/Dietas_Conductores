@@ -697,12 +697,13 @@ function toggleSidebar() {
 }
 
 window.limpiarFiltrosHistorial = function limpiarFiltrosHistorial() {
-  ['filtroHistorial','filtroDesde','filtroHasta'].forEach(id => {
+  ['filtroHistorial','filtroDesde','filtroHasta','filtroNumLiq'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   ['filtroPlataforma','filtroEstado','filtroEquipaje','filtroOrigen'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  const dupEl = document.getElementById('filtroDuplicados'); if (dupEl) dupEl.checked = false;
   renderHistorial();
 };
 
@@ -715,6 +716,8 @@ function renderHistorial() {
   const fOrigen   = document.getElementById('filtroOrigen')?.value      || '';
   const fDesde    = document.getElementById('filtroDesde')?.value       || '';
   const fHasta    = document.getElementById('filtroHasta')?.value       || '';
+  const fNumLiq   = (document.getElementById('filtroNumLiq')?.value     || '').trim().toUpperCase();
+  const fSoloDup  = document.getElementById('filtroDuplicados')?.checked || false;
 
   let regs = getRegistros().slice().reverse();
   if (filtro)    regs = regs.filter(r =>
@@ -726,11 +729,21 @@ function renderHistorial() {
   if (fOrigen)   regs = regs.filter(r => fOrigen === 'movil' ? r.origenMovil : !r.origenMovil);
   if (fDesde)    regs = regs.filter(r => r.fechaSalida  >= fDesde);
   if (fHasta)    regs = regs.filter(r => r.fechaLlegada <= fHasta);
+  if (fNumLiq)   regs = regs.filter(r => (r.numLiquidacion || '').toUpperCase().includes(fNumLiq));
 
   if (!regs.length) {
     lista.innerHTML = '<p style="padding:16px;color:#888;font-size:12px">Sin registros</p>';
     return;
   }
+
+  // Detector de duplicados: mismo conductor + misma fechaSalida
+  const claveDup = r => `${r.codigoConductor}|${r.fechaSalida}`;
+  const contDup  = {};
+  regs.forEach(r => { const k = claveDup(r); contDup[k] = (contDup[k] || 0) + 1; });
+  const idsDuplicados = new Set(regs.filter(r => contDup[claveDup(r)] > 1).map(r => r.id));
+
+  // Filtrar solo duplicados si está activado el checkbox
+  if (fSoloDup) regs = regs.filter(r => idsDuplicados.has(r.id));
 
   // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
   const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
@@ -762,16 +775,19 @@ function renderHistorial() {
     const edDietas   = r.estadoDietas || 'pendiente';
     const edGastos   = r.estadoGastos || 'pendiente';
     const esPendVal  = edDietas === 'pendiente_validacion';
+    const esDup      = idsDuplicados.has(r.id);
     const origenIcon = r.origenMovil ? '📱' : '🖥️';
-    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : '';
+    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : esDup ? 'background:#fff8e1;' : '';
 
     return `<tr style="${rowStyle}">
       <td>
         <span style="font-weight:600">${r.nombreConductor}</span>
         <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
+        ${esDup ? '<span title="Posible duplicado: mismo conductor y fecha de salida" style="font-size:10px;color:#e67e22;margin-left:4px;cursor:help">⚠️ DUP</span>' : ''}
         ${r.equipaje==='DOBLE' && r.registroPareja
           ? `<span style="font-size:10px;color:#92400e;cursor:pointer" onclick="editarRegistro('${r.registroPareja}')"> 👥</span>` : ''}
         <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
+        ${r.numLiquidacion ? `<br><span style="font-size:10px;color:#6b7566">🔖 ${r.numLiquidacion}</span>` : ''}
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
@@ -1325,7 +1341,6 @@ function liqDietasMarcarTodos() {
 async function liqDietasLiquidar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
-  if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
 
   // Incluir también los registros pareja de los DOBLE
   const idsConPareja = new Set(ids);
@@ -1333,8 +1348,17 @@ async function liqDietasLiquidar() {
     if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
   });
 
-  await liquidarRegistros([...idsConPareja]);
-  showToast(`${idsConPareja.size} registros liquidados ✓`, 'success');
+  // Mostrar modal de confirmación con numLiquidacion editable
+  const numAuto = generarNumLiquidacion();
+  const numEditado = prompt(
+    `Va a liquidar ${idsConPareja.size} registro(s).\n\nNúmero de liquidación (editable):`,
+    numAuto
+  );
+  if (numEditado === null) return; // cancelado
+  const numFinal = numEditado.trim().toUpperCase() || numAuto;
+
+  await liquidarRegistros([...idsConPareja], numFinal);
+  showToast(`${idsConPareja.size} registros liquidados — ${numFinal} ✓`, 'success');
   cargarLiqDietas();
 }
 
@@ -1613,6 +1637,7 @@ function cargarHistorialLiq() {
   const estado = document.getElementById('liq-h-estado')?.value || '';
   const desde  = document.getElementById('liq-h-desde').value;
   const hasta  = document.getElementById('liq-h-hasta').value;
+  const numLiq = (document.getElementById('liq-h-num-liq')?.value || '').trim().toUpperCase();
 
   // Sin filtro de estado: mostrar liquidado, pagado o gastos pagados (comportamiento original)
   // Con filtro de estado: aplicar exactamente el estado seleccionado
@@ -1624,10 +1649,11 @@ function cargarHistorialLiq() {
       r.estadoDietas === 'liquidado' || r.estadoDietas === 'pagado' || r.estadoGastos === 'pagado'
     );
   }
-  if (plat)  regs = regs.filter(r => r.plataforma === plat);
-  if (cod)   regs = regs.filter(r => String(r.codigoConductor).includes(cod));
-  if (desde) regs = regs.filter(r => r.fechaSalida  >= desde);
-  if (hasta) regs = regs.filter(r => r.fechaLlegada <= hasta);
+  if (plat)   regs = regs.filter(r => r.plataforma === plat);
+  if (cod)    regs = regs.filter(r => String(r.codigoConductor).includes(cod));
+  if (desde)  regs = regs.filter(r => r.fechaSalida  >= desde);
+  if (hasta)  regs = regs.filter(r => r.fechaLlegada <= hasta);
+  if (numLiq) regs = regs.filter(r => (r.numLiquidacion || '').toUpperCase().includes(numLiq));
 
   // Ordenar por fecha liquidación desc
   regs.sort((a, b) => (b.fechaLiquidacion || '').localeCompare(a.fechaLiquidacion || ''));
