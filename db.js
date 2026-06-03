@@ -461,27 +461,30 @@ export async function marcarEmailEnviado(id) {
   await updateRegistro(id, { emailEnviado: true, fechaEmailEnviado: new Date().toISOString() });
 }
 
-export async function liquidarRegistros(ids) {
-  // Generar número de liquidación único: LIQ-AAAA-MM-XXX
-  const ahora = new Date();
-  const aaaa  = ahora.getFullYear();
-  const mm    = String(ahora.getMonth() + 1).padStart(2, '0');
-  const prefijo = `LIQ-${aaaa}-${mm}-`;
-  const usados  = (_registros || [])
-    .map(r => r.numLiquidacion || '')
-    .filter(n => n.startsWith(prefijo))
-    .map(n => parseInt(n.replace(prefijo, '')) || 0);
-  const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
-  const numLiquidacion = `${prefijo}${String(siguiente).padStart(3, '0')}`;
-  const fechaLiq = ahora.toISOString();
-
+export async function liquidarRegistros(ids, numLiquidacion) {
+  // numLiquidacion viene confirmado/editado desde el modal de confirmación
+  const fechaLiq = new Date().toISOString();
   await Promise.all(ids.map(id =>
     updateRegistro(id, {
       estadoDietas:     'liquidado',
       fechaLiquidacion: fechaLiq,
-      numLiquidacion,
+      numLiquidacion:   numLiquidacion,
     })
   ));
+}
+
+export function generarNumLiquidacion() {
+  // Genera el siguiente número de liquidación para el mes actual
+  const ahora = new Date();
+  const aaaa  = ahora.getFullYear();
+  const mm    = String(ahora.getMonth() + 1).padStart(2, '0');
+  const prefijo = `LIQ-${aaaa}-${mm}-`;
+  const usados = (_registros || [])
+    .map(r => r.numLiquidacion || '')
+    .filter(n => n.startsWith(prefijo))
+    .map(n => parseInt(n.replace(prefijo, '')) || 0);
+  const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
+  return `${prefijo}${String(siguiente).padStart(3, '0')}`;
 }
 
 export async function pagarGastosRegistros(ids) {
