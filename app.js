@@ -786,6 +786,7 @@ function renderHistorial() {
           onclick="abrirModalEstado('${r.id}','dietas','${edDietas}')">💰 ${edDietas}</span>
         <span class="estado-badge estado-${edGastos}" style="cursor:pointer;display:block"
           onclick="abrirModalEstado('${r.id}','gastos','${edGastos}')">🧾 ${edGastos}</span>
+        ${r.numLiquidacion ? `<span style="font-size:10px;color:#6b7566;display:block;margin-top:3px">🔖 ${r.numLiquidacion}</span>` : ''}
       </td>
       <td style="white-space:nowrap">
         ${esPendVal ? `<button class="btn btn-primary" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
