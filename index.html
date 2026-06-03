@@ -733,7 +733,7 @@
         <table class="data-table">
           <thead><tr>
             <th>Conductor</th><th>Código</th><th>Plataforma</th>
-            <th>Núm. Liquidación</th><th>Período</th><th>Días</th><th>Total Dietas</th>
+            <th>Período</th><th>Días</th><th>Total Dietas</th>
             <th>Gastos Viaje</th><th>Fecha Liquidación</th><th>Estado</th>
           </tr></thead>
           <tbody id="tbody-historial-liq"></tbody>
@@ -957,6 +957,34 @@
       <button class="btn btn-ghost" onclick="cerrarModalEmail()">Cancelar</button>
       <button class="btn btn-ghost" onclick="copiarCuerpoEmail()">📋 Copiar cuerpo</button>
       <button class="btn btn-primary" onclick="enviarEmailManual()">📧 Abrir en Outlook</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COLA EMAIL CONDUCTOR -->
+<div id="modal-email-cola" class="modal" style="display:none">
+  <div class="modal-box" style="width:460px">
+    <div class="modal-header">
+      <h3>📧 Envío de emails — <span id="ec-contador">1 de 1</span></h3>
+      <button onclick="ecCerrarCola()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg-alt);border-radius:8px;padding:16px;margin-bottom:14px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:6px" id="ec-nombre"></div>
+        <div style="font-size:12px;color:var(--text-soft);margin-bottom:4px">📬 <span id="ec-email"></span></div>
+        <div style="font-size:12px;color:var(--text-soft)">📄 <span id="ec-registros"></span></div>
+      </div>
+      <p style="font-size:12px;color:var(--text-soft);margin:0">
+        Pulsa <strong>Abrir en Outlook</strong> para preparar el email.<br>
+        Cuando lo hayas enviado o descartado, pulsa <strong>Siguiente →</strong>
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost" onclick="ecCerrarCola()">✕ Cancelar todo</button>
+      <div style="display:flex;gap:8px">
+        <button id="ec-btn-abrir" class="btn btn-secondary" onclick="ecAbrirOutlook()">📧 Abrir en Outlook</button>
+        <button class="btn btn-primary" onclick="ecSiguiente()">Siguiente →</button>
+      </div>
     </div>
   </div>
 </div>
