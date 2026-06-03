@@ -36,10 +36,12 @@ function previsualizarConductor() {
   const plat     = document.getElementById('inf-conductor-plataforma')?.value || '';
   const equipaje = document.getElementById('inf-conductor-equipaje')?.value   || '';
   const estado   = document.getElementById('inf-conductor-estado')?.value     || '';
+  const numLiqC = (document.getElementById('inf-conductor-num-liq')?.value || '').trim().toUpperCase();
   let regsRaw = filtrarRegistros(desde, hasta, plat, cod);
-  if (equipaje) regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
-  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+  if (equipaje)  regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
+  if (estado)    regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiqC)   regsRaw = regsRaw.filter(r => (r.numLiquidacion || '').toUpperCase().includes(numLiqC));
+  const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)) || (a.fechaSalida||'').localeCompare(b.fechaSalida||''));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   const ESTADO_LABEL = { pendiente: 'Pendiente', liquidado: 'Liquidado', pagado: 'Pagado', bloqueado: 'Bloqueado', pendiente_validacion: 'Pend. validación' };
@@ -53,7 +55,7 @@ function previsualizarConductor() {
   const hayTJGFIL  = regs.some(r => r.plataforma !== 'CAUDETE');
 
   const headers = [
-    'Código', 'Nombre', 'Plataforma', 'Equipaje', 'Pareja', 'Tractora',
+    'Liquidación', 'Código', 'Nombre', 'Plataforma', 'Equipaje', 'Pareja', 'Tractora',
     'Salida', 'Llegada', 'Días', 'Estado',
     // Kilómetros
     'Km Salida', 'Km Vuelta', 'Total Km',
@@ -71,6 +73,7 @@ function previsualizarConductor() {
     const c = getCond(r.codigoConductor);
     const esCau = r.plataforma === 'CAUDETE';
     const fila = {
+      'Liquidación':  r.numLiquidacion || '—',
       'Código':       r.codigoConductor,
       'Nombre':       r.nombreConductor,
       'Plataforma':   r.plataforma || '—',
@@ -134,8 +137,12 @@ function previsualizarGestoria() {
   const formato = document.getElementById('inf-gest-formato').value;
   const desde   = document.getElementById('inf-gest-desde').value;
   const hasta   = document.getElementById('inf-gest-hasta').value;
-  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
-  const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+  const estadoG = document.getElementById('inf-gest-estado')?.value || '';
+  const numLiqG = document.getElementById('inf-gest-num-liq')?.value || '';
+  let   regsRaw = filtrarRegistros(desde, hasta, plat, '');
+  if (estadoG) regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estadoG);
+  if (numLiqG) regsRaw = regsRaw.filter(r => (r.numLiquidacion || '') === numLiqG);
+  const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)) || (a.fechaSalida||'').localeCompare(b.fechaSalida||''));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
@@ -155,6 +162,7 @@ function previsualizarGestoria() {
       const m = mapa[cod];
       m.nReg++;
       m.ANTICIPOS += parseFloat(r.anticipos || 0);
+      if (r.numLiquidacion) m.numLiquidacion = r.numLiquidacion;
       if (plat === 'CAUDETE') {
         const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
         const diasTrab = parseFloat(r.diasTrabajados          || 0);
@@ -185,8 +193,9 @@ function previsualizarGestoria() {
     const conductores = Object.values(mapa).sort((a,b) => String(a.cod).localeCompare(String(b.cod)));
 
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
+      headers = ['LIQUIDACIÓN','COD','NOMBRE','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
+        'LIQUIDACIÓN':     m.numLiquidacion || '—',
         'COD':             m.cod,
         'NOMBRE':          m.nombre,
         'PLUS_EFICIENCIA': fmt2(m.PLUS_EFICIENCIA),
@@ -198,8 +207,9 @@ function previsualizarGestoria() {
         'ANTICIPOS':       fmt2(m.ANTICIPOS),
       }));
     } else {
-      headers = ['COD','NOMBRE','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
+      headers = ['LIQUIDACIÓN','COD','NOMBRE','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','TOTAL','ANTICIPOS'];
       filas = conductores.map(m => ({
+        'LIQUIDACIÓN': m.numLiquidacion || '—',
         'COD':        m.cod,
         'NOMBRE':     m.nombre,
         'H_EXTRA':    fmt2(m.H_EXTRA),
@@ -216,7 +226,7 @@ function previsualizarGestoria() {
   } else {
     // Detallado — una fila por registro
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
+      headers = ['LIQUIDACIÓN','COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
       filas = regs.map(r => {
         const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
         const diasTrab = parseFloat(r.diasTrabajados          || 0);
@@ -228,6 +238,7 @@ function previsualizarGestoria() {
           ? parseFloat(r.resultado.DIET_INTER)
           : dietas - dietNac;
         return {
+          'LIQUIDACIÓN':     r.numLiquidacion || '—',
           'COD':             r.codigoConductor,
           'NOMBRE':          r.nombreConductor,
           'PERÍODO':         `${r.fechaSalida} → ${r.fechaLlegada}`,
@@ -241,8 +252,9 @@ function previsualizarGestoria() {
         };
       });
     } else {
-      headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
+      headers = ['LIQUIDACIÓN','COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
       filas = regs.map(r => ({
+        'LIQUIDACIÓN': r.numLiquidacion || '—',
         'COD':        r.codigoConductor,
         'NOMBRE':     r.nombreConductor,
         'PERÍODO':    `${r.fechaSalida} → ${r.fechaLlegada}`,
@@ -273,16 +285,18 @@ function previsualizarRRHH() {
   const estado   = document.getElementById('inf-rrhh-estado').value;
   const desde    = document.getElementById('inf-rrhh-desde').value;
   const hasta    = document.getElementById('inf-rrhh-hasta').value;
+  const numLiqR = (document.getElementById('inf-rrhh-num-liq')?.value || '').trim().toUpperCase();
   let regsRaw    = filtrarRegistros(desde, hasta, plat, '');
   if (equipaje) regsRaw = regsRaw.filter(r => r.equipaje === equipaje);
   if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  const regs = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+  if (numLiqR)  regsRaw = regsRaw.filter(r => (r.numLiquidacion || '').toUpperCase().includes(numLiqR));
+  const regs = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)) || (a.fechaSalida||'').localeCompare(b.fechaSalida||''));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
   let headers, filas;
 
   if (formato === 'detallado') {
-    headers = ['COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
+    headers = ['LIQUIDACIÓN','COD','NOMBRE','PLATAFORMA','CATEGORÍA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA',
                'DÍAS','RESTO_HORAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','COEF_NAC','DOM_FEST',
                'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','NACIONAL',
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
@@ -294,6 +308,7 @@ function previsualizarRRHH() {
     filas = regs.map(r => {
       const cr = getCondR(r.codigoConductor);
       return {
+      'LIQUIDACIÓN': r.numLiquidacion || '—',
       'COD': r.codigoConductor, 'NOMBRE': r.nombreConductor,
       'PLATAFORMA': r.plataforma, 'CATEGORÍA': r.categoria,
       'EQUIPAJE': cr.EQUIPAJE || '—', 'PAREJA': cr.PAREJA || '—',
@@ -315,12 +330,13 @@ function previsualizarRRHH() {
       'DIETAS_CAU': fmt2(r.resultado?.DIETAS),
     };});
   } else {
-    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
+    headers = ['LIQUIDACIÓN','COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
     const condsRs = getConductores();
     const getCondRs = cod => condsRs.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
     filas = regs.map(r => {
       const crs = getCondRs(r.codigoConductor);
       return {
+        'LIQUIDACIÓN': r.numLiquidacion || '—',
         'COD': r.codigoConductor, 'NOMBRE': r.nombreConductor,
         'PLATAFORMA': r.plataforma,
         'EQUIPAJE': crs.EQUIPAJE || '—', 'PAREJA': crs.PAREJA || '—',
@@ -378,30 +394,24 @@ function accionInformeEmail() {
   if (!_informe.datos?.length) return;
 
   if (_informe.tipo === 'conductor') {
-    // Construir cola de emails: un elemento por conductor con email
     const conductores = getConductores();
     const porConductor = {};
     _informe.datos.forEach(r => {
       if (!porConductor[r.codigoConductor]) porConductor[r.codigoConductor] = [];
       porConductor[r.codigoConductor].push(r);
     });
-
     _emailCola = [];
     Object.entries(porConductor).forEach(([codigo, registros]) => {
       const cond = conductores.find(x => String(x.Codigo) === String(codigo));
       if (!cond) return;
       _emailCola.push({ cond, registros });
     });
-
     if (!_emailCola.length) { showToast('Ningún conductor encontrado', 'error'); return; }
-
     const sinEmail = _emailCola.filter(e => !e.cond.Email).length;
     if (sinEmail) showToast(`${sinEmail} conductor(es) sin email — se saltarán`, 'info');
-
     _emailColaIdx = 0;
     abrirModalEmailCola();
   } else {
-    // Gestoría / RRHH: modal destinatario manual
     const asuntoDefault = _informe.tipo === 'gestoria'
       ? `Informe Gestoría — ${_informe.titulo}`
       : `Informe RRHH — ${_informe.titulo}`;
@@ -413,39 +423,31 @@ function accionInformeEmail() {
 }
 
 function abrirModalEmailCola() {
-  // Saltar conductores sin email
   while (_emailColaIdx < _emailCola.length && !_emailCola[_emailColaIdx].cond.Email) {
     _emailColaIdx++;
   }
-
   const modal = document.getElementById('modal-email-cola');
   if (_emailColaIdx >= _emailCola.length) {
     modal.style.display = 'none';
     showToast('Todos los emails procesados ✓', 'success');
     return;
   }
-
   const { cond, registros } = _emailCola[_emailColaIdx];
-  const total   = _emailCola.filter(e => e.cond.Email).length;
-  const actual  = _emailCola.slice(0, _emailColaIdx + 1).filter(e => e.cond.Email).length;
-
+  const total  = _emailCola.filter(e => e.cond.Email).length;
+  const actual = _emailCola.slice(0, _emailColaIdx + 1).filter(e => e.cond.Email).length;
   document.getElementById('ec-contador').textContent  = `${actual} de ${total}`;
   document.getElementById('ec-nombre').textContent    = cond.Nombre;
   document.getElementById('ec-email').textContent     = cond.Email;
   document.getElementById('ec-registros').textContent = `${registros.length} registro(s)`;
-
-  // Guardar mailto para el botón abrir
   const asunto = encodeURIComponent(`Liquidación de dietas — ${cond.Nombre}`);
   const cuerpo = encodeURIComponent(generarCuerpoEmail(cond, registros));
   document.getElementById('ec-btn-abrir').dataset.mailto =
     `mailto:${cond.Email}?subject=${asunto}&body=${cuerpo}`;
-
   modal.style.display = 'flex';
 }
 
 function ecAbrirOutlook() {
-  const href = document.getElementById('ec-btn-abrir').dataset.mailto;
-  window.location.href = href;
+  window.location.href = document.getElementById('ec-btn-abrir').dataset.mailto;
 }
 
 function ecSiguiente() {
@@ -717,4 +719,24 @@ function enviarEmailManual() {
   window.open(href, '_blank');
   cerrarModalEmail();
   showToast('Email preparado en Outlook ✓', 'success');
+}
+
+// ---- GESTORIA: mostrar/ocultar desplegable numLiquidacion ----
+function toggleGestoriaNumLiq() {
+  const estado = document.getElementById('inf-gest-estado').value;
+  const field  = document.getElementById('field-gest-num-liq');
+  const sel    = document.getElementById('inf-gest-num-liq');
+  if (estado === 'liquidado') {
+    const nums = [...new Set(
+      getRegistros()
+        .filter(r => r.estadoDietas === 'liquidado' && r.numLiquidacion)
+        .map(r => r.numLiquidacion)
+    )].sort((a, b) => b.localeCompare(a));
+    sel.innerHTML = '<option value="">Todas las liquidaciones</option>' +
+      nums.map(n => `<option value="${n}">${n}</option>`).join('');
+    field.style.display = '';
+  } else {
+    field.style.display = 'none';
+    sel.value = '';
+  }
 }
