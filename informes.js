@@ -486,7 +486,6 @@ function generarCuerpoEmail(conductor, registros) {
     txt += `────────────────────────────────\n`;
     txt += `Registro ${i + 1}\n`;
     txt += `────────────────────────────────\n`;
-    txt += lin('Plataforma',      r.plataforma);
     txt += lin('Período',         `${r.fechaSalida} → ${r.fechaLlegada}`);
     txt += lin('Tractora',        r.tractora);
     txt += lin('Días trabajados', r.diasTrabajados);
@@ -499,20 +498,20 @@ function generarCuerpoEmail(conductor, registros) {
 
     // Operaciones (solo las que tienen valor > 0)
     const ops = [];
-    if (r.nCarga   > 0) ops.push(`Cargas/descargas: ${r.nCarga}`);
-    if (r.nPalet   > 0) ops.push(`Mov. palets: ${r.nPalet}`);
-    if (r.nRebote  > 0) ops.push(`Rebotes: ${r.nRebote}`);
-    if (r.n24h     > 0) ops.push(`Pausas 24h: ${r.n24h}`);
-    if (r.nPausa   > 0) ops.push(`Pausas: ${r.nPausa}`);
-    if (r.nNacional> 0) ops.push(`Días nacional: ${r.nNacional}`);
-    if (r.nUK      > 0) ops.push(`UK: ${r.nUK}`);
-    if (r.nNDLF    > 0) ops.push(`NDLF: ${r.nNDLF}`);
-    if (r.nDomingos> 0) ops.push(`Domingos: ${r.nDomingos}`);
-    if (r.nFestivos> 0) ops.push(`Festivos: ${r.nFestivos}`);
-    if (r.acarreos > 0) ops.push(`Acarreos: ${r.acarreos}`);
+    if (r.nCarga        > 0) ops.push(`Cargas/descargas: ${r.nCarga}`);
+    if (r.nPalet        > 0) ops.push(`Mov. palets: ${r.nPalet}`);
+    if (r.nRebote       > 0) ops.push(`Rebotes: ${r.nRebote}`);
+    if (r.n24h          > 0) ops.push(`Pausas 24h: ${r.n24h}`);
+    if (r.nPausa        > 0) ops.push(`Pausas: ${r.nPausa}`);
+    if (r.nNacional     > 0) ops.push(`Días nacional: ${r.nNacional}`);
+    if (r.nUK           > 0) ops.push(`UK: ${r.nUK}`);
+    if (r.nNDLF         > 0) ops.push(`NDLF: ${r.nNDLF}`);
+    if (r.nDomingos     > 0) ops.push(`Domingos: ${r.nDomingos}`);
+    if (r.nFestivos     > 0) ops.push(`Festivos: ${r.nFestivos}`);
+    if (r.acarreos      > 0) ops.push(`Acarreos: ${r.acarreos}`);
     if (r.dietaVlissingen > 0) ops.push(`Vlissingen: ${r.dietaVlissingen}`);
-    if (r.restoHoras > 0) ops.push(`Resto horas: ${r.restoHoras}`);
-    if (r.extrasConcepto) ops.push(`Extras (${r.extrasConcepto}): ${r.extras}`);
+    if (r.restoHoras    > 0) ops.push(`Resto horas: ${r.restoHoras}`);
+    if (r.extrasConcepto)    ops.push(`Extras (${r.extrasConcepto}): ${r.extras}`);
 
     if (ops.length) {
       txt += `  Operaciones:\n`;
