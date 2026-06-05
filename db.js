@@ -216,8 +216,9 @@ let _unsubRegistros = null;
 export async function initDB() {
   await enableNetwork(db);
   await Promise.all([cargarConductores(), cargarTarifas(), cargarTractoras(), cargarConceptos()]);
-  await cargarRegistros();
-  escucharRegistros();
+  // NO llamar cargarRegistros() — onSnapshot ya hace la carga inicial
+  // y llamar ambos causaba que _registros tuviese el mismo ID dos veces
+  await new Promise(resolve => escucharRegistros(resolve));
 }
 
 // ====================================================
@@ -407,14 +408,18 @@ async function cargarRegistros() {
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 
-function escucharRegistros() {
+function escucharRegistros(onReady) {
   if (_unsubRegistros) _unsubRegistros();
+  let primeraCarga = true;
   _unsubRegistros = onSnapshot(
     query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
     snap => {
       _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (primeraCarga) {
+        primeraCarga = false;
+        if (typeof onReady === 'function') onReady();
+      }
       if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
-      // Fallback por si acaso
       if (typeof window.renderHistorial === 'function') window.renderHistorial();
     },
     err => console.error('Listener error:', err)
