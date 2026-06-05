@@ -1018,6 +1018,9 @@ async function editarRegistro(id) {
   // Modo del formulario
   if (r.modo && r.modo !== modoActual) setModo(r.modo);
 
+  // Marcar modo edición ANTES de autocompletar para que las guardas funcionen
+  document.getElementById('formRegistro').dataset.editId = id;
+
   // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
   // Rellenar también el campo visual de búsqueda
@@ -1052,8 +1055,7 @@ async function editarRegistro(id) {
   document.getElementById('numFestivos').value     = r.nFestivos   || '';
   if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
 
-  // Marcar modo edición
-  document.getElementById('formRegistro').dataset.editId = id;
+  // Marcar modo edición (editId ya asignado arriba, antes de autocompletar)
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
 
