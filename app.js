@@ -600,9 +600,9 @@ function leerGastosDetallados(comoArray = false) {
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
-  // Limpiar también el campo visual de búsqueda de conductor
+  // Limpiar también el campo visual de búsqueda de conductor y restaurar interactividad
   const buscarEl = document.getElementById('buscarConductorInput');
-  if (buscarEl) buscarEl.value = '';
+  if (buscarEl) { buscarEl.value = ''; buscarEl.readOnly = false; }
   const sugsEl = document.getElementById('conductorSugerencias');
   if (sugsEl) { sugsEl.style.display = 'none'; sugsEl.innerHTML = ''; }
   ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
@@ -1019,14 +1019,20 @@ async function editarRegistro(id) {
   if (r.modo && r.modo !== modoActual) setModo(r.modo);
 
   // Datos del conductor — fijos en edición, no se tocan
-  document.getElementById('codConductor').value         = r.codigoConductor;
-  document.getElementById('nombreConductor').value      = r.nombreConductor  || '';
-  document.getElementById('plataforma').value           = r.plataforma        || '';
-  document.getElementById('categoria').value            = r.categoria         || '';
-  document.getElementById('equipaje').value             = r.equipaje          || '';
-  document.getElementById('pareja').value               = r.pareja            || '';
-  document.getElementById('buscarConductorInput').value = `${r.codigoConductor} — ${r.nombreConductor || ''}`;
-  document.getElementById('coefNacional').value         = r.coefNacional      || 0;
+  document.getElementById('codConductor').value    = r.codigoConductor;
+  document.getElementById('nombreConductor').value = r.nombreConductor  || '';
+  document.getElementById('plataforma').value      = r.plataforma        || '';
+  document.getElementById('categoria').value       = r.categoria         || '';
+  document.getElementById('equipaje').value        = r.equipaje          || '';
+  document.getElementById('pareja').value          = r.pareja            || '';
+  document.getElementById('coefNacional').value    = r.coefNacional      || 0;
+  // Rellenar buscarConductorInput SIN disparar oninput (para no activar filtrarConductores)
+  const bci = document.getElementById('buscarConductorInput');
+  bci.value    = `${r.codigoConductor} — ${r.nombreConductor || ''}`;
+  bci.readOnly = true;
+  // Ocultar sugerencias por si estuvieran abiertas
+  const sugs = document.getElementById('conductorSugerencias');
+  if (sugs) { sugs.style.display = 'none'; sugs.innerHTML = ''; }
   // Adaptar interfaz según plataforma del registro (sin tocar conductor)
   adaptarPlataforma(r.plataforma || '', r.categoria || '');
 
