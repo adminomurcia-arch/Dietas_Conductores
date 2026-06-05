@@ -23,6 +23,53 @@ function filtrarRegistros(desde, hasta, plataforma, conductorCod) {
 
 function fmt2(n) { return parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
+// ---- DESPLEGABLES DE NÚM. LIQUIDACIÓN ----
+function poblarNumLiq(plataforma, selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Todas las liquidaciones</option>';
+  const nums = [...new Set(
+    getRegistros()
+      .filter(r => r.estadoDietas === 'liquidado' && r.numLiquidacion)
+      .filter(r => !plataforma || r.plataforma === plataforma)
+      .map(r => r.numLiquidacion)
+  )].sort();
+  nums.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    if (n === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function toggleConductorNumLiq() {
+  const estado = document.getElementById('inf-conductor-estado')?.value;
+  const plat   = document.getElementById('inf-conductor-plataforma')?.value || '';
+  const field  = document.getElementById('field-conductor-num-liq');
+  if (estado === 'liquidado') {
+    poblarNumLiq(plat, 'inf-conductor-num-liq');
+    field.style.display = '';
+  } else {
+    field.style.display = 'none';
+    document.getElementById('inf-conductor-num-liq').value = '';
+  }
+}
+
+function toggleGestoriaNumLiq() {
+  const estado = document.getElementById('inf-gest-estado')?.value;
+  const plat   = document.getElementById('inf-plataforma-gestoria')?.value || '';
+  const field  = document.getElementById('field-gest-num-liq');
+  if (estado === 'liquidado') {
+    poblarNumLiq(plat, 'inf-gest-num-liq');
+    field.style.display = '';
+  } else {
+    field.style.display = 'none';
+    document.getElementById('inf-gest-num-liq').value = '';
+  }
+}
+
 // ============================================================
 // PREVISUALIZACIÓN — Conductor
 // ============================================================
@@ -36,9 +83,11 @@ function previsualizarConductor() {
   const plat     = document.getElementById('inf-conductor-plataforma')?.value || '';
   const equipaje = document.getElementById('inf-conductor-equipaje')?.value   || '';
   const estado   = document.getElementById('inf-conductor-estado')?.value     || '';
+  const numLiq   = document.getElementById('inf-conductor-num-liq')?.value    || '';
   let regsRaw = filtrarRegistros(desde, hasta, plat, cod);
   if (equipaje) regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
   if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiq)   regsRaw = regsRaw.filter(r => r.numLiquidacion === numLiq);
   const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -134,7 +183,11 @@ function previsualizarGestoria() {
   const formato = document.getElementById('inf-gest-formato').value;
   const desde   = document.getElementById('inf-gest-desde').value;
   const hasta   = document.getElementById('inf-gest-hasta').value;
-  const regsRaw  = filtrarRegistros(desde, hasta, plat, '');
+  const estado  = document.getElementById('inf-gest-estado')?.value  || '';
+  const numLiq  = document.getElementById('inf-gest-num-liq')?.value || '';
+  let regsRaw  = filtrarRegistros(desde, hasta, plat, '');
+  if (estado)  regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiq)  regsRaw = regsRaw.filter(r => r.numLiquidacion === numLiq);
   const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
