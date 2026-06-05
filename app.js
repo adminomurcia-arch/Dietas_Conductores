@@ -125,10 +125,10 @@ document.addEventListener('click', function(e) {
 
 // ---- AUTOCOMPLETAR POR CÓDIGO ----
 function autocompletar() {
-  // Solo se llama en CREACIÓN NUEVA — nunca en edición
   const cod = document.getElementById('codConductor').value.trim();
   const c   = buscarConductor(cod);
 
+  // Normalizar a 6 dígitos en el campo
   if (c) document.getElementById('codConductor').value = c.Codigo;
 
   document.getElementById('nombreConductor').value = c?.Nombre    || '';
@@ -142,12 +142,14 @@ function autocompletar() {
   document.getElementById('codConductor').style.borderColor = bloqueado ? '#c0392b' : '';
   if (bloqueado) { showToast('Código de conductor no encontrado', 'error'); }
 
-  // Equipaje y coefNacional por defecto
+  // Equipaje: mostrar valor del conductor y ajustar coefNacional por defecto
   const equipaje = c?.EQUIPAJE || '';
   document.getElementById('equipaje').value = equipaje;
   const catUpp = (c?.CATEGORIA || '').toUpperCase();
   const esSinKmCat = ['COMODIN','PESCADO'].includes(catUpp);
   if (esSinKmCat) {
+    // COMODÍN/PESCADO: días se calculan al rellenar fechas (calcularTiempos)
+    // Solo actualizar coefNacional si ya hay fechas en el formulario
     const fs = document.getElementById('fechaSalida').value;
     const fl = document.getElementById('fechaLlegada').value;
     if (fs && fl) {
@@ -163,7 +165,7 @@ function autocompletar() {
     document.getElementById('coefNacional').value = 1.30;
   }
 
-  // Tractora: recuperar la última asignada
+  // Tractora: recuperar la asignada en Firestore (con fallback a localStorage)
   if (c) {
     const ultimaTractora = c.tractoraAsignada || localStorage.getItem(`tractora_${cod}`) || '';
     const sel = document.getElementById('tractora');
@@ -177,24 +179,30 @@ function autocompletar() {
         sel.value = ultimaTractora;
       }
     }
+    // Coef. Nacional: equipaje tiene prioridad; localStorage solo si no hay equipaje definido
     if (!equipaje) {
       const ultimoCoef = localStorage.getItem(`coef_${cod}`);
-      if (ultimoCoef !== null) document.getElementById('coefNacional').value = ultimoCoef;
+      if (ultimoCoef !== null) {
+        document.getElementById('coefNacional').value = ultimoCoef;
+      }
     }
   }
 
-  // Pareja — solo informativo, se rellena desde la BD del conductor
-  const parejaEl    = document.getElementById('pareja');
+  // Pareja — validar y mostrar nombre si EQUIPAJE=DOBLE
+  const parejaEl = document.getElementById('pareja');
   const parejaLabel = document.getElementById('pareja-label');
   if (equipaje === 'DOBLE' && c?.PAREJA) {
-    const codPareja  = String(c.PAREJA).padStart(6, '0');
+    const codPareja = String(c.PAREJA).padStart(6, '0');
     const condPareja = buscarConductor(codPareja);
-    parejaEl.value = condPareja
-      ? `${codPareja} — ${condPareja.Nombre}`
-      : `${codPareja} — ⚠️ No encontrado`;
-    if (parejaLabel) parejaLabel.style.color = condPareja ? 'var(--primary)' : '#c0392b';
+    if (condPareja) {
+      parejaEl.value = `${c.PAREJA} — ${condPareja.Nombre}`;
+      if (parejaLabel) parejaLabel.style.color = 'var(--primary)';
+    } else {
+      parejaEl.value = `${c.PAREJA} — ⚠️ No encontrado`;
+      if (parejaLabel) parejaLabel.style.color = '#c0392b';
+    }
   } else {
-    parejaEl.value = '';
+    parejaEl.value = c?.PAREJA || '';
     if (parejaLabel) parejaLabel.style.color = '';
   }
 
@@ -439,24 +447,28 @@ async function guardarRegistro() {
     // Preservar campos de trazabilidad del registro original
     const regOriginal = getRegistros().find(r => r.id === editId);
     if (regOriginal) {
-      // Identidad del conductor — nunca cambia al editar
-      datosRegistro.codigoConductor = regOriginal.codigoConductor;
-      datosRegistro.nombreConductor = regOriginal.nombreConductor;
-      // Pareja — meramente informativo, se preserva del registro original
-      datosRegistro.pareja          = regOriginal.pareja || '';
-      // Trazabilidad
-      datosRegistro.creadoPor    = regOriginal.creadoPor || 'admin';
-      datosRegistro.creadoEn     = regOriginal.creadoEn  || regOriginal.fechaCreacion || ahora;
+      datosRegistro.creadoPor   = regOriginal.creadoPor   || 'admin';
+      datosRegistro.creadoEn    = regOriginal.creadoEn    || regOriginal.fechaCreacion || ahora;
       datosRegistro.estadoDietas = regOriginal.estadoDietas;
+    // Si el admin marcó "Aprobar al guardar", pasar a pendiente
+    const chkAprobar = document.getElementById('chk-aprobar');
+    if (chkAprobar && chkAprobar.closest('#chk-aprobar-wrap')?.style.display !== 'none' && chkAprobar.checked) {
+      datosRegistro.estadoDietas = 'pendiente';
+    }
       datosRegistro.estadoGastos = regOriginal.estadoGastos;
-      // Si el admin marcó "Aprobar al guardar", pasar a pendiente
-      const chkAprobar = document.getElementById('chk-aprobar');
-      if (chkAprobar && chkAprobar.closest('#chk-aprobar-wrap')?.style.display !== 'none' && chkAprobar.checked) {
-        datosRegistro.estadoDietas = 'pendiente';
-      }
     }
     await updateRegistro(editId, datosRegistro);
     showToast('Registro actualizado ✓', 'success');
+
+    // Si es DOBLE y viene del móvil (validación), ofrecer cargar datos para la pareja
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && regOriginal?.origenMovil) {
+      const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
+      const condPareja = buscarConductor(codPareja);
+      if (condPareja && confirm(`¿Cargar los mismos datos para la pareja ${condPareja.Nombre}?`)) {
+        cargarDatosParaPareja(datosRegistro, condPareja);
+        return; // No limpiar formulario — queda listo para revisar y grabar
+      }
+    }
   } else {
     // SALVAGUARDA: nunca crear registro nuevo si editId tiene valor (por si acaso)
     if (document.getElementById('formRegistro').dataset.editId) {
@@ -469,28 +481,13 @@ async function guardarRegistro() {
     const regGuardado = await addRegistro(datosRegistro);
     showToast('Registro guardado ✓', 'success');
 
-    // Si es DOBLE y tiene pareja definida, ofrecer duplicar (SOLO en creación nueva)
+    // DOBLE: ofrecer cargar datos para la pareja (sin grabar — el admin revisa y graba)
     if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja) {
       const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
       const condPareja = buscarConductor(codPareja);
-      if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
-        const resultadoPareja = calcularDietasParaConductor(condPareja, datosRegistro);
-        const datosPareja = {
-          ...datosRegistro,
-          codigoConductor: condPareja.Codigo,
-          nombreConductor: condPareja.Nombre,
-          tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
-          equipaje:        condPareja.EQUIPAJE || 'DOBLE',
-          pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
-          creadoPor:       'admin',
-          creadoEn:        ahora,
-          gastosViaje:     0,
-          gastosDetalle:   [],
-          anticipos:       0,
-          resultado:       resultadoPareja,
-        };
-        await addRegistro(datosPareja);
-        showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
+      if (condPareja && confirm(`¿Cargar los mismos datos para la pareja ${condPareja.Nombre}?`)) {
+        cargarDatosParaPareja(datosRegistro, condPareja);
+        return; // No limpiar formulario — queda listo para revisar y grabar
       }
     }
   }
@@ -572,12 +569,114 @@ function leerGastosDetallados(comoArray = false) {
   return gastos.reduce((s, g) => s + g.importe, 0);
 }
 
+// ---- CARGAR DATOS PARA PAREJA (sin grabar) ----
+function cargarDatosParaPareja(reg, condPareja) {
+  // Limpiar formulario y quitar modo edición
+  limpiarFormulario();
+
+  // Rellenar conductor de la pareja
+  document.getElementById('codConductor').value    = condPareja.Codigo;
+  document.getElementById('nombreConductor').value = condPareja.Nombre;
+  document.getElementById('plataforma').value      = condPareja.PLATAFORMA || reg.plataforma;
+  document.getElementById('categoria').value       = condPareja.CATEGORIA  || reg.categoria;
+  document.getElementById('equipaje').value        = condPareja.EQUIPAJE   || reg.equipaje;
+  // Pareja: apunta al conductor original
+  document.getElementById('pareja').value          = `${reg.codigoConductor} — ${reg.nombreConductor}`;
+  // Campo visual — readOnly para no disparar filtrarConductores
+  const bci = document.getElementById('buscarConductorInput');
+  bci.value    = `${condPareja.Codigo} — ${condPareja.Nombre}`;
+  bci.readOnly = true;
+
+  // Adaptar interfaz a la plataforma de la pareja
+  adaptarPlataforma(condPareja.PLATAFORMA || reg.plataforma, condPareja.CATEGORIA || reg.categoria);
+
+  // Fechas y tiempos
+  document.getElementById('fechaSalida').value     = reg.fechaSalida  || '';
+  document.getElementById('fechaLlegada').value    = reg.fechaLlegada || '';
+  document.getElementById('horaSalida').value      = reg.horaSalida   || '';
+  document.getElementById('horaLlegada').value     = reg.horaLlegada  || '';
+  document.getElementById('diasTrabajados').value  = reg.diasTrabajados || 0;
+  document.getElementById('restoHoras').value      = reg.restoHoras   || 0;
+  document.getElementById('coefNacional').value    = reg.coefNacional  || 0;
+
+  // Kilómetros
+  document.getElementById('kmSalida').value        = reg.kmSalida  || '';
+  document.getElementById('kmVuelta').value        = reg.kmVuelta  || '';
+  document.getElementById('totalKm').value         = reg.totalKm   || '';
+
+  // Tractora: usar la asignada a la pareja si existe, si no la del registro
+  const tractoraPareja = condPareja.tractoraAsignada || reg.tractora || '';
+  const sel = document.getElementById('tractora');
+  if (tractoraPareja) {
+    if (!sel.querySelector(`option[value="${tractoraPareja}"]`)) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = tractoraPareja;
+      sel.appendChild(opt);
+    }
+    sel.value = tractoraPareja;
+  }
+
+  // Otros conceptos
+  document.getElementById('acarreos').value        = reg.acarreos        || 0;
+  document.getElementById('dietaVlissingen').value = reg.dietaVlissingen || 0;
+  document.getElementById('extras').value          = reg.extras          || 0;
+  const exCEl = document.getElementById('extrasConcepto');
+  if (exCEl) exCEl.value = reg.extrasConcepto || '';
+  // Gastos — NO se copian: cada conductor tiene los suyos
+  document.getElementById('anticipos').value = 0;
+
+  // Domingos / festivos (CAUDETE)
+  document.getElementById('numDomingos').value = reg.nDomingos || '';
+  document.getElementById('numFestivos').value = reg.nFestivos || '';
+
+  // Modo del formulario
+  if (reg.modo && reg.modo !== modoActual) setModo(reg.modo);
+
+  // Operaciones — copiar conteos
+  setTimeout(() => {
+    const opMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                    n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                    nUK:'uk', nNDLF:'ndlf' };
+    const opDetalleMap = { carga:'opCarga', palet:'opPalet', rebote:'opRebote',
+                           '24horas':'op24h', pausa:'opPausa', nacional:'opNacional',
+                           uk:'opUK', ndlf:'opNDLF' };
+    Object.entries(opMap).forEach(([campo, tipo]) => {
+      const n = reg[campo] || 0;
+      const detalles = reg[opDetalleMap[tipo]] || [];
+      for (let i = 0; i < n; i++) {
+        addOperacion(tipo);
+        const lista = document.getElementById(`lista-${tipo}`);
+        const rows  = lista.querySelectorAll('.operacion-row');
+        const row   = rows[rows.length - 1];
+        if (row && detalles[i]) {
+          const inputs = row.querySelectorAll('input');
+          if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
+          if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+        }
+      }
+    });
+    // Modo resumido
+    const rMap = { nCarga:'r-carga', nPalet:'r-palet', nRebote:'r-rebote',
+                   n24h:'r-24horas', nPausa:'r-pausa', nNacional:'r-nacional',
+                   nUK:'r-uk', nNDLF:'r-ndlf' };
+    Object.entries(rMap).forEach(([campo, elId]) => {
+      const el = document.getElementById(elId);
+      if (el) el.value = reg[campo] || 0;
+    });
+    calcularTiempos();
+    calcularDietas();
+  }, 100);
+
+  showToast(`Datos cargados para ${condPareja.Nombre} — revisa y pulsa Guardar`, 'success');
+  document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
+}
+
 // ---- LIMPIAR FORMULARIO ----
 function limpiarFormulario() {
   document.getElementById('formRegistro').reset();
-  // Limpiar campo visual de búsqueda y restaurar interactividad
+  // Limpiar también el campo visual de búsqueda de conductor
   const buscarEl = document.getElementById('buscarConductorInput');
-  if (buscarEl) { buscarEl.value = ''; buscarEl.readOnly = false; }
+  if (buscarEl) buscarEl.value = '';
   const sugsEl = document.getElementById('conductorSugerencias');
   if (sugsEl) { sugsEl.style.display = 'none'; sugsEl.innerHTML = ''; }
   ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
@@ -992,21 +1091,16 @@ async function editarRegistro(id) {
   // Modo del formulario
   if (r.modo && r.modo !== modoActual) setModo(r.modo);
 
-  // Conductor — fijo en edición, todo desde el registro, sin autocompletar()
+  // Datos básicos del conductor
   document.getElementById('codConductor').value    = r.codigoConductor;
-  document.getElementById('nombreConductor').value = r.nombreConductor || '';
-  document.getElementById('plataforma').value      = r.plataforma      || '';
-  document.getElementById('categoria').value       = r.categoria       || '';
-  document.getElementById('equipaje').value        = r.equipaje        || '';
-  document.getElementById('pareja').value          = r.pareja          || '';
-  document.getElementById('coefNacional').value    = r.coefNacional    || 0;
-  // Campo visual — readOnly para evitar que oninput dispare filtrarConductores
-  const bci = document.getElementById('buscarConductorInput');
-  bci.value    = `${r.codigoConductor} — ${r.nombreConductor || ''}`;
-  bci.readOnly = true;
-  document.getElementById('conductorSugerencias').style.display = 'none';
-  // Adaptar interfaz sin tocar el conductor
-  adaptarPlataforma(r.plataforma || '', r.categoria || '');
+  // Rellenar también el campo visual de búsqueda
+  const cEdit = buscarConductor(r.codigoConductor);
+  document.getElementById('buscarConductorInput').value = cEdit
+    ? `${cEdit.Codigo} — ${cEdit.Nombre}`
+    : r.codigoConductor;
+  autocompletar();
+  // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
+  document.getElementById('coefNacional').value    = r.coefNacional || 0;
 
   // Fechas y tiempos
   document.getElementById('fechaSalida').value     = r.fechaSalida;
@@ -1057,7 +1151,7 @@ async function editarRegistro(id) {
   if (!document.getElementById('sidebar').classList.contains('closed')) toggleSidebar();
   document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
 
-  // Operaciones y gastos
+  // Operaciones y gastos DESPUÉS de adaptarPlataforma (que se llama en autocompletar)
   setTimeout(() => {
     calcularTiempos();
 
