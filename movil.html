@@ -977,7 +977,13 @@ window.mGuardar = async function() {
     dietaVlissingen: parseFloat(document.getElementById('m-vliss').value)   || 0,
     extras:          parseFloat(document.getElementById('m-extras').value)  || 0,
     gastosViaje:     parseFloat(document.getElementById('m-gastos').value)  || 0,
-    detalleGastos:   _gastosData.map(g => ({...g})),
+    gastosDetalle:   _gastosData.map(g => ({
+      fecha:    g.fecha,
+      concepto: g.tipo,
+      lugar:    g.comentario || '',
+      moneda:   'EUR',
+      importe:  parseFloat(g.importe) || 0
+    })),
     anticipos:       0,
     modo:            'movil',
     origenMovil:     true,
@@ -1195,7 +1201,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 1600, 0.85);
+    const base64 = await comprimirFoto(f.file, 400, 0.5);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
