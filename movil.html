@@ -1002,7 +1002,7 @@ window.mGuardar = async function() {
     reg.estadoGastos = 'pendiente';
     reg.creadoPor    = 'movil';
     reg.creadoEn     = new Date().toISOString();
-    reg.esDuplicado  = false;
+    // esDuplicado y registroPareja eliminados — cada registro es independiente
 
     if (!navigator.onLine) {
       const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
@@ -1051,35 +1051,28 @@ window.mGuardar = async function() {
       console.warn('Error preparando aviso:', err);
     }
 
-    // Si es DOBLE y NO es duplicado, duplicar para la pareja
-    if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA && !reg.esDuplicado) {
+    // Si es DOBLE y tiene pareja definida, duplicar automáticamente
+    if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA) {
       const codPareja = String(_conductor.PAREJA).split('—')[0].trim().padStart(6, '0');
       try {
         let condPareja = null;
         const snapP = await getDoc(doc(_db, 'conductores', codPareja));
-        if (snapP.exists()) {
-          condPareja = snapP.data();
-        } else {
-          const q = query(collection(_db, 'conductores'), where('Codigo', '==', codPareja));
-          const sq = await getDocs(q);
-          if (!sq.empty) condPareja = sq.docs[0].data();
-        }
+        if (snapP.exists()) condPareja = snapP.data();
         if (condPareja) {
           const regPareja = {
             ...reg,
             codigoConductor: condPareja.Codigo,
             nombreConductor: condPareja.Nombre,
             tractora:        condPareja.tractoraAsignada || reg.tractora,
-            equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
+            equipaje:        condPareja.EQUIPAJE || 'DOBLE',
             pareja:          `${_conductor.Codigo} — ${_conductor.Nombre}`,
-            registroPareja:  regId,
-            esDuplicado:     true,
             origenMovil:     false,
             creadoEn:        new Date().toISOString(),
+            gastosViaje:     0,
+            gastosDetalle:   [],
+            anticipos:       0,
           };
-          const refP = await addDoc(collection(_db, 'registros'), regPareja);
-          const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(ref, { registroPareja: refP.id });
+          await addDoc(collection(_db, 'registros'), regPareja);
         }
       } catch(ep) {
         console.warn('No se pudo duplicar para la pareja:', ep);
@@ -1229,7 +1222,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 1200, 0.80);
+    const base64 = await comprimirFoto(f.file, 400, 0.5);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
