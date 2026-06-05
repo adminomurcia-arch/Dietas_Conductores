@@ -1,1276 +1,1744 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>Registro de Actividad</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:       #f4f6f2;
-      --surface:  #ffffff;
-      --border:   #d8ddd4;
-      --text:     #2c3328;
-      --soft:     #6b7566;
-      --primary:  #4a7c59;
-      --primary-h:#3a6347;
-      --accent:   #c46b3a;
-      --calc-bg:  #eaf4ef;
-      --calc-text:#2a5c40;
-      --error:    #c0392b;
-      --radius:   12px;
-      --font:     'DM Sans', sans-serif;
-      --mono:     'DM Mono', monospace;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+// =============================================
+// app.js — Lógica principal de la interfaz
+// =============================================
 
-    /* LOADING */
-    #loading { display:flex; flex-direction:column; align-items:center; justify-content:center;
-               height:100vh; gap:12px; }
-    #loading .icono { font-size:48px; }
-    #loading p { font-size:14px; color:var(--soft); }
+let modoActual = 'detallado';
 
-    /* HEADER */
-    .header { background:var(--primary); color:#fff; padding:16px 20px;
-              display:flex; align-items:center; gap:12px; }
-    .header .logo { font-size:24px; }
-    .header h1 { font-size:16px; font-weight:600; }
-    .header p  { font-size:11px; opacity:0.8; margin-top:1px; }
+// ---- AVISO AL SALIR CON EDICIÓN ACTIVA ----
+window.addEventListener('beforeunload', e => {
+  const editId = document.getElementById('formRegistro')?.dataset.editId;
+  if (editId) {
+    e.preventDefault();
+    e.returnValue = 'Tienes una edición en curso. ¿Seguro que quieres salir?';
+  }
+});
 
-    /* PANTALLA LOGIN */
-    #pantalla-login { padding:24px 20px; }
-    .login-card { background:var(--surface); border-radius:var(--radius);
-                  padding:28px 24px; box-shadow:0 2px 16px rgba(44,51,40,.1); }
-    .login-card h2 { font-size:18px; font-weight:600; margin-bottom:6px; }
-    .login-card p  { font-size:13px; color:var(--soft); margin-bottom:24px; }
-
-    /* PANTALLA REGISTRO */
-    #pantalla-registro { display:none; padding:16px 16px 40px; }
-
-    /* SECCIONES */
-    .section { background:var(--surface); border-radius:var(--radius);
-               padding:16px; margin-bottom:12px;
-               box-shadow:0 1px 6px rgba(44,51,40,.07); }
-    .section-title { font-size:11px; font-weight:600; text-transform:uppercase;
-                     letter-spacing:.06em; color:var(--primary); margin-bottom:14px; }
-
-    /* CAMPOS */
-    .field { margin-bottom:12px; }
-    .field label { display:block; font-size:12px; font-weight:500;
-                   color:var(--soft); margin-bottom:4px; }
-    input, select, textarea {
-      font-family:var(--font); font-size:14px; width:100%;
-      padding:10px 12px; border:1.5px solid var(--border);
-      border-radius:8px; background:var(--surface); color:var(--text);
-      -webkit-appearance:none; appearance:none;
-    }
-    input:focus, select:focus { outline:none; border-color:var(--primary); }
-    input.readonly { background:var(--calc-bg); color:var(--calc-text);
-                     font-family:var(--mono); font-weight:500; }
-    input.error { border-color:var(--error); }
-
-    /* GRID 2 col */
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
-    /* CHECK */
-    .check-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
-    .check-row input[type="checkbox"] { width:18px; height:18px;
-      accent-color:var(--primary); flex-shrink:0; }
-    .check-row label { font-size:12px; color:var(--soft); }
-
-    /* Sugerencias tractora */
-    .sug-item {
-      padding:10px 14px; font-size:14px; font-family:var(--mono);
-      cursor:pointer; border-bottom:1px solid var(--border);
-    }
-    .sug-item:last-child { border-bottom:none; }
-    .sug-item:active, .sug-item.hover { background:var(--calc-bg); color:var(--calc-text); }
-
-    /* OPERACIONES */
-    .op-bloque { border:1px solid var(--border); border-radius:8px;
-                 margin-bottom:10px; overflow:hidden; }
-    .op-header { display:flex; justify-content:space-between; align-items:center;
-                 padding:10px 12px; background:var(--bg);
-                 font-size:13px; font-weight:500; }
-    .op-lista  { padding:8px 12px; display:flex; flex-direction:column; gap:8px; }
-    .op-row    { display:grid; grid-template-columns:60px 1fr 1fr auto; gap:6px; align-items:center; }
-    .op-row input { font-size:13px; padding:7px 8px; }
-    .btn-add-sm { background:var(--primary); color:#fff; border:none;
-                  border-radius:6px; padding:4px 10px; font-size:12px;
-                  font-family:var(--font); cursor:pointer; }
-    .btn-del-sm { background:none; border:none; color:var(--error);
-                  font-size:16px; cursor:pointer; padding:0 4px; }
-
-    /* RESULTADO */
-    .resultado { background:var(--calc-bg); border-radius:8px; padding:14px; margin-top:8px; }
-    .resultado-fila { display:flex; justify-content:space-between;
-                      font-size:13px; padding:4px 0;
-                      border-bottom:1px solid rgba(74,124,89,.15); }
-    .resultado-fila:last-child { border:none; }
-    .resultado-fila .label { color:var(--soft); }
-    .resultado-fila .valor { font-family:var(--mono); font-weight:500; color:var(--calc-text); }
-    .resultado-total { display:flex; justify-content:space-between;
-                       background:var(--primary); color:#fff; border-radius:8px;
-                       padding:12px 14px; margin-top:10px; font-weight:600; }
-    .resultado-total .valor { font-family:var(--mono); font-size:18px; }
-
-    /* BOTONES */
-    .btn-primary { width:100%; padding:14px; background:var(--primary); color:#fff;
-                   border:none; border-radius:10px; font-family:var(--font);
-                   font-size:15px; font-weight:600; cursor:pointer; margin-top:8px; }
-    .btn-primary:active { background:var(--primary-h); }
-    .btn-ghost { width:100%; padding:12px; background:transparent; color:var(--text);
-                 border:1.5px solid var(--border); border-radius:10px;
-                 font-family:var(--font); font-size:14px; cursor:pointer; margin-top:8px; }
-
-    /* CONDUCTOR INFO */
-    .conductor-badge { background:var(--primary); color:#fff; border-radius:8px;
-                       padding:10px 14px; margin-bottom:16px;
-                       display:flex; justify-content:space-between; align-items:center; }
-    .conductor-badge .nombre { font-weight:600; font-size:14px; }
-    .conductor-badge .plat   { font-size:11px; opacity:.8; }
-    .conductor-badge .btn-salir { background:rgba(255,255,255,.2); border:none;
-                                   color:#fff; border-radius:6px; padding:4px 10px;
-                                   font-size:12px; cursor:pointer; font-family:var(--font); }
-
-    /* TOAST */
-    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
-             background:#2c3328; color:#fff; padding:10px 20px; border-radius:8px;
-             font-size:13px; font-weight:500; opacity:0; transition:all .25s; z-index:100;
-             white-space:nowrap; pointer-events:none; }
-    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-    .toast.success { background:var(--primary); }
-    .toast.error   { background:var(--error); }
-
-    /* CONFIRMACIÓN */
-    #pantalla-ok { display:none; flex-direction:column; align-items:center;
-                   justify-content:center; min-height:60vh; padding:24px; text-align:center; gap:16px; }
-    #pantalla-ok .icono { font-size:64px; }
-    #pantalla-ok h2 { font-size:22px; font-weight:600; color:var(--primary); }
-    #pantalla-ok p  { font-size:14px; color:var(--soft); max-width:280px; }
-
-    /* FOTOS */
-    .fotos-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px; }
-    .foto-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden;
-                  border:1px solid var(--border); background:#f0f0f0; }
-    .foto-thumb img { width:100%; height:100%; object-fit:cover; }
-    .foto-thumb .del-foto { position:absolute; top:2px; right:2px; background:rgba(192,57,43,0.85);
-                            color:#fff; border:none; border-radius:50%; width:22px; height:22px;
-                            font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-    .add-foto { aspect-ratio:1; border-radius:8px; border:2px dashed var(--border);
-                display:flex; flex-direction:column; align-items:center; justify-content:center;
-                cursor:pointer; color:var(--soft); font-size:11px; gap:4px; background:var(--bg); }
-    .gasto-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      padding: 10px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 8px;
-      position: relative;
-    }
-    .gasto-row input, .gasto-row select {
-      width: 100%;
-      padding: 7px 9px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-family: var(--font);
-      font-size: 13px;
-      background: var(--calc-bg);
-      color: var(--text);
-      box-sizing: border-box;
-    }
-    .gasto-row .gasto-comentario {
-      grid-column: 1 / -1;
-    }
-    .gasto-del {
-      position: absolute;
-      top: 8px; right: 8px;
-      background: none;
-      border: none;
-      color: var(--danger, #c0392b);
-      font-size: 16px;
-      cursor: pointer;
-      padding: 0 4px;
-      line-height: 1;
-    }
-
-    /* OFFLINE */
-    .offline-badge { position:fixed; top:0; left:0; right:0; background:#c0392b; color:#fff;
-                     text-align:center; padding:6px; font-size:12px; font-weight:600; z-index:9999;
-                     display:none; }
-  </style>
-</head>
-<body>
-
-<!-- OFFLINE BADGE -->
-<div class="offline-badge" id="offline-badge">⚠️ Sin conexión — El registro se guardará al recuperar la red</div>
-
-<!-- LOADING -->
-<div id="loading">
-  <div class="icono">🚛</div>
-  <p>Cargando…</p>
-</div>
-
-<!-- HEADER -->
-<div class="header" style="display:none" id="app-header">
-  <div class="logo">🚛</div>
-  <div>
-    <h1>Registro de Actividad</h1>
-    <p id="header-sub">Introduce tu código para comenzar</p>
-  </div>
-</div>
-
-<!-- LOGIN -->
-<div id="pantalla-login" style="display:none">
-  <div class="login-card">
-    <h2>Bienvenido</h2>
-    <p>Introduce tu código de conductor para registrar tu actividad.</p>
-    <div class="field">
-      <label>Código de conductor</label>
-      <input type="text" id="m-codigo" placeholder="Ej: 10001"
-             inputmode="numeric" autocomplete="off">
-    </div>
-    <button class="btn-primary" onclick="mLogin()">Entrar</button>
-  </div>
-</div>
-
-<!-- REGISTRO -->
-<div id="pantalla-registro">
-
-  <div class="conductor-badge">
-    <div>
-      <div class="nombre" id="m-nombre"></div>
-      <div class="plat"   id="m-plat"></div>
-      <div style="display:flex;gap:10px;margin-top:4px;font-size:11px;opacity:.85">
-        <span>🧳 <span id="m-equipaje">—</span></span>
-        <span>👥 <span id="m-pareja">—</span></span>
-      </div>
-      <div id="aviso-doble" style="display:none;margin-top:8px;background:#fff3cd;border:1px solid #f0ad4e;
-           border-radius:8px;padding:8px 12px;font-size:12px;color:#856404;line-height:1.4">
-        ⚠️ <strong>Conductor DOBLE:</strong> solo uno de los dos conductores de la pareja debe enviar el registro. 
-        El sistema lo asignará automáticamente al otro.
-      </div>
-    </div>
-    <button class="btn-salir" onclick="mCerrar()">Salir</button>
-  </div>
-
-  <!-- TRACTORA -->
-  <div class="section">
-    <div class="section-title">Tractora</div>
-    <div class="field" style="position:relative">
-      <label>Matrícula de la tractora *</label>
-      <input type="text" id="m-tractora" placeholder="Escribe para buscar…"
-             autocomplete="off"
-             oninput="mFiltrarTractoras()"
-             onblur="setTimeout(mCerrarSugerencias, 200)">
-      <div id="m-tractora-estado" style="font-size:12px;margin-top:4px;display:none"></div>
-      <div id="m-tractora-sugerencias" style="
-        display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
-        background:#fff;border:1.5px solid var(--primary);border-top:none;
-        border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;
-        box-shadow:0 4px 12px rgba(44,51,40,.15)">
-      </div>
-    </div>
-  </div>
-
-  <!-- FECHAS -->
-  <div class="section">
-    <div class="section-title">Fechas y Tiempos</div>
-    <div class="grid2">
-      <div class="field">
-        <label>Fecha Salida *</label>
-        <input type="date" id="m-fsal" onchange="mCalcTiempos()">
-      </div>
-      <div class="field" id="m-field-hsal" style="display:none">
-        <label>Hora Salida *</label>
-        <input type="time" id="m-hsal" onchange="mCalcTiempos()">
-      </div>
-      <div class="field">
-        <label>Fecha Llegada *</label>
-        <input type="date" id="m-flleg" onchange="mCalcTiempos()">
-      </div>
-      <div class="field" id="m-field-hlleg" style="display:none">
-        <label>Hora Llegada *</label>
-        <input type="time" id="m-hlleg" onchange="mCalcTiempos()">
-      </div>
-    </div>
-    <div class="grid2">
-      <div class="field">
-        <label>Días trabajados</label>
-        <input type="number" id="m-dias" readonly class="readonly">
-      </div>
-      <div class="field" id="m-field-resto" style="display:none">
-        <label>Resto horas</label>
-        <input type="number" id="m-resto" readonly class="readonly">
-      </div>
-    </div>
-    <div class="field">
-      <label>Días conduciendo en España</label>
-      <input type="number" id="m-coef" value="0" min="0" step="0.01" onchange="mCalcDietas()">
-    </div>
-    <!-- Solo CAUDETE -->
-    <div id="m-field-dom" style="display:none">
-      <div class="grid2">
-        <div class="field">
-          <label>Domingos</label>
-          <input type="number" id="m-dom" readonly class="readonly">
-        </div>
-        <div class="field">
-          <label>Festivos</label>
-          <input type="number" id="m-fest" readonly class="readonly">
-          <div class="check-row">
-            <input type="checkbox" id="m-chk-fest" onchange="mCalcDietas()">
-            <label for="m-chk-fest">Incluir en liquidación</label>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KM -->
-  <div class="section" id="m-section-km">
-    <div class="section-title">Kilómetros <span id="m-kms-nota" style="display:none;font-size:10px;background:#4a7c59;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">Solo estadísticas</span></div>
-    <div class="grid2">
-      <div class="field">
-        <label>Km Salida</label>
-        <input type="text" id="m-kmsal" inputmode="numeric" placeholder="0"
-               oninput="mCalcKm()" onblur="mFormatKm(this)">
-      </div>
-      <div class="field">
-        <label>Km Vuelta</label>
-        <input type="text" id="m-kmvuel" inputmode="numeric" placeholder="0"
-               oninput="mCalcKm()" onblur="mFormatKm(this)">
-      </div>
-    </div>
-    <div class="field">
-      <label>Total Km</label>
-      <input type="text" id="m-kmtotal" readonly class="readonly">
-    </div>
-  </div>
-
-  <!-- OPERACIONES -->
-  <div class="section" id="m-section-ops">
-    <div class="section-title">Operaciones</div>
-
-    <div class="op-bloque" id="m-bloque-carga">
-      <div class="op-header">
-        <span>Carga / Descarga</span>
-        <button class="btn-add-sm" onclick="mAddOp('carga')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-carga"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-palet">
-      <div class="op-header">
-        <span>Mov. de Palet</span>
-        <button class="btn-add-sm" onclick="mAddOp('palet')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-palet"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-rebote">
-      <div class="op-header">
-        <span>Rebote</span>
-        <button class="btn-add-sm" onclick="mAddOp('rebote')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-rebote"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-24h" style="display:none">
-      <div class="op-header">
-        <span>24 Horas</span>
-        <button class="btn-add-sm" onclick="mAddOp('24h')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-24h"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-pausa" style="display:none">
-      <div class="op-header">
-        <span>Pausa</span>
-        <button class="btn-add-sm" onclick="mAddOp('pausa')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-pausa"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-nac" style="display:none">
-      <div class="op-header">
-        <span>Nacional (servicios)</span>
-        <button class="btn-add-sm" onclick="mAddOp('nac')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-nac"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-uk" style="display:none">
-      <div class="op-header">
-        <span>UK</span>
-        <button class="btn-add-sm" onclick="mAddOp('uk')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-uk"></div>
-    </div>
-
-    <div class="op-bloque" id="m-bloque-ndlf" style="display:none">
-      <div class="op-header">
-        <span>NDLF</span>
-        <button class="btn-add-sm" onclick="mAddOp('ndlf')">+ Añadir</button>
-      </div>
-      <div class="op-lista" id="m-lista-ndlf"></div>
-    </div>
-  </div>
-
-  <!-- OTROS -->
-  <div class="section">
-    <div class="section-title">Servicios adicionales</div>
-    <div class="grid2">
-      <div class="field" id="m-field-acarreos">
-        <label>Acarreos (nº)</label>
-        <input type="number" id="m-acarreos" min="0" value="0"
-               inputmode="numeric" onchange="mCalcDietas()">
-      </div>
-      <div class="field" id="m-field-vliss">
-        <label>Dieta Vlissingen (días)</label>
-        <input type="number" id="m-vliss" min="0" value="0"
-               inputmode="numeric" onchange="mCalcDietas()">
-      </div>
-    </div>
-    <input type="hidden" id="m-extras" value="0">
-    <input type="hidden" id="m-gastos" value="0">
-  </div>
-
-  <!-- GASTOS DE VIAJE -->
-  <div class="section">
-    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Gastos de Viaje</span>
-      <span style="font-size:10px;font-weight:400;color:var(--soft);text-transform:none;letter-spacing:0">informativo · no suma en dietas</span>
-    </div>
-    <div id="m-gastos-lista"></div>
-    <div id="m-gastos-total" style="display:none;justify-content:space-between;align-items:center;
-         padding:10px 14px;background:var(--calc-bg);border-radius:8px;margin-top:8px;
-         font-weight:600;font-size:14px">
-      <span>Total gastos</span>
-      <span id="m-gastos-total-val" style="color:var(--primary)">0,00 €</span>
-    </div>
-    <button onclick="mAddGasto()"
-      style="width:100%;margin-top:10px;padding:12px;border:1.5px dashed var(--primary);
-             border-radius:10px;background:transparent;color:var(--primary);
-             font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">
-      + Añadir gasto
-    </button>
-  </div>
-
-  <!-- RESULTADO -->
-  <div class="section" id="m-section-resultado" style="display:none">
-    <div class="section-title">Resultado</div>
-    <div id="m-resultado-body"></div>
-  </div>
-
-  <!-- FOTOS -->
-  <div class="section">
-    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Adjuntos</span>
-      <span style="font-size:10px;font-weight:400;color:var(--soft);text-transform:none;letter-spacing:0">opcional · máx. 10</span>
-    </div>
-    <div class="fotos-grid" id="m-fotos-grid"></div>
-    <div id="m-foto-botones" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-      <button onclick="document.getElementById('m-foto-camara').click()"
-        style="display:flex;align-items:center;justify-content:center;gap:8px;
-               padding:13px 10px;border:1.5px solid var(--primary);border-radius:10px;
-               background:var(--calc-bg);color:var(--primary);font-family:var(--font);
-               font-size:13px;font-weight:600;cursor:pointer;transition:background .15s">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-        Cámara
-      </button>
-      <button onclick="document.getElementById('m-foto-input').click()"
-        style="display:flex;align-items:center;justify-content:center;gap:8px;
-               padding:13px 10px;border:1.5px solid var(--border);border-radius:10px;
-               background:var(--surface);color:var(--text);font-family:var(--font);
-               font-size:13px;font-weight:600;cursor:pointer;transition:background .15s">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        </svg>
-        Galería / Doc
-      </button>
-    </div>
-    <input type="file" id="m-foto-input" accept="image/*,application/pdf"
-           multiple style="display:none" onchange="mAñadirFotos(this)">
-    <input type="file" id="m-foto-camara" accept="image/*" capture="environment"
-           style="display:none" onchange="mAñadirFotos(this)">
-  </div>
-
-  <button class="btn-primary" onclick="mGuardar()">✅ Enviar Registro</button>
-  <button class="btn-ghost"   onclick="mLimpiar()">🗑️ Limpiar</button>
-
-</div>
-
-<!-- OK -->
-<div id="pantalla-ok">
-  <div class="icono">✅</div>
-  <h2>Registro enviado</h2>
-  <p>Tu actividad ha sido registrada correctamente.</p>
-  <button class="btn-primary" onclick="mNuevoRegistro()" style="max-width:280px">
-    Nuevo Registro
-  </button>
-</div>
-
-<!-- TOAST -->
-<div id="m-toast" class="toast"></div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs,
-         addDoc, orderBy, query, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
-  authDomain:        "dietas-conductores.firebaseapp.com",
-  projectId:         "dietas-conductores",
-  storageBucket:     "dietas-conductores.firebasestorage.app",
-  messagingSenderId: "1024050278672",
-  appId:             "1:1024050278672:web:5ce9e2f86694cc6e86f595"
+// ---- INIT ----
+// Se llama desde index.html tras initDB() de Firebase
+window._appReady = function() {
+  renderTablas();
+  renderHistorial();
+  poblarInfConductoresDatalist();
+  poblarSelectTractoras();
+  setModo('detallado');
+  fijarLimiteFechas();
 };
-const _app = initializeApp(firebaseConfig);
-const _db  = getFirestore(_app);
 
-// Asegurar red activa
-enableNetwork(_db).catch(() => {});
-
-// ---- Estado ----
-let _conductor  = null;
-let _tarifas    = [];
-let _tractoras  = [];
-// ---- GASTOS DE VIAJE ----
-let _gastosData = [];
-const TIPOS_GASTO = ['Peaje','Parking','Combustible','Ferry','Alojamiento','Manutención','Otro'];
-
-function mAddGasto() {
-  _gastosData.push({ fecha: _hoy, tipo: 'Peaje', importe: '', comentario: '' });
-  mRenderGastos();
-}
-function mDelGasto(i) {
-  _gastosData.splice(i, 1);
-  mRenderGastos();
-}
-function mGastoChange(i, campo, val) {
-  _gastosData[i][campo] = val;
-  mRenderGastos();
-}
-function mRenderGastos() {
-  const lista  = document.getElementById('m-gastos-lista');
-  const totDiv = document.getElementById('m-gastos-total');
-  const totVal = document.getElementById('m-gastos-total-val');
-  const hidGas = document.getElementById('m-gastos');
-  lista.innerHTML = _gastosData.map((g, i) => `
-    <div class="gasto-row">
-      <button class="gasto-del" onclick="mDelGasto(${i})">✕</button>
-      <input type="date" value="${g.fecha}" onchange="mGastoChange(${i},'fecha',this.value)">
-      <select onchange="mGastoChange(${i},'tipo',this.value)">
-        ${TIPOS_GASTO.map(t => `<option value="${t}" ${g.tipo===t?'selected':''}>${t}</option>`).join('')}
-      </select>
-      <input type="number" min="0" step="0.01" inputmode="decimal"
-             placeholder="Importe (€)" value="${g.importe}"
-             onchange="mGastoChange(${i},'importe',this.value)">
-      <input type="text" placeholder="Comentario (opcional)" value="${g.comentario}"
-             onchange="mGastoChange(${i},'comentario',this.value)">
-    </div>
-  `).join('');
-  const total = _gastosData.reduce((s, g) => s + (parseFloat(g.importe) || 0), 0);
-  hidGas.value = total.toFixed(2);
-  totDiv.style.display = _gastosData.length ? 'flex' : 'none';
-  totVal.textContent = total.toFixed(2).replace('.', ',') + ' €';
-}
-// ---- FIN GASTOS ----
-window.mAddGasto    = mAddGasto;
-window.mDelGasto    = mDelGasto;
-window.mGastoChange = mGastoChange;
-
-let _fotosData  = [];
-let _hoy        = new Date().toISOString().slice(0,10);
-const OFFLINE_KEY = 'dietas_offline_regs';
-
-// ---- Detección offline ----
-function actualizarEstadoRed() {
-  const badge = document.getElementById('offline-badge');
-  if (badge) badge.style.display = navigator.onLine ? 'none' : 'block';
-  if (navigator.onLine) sincronizarOffline();
-}
-window.addEventListener('online',  actualizarEstadoRed);
-window.addEventListener('offline', actualizarEstadoRed);
-
-// ---- Arranque ----
-async function init() {
-  document.getElementById('loading').style.display    = 'none';
-  document.getElementById('app-header').style.display = 'flex';
-  actualizarEstadoRed();
-  document.getElementById('pantalla-login').style.display = 'block';
+// ---- FECHAS: máximo = hoy, pre-rellenar al hacer foco ----
+function fijarLimiteFechas() {
+  const hoy = new Date().toISOString().slice(0, 10);
   document.querySelectorAll('input[type="date"]').forEach(el => {
-    el.max = _hoy;
-    el.addEventListener('focus', function(){ if(!this.value) this.value = _hoy; });
+    el.max = hoy;
+    el.addEventListener('focus', function () { if (!this.value) this.value = hoy; }, { once: false });
   });
 }
-init();
 
-// ---- LOGIN ----
-window.mLogin = async function() {
-  const cod   = document.getElementById('m-codigo').value.trim();
-  const input = document.getElementById('m-codigo');
-  if (!cod) { mToast('Introduce tu código', 'error'); return; }
+// ---- TABS PRINCIPALES ----
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none';
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`tab-${tab}`);
+  el.style.display = 'block';
+  el.classList.add('active');
+  event.currentTarget.classList.add('active');
+  fijarLimiteFechas();
+}
 
-  const btn = document.querySelector('#pantalla-login .btn-primary');
-  btn.textContent = 'Verificando…';
-  btn.disabled = true;
+// ---- MODO REGISTRO ----
+function setModo(modo) {
+  modoActual = modo;
+  document.getElementById('btn-detallado').classList.toggle('active', modo === 'detallado');
+  document.getElementById('btn-resumido').classList.toggle('active',  modo === 'resumido');
+  document.getElementById('section-operaciones-detallado').style.display = modo === 'detallado' ? 'block' : 'none';
+  document.getElementById('section-operaciones-resumido').style.display  = modo === 'resumido'  ? 'block' : 'none';
+  document.getElementById('section-gastos-detallado').style.display = modo === 'detallado' ? 'block' : 'none';
+  document.getElementById('section-gastos-resumido').style.display  = modo === 'resumido'  ? 'block' : 'none';
+  calcularDietas();
+}
 
-  const codNorm = cod.padStart(6, '0');
-  try {
-    const [conductorSnap, tarifasSnap, tractorasSnap] = await Promise.all([
-      getDoc(doc(_db, 'conductores', codNorm)),
-      getDocs(collection(_db, 'tarifas')),
-      getDocs(query(collection(_db, 'tractoras'), orderBy('matricula'))),
-    ]);
+// ---- AUTOCOMPLETE: filtrar conductores por código o nombre ----
+function filtrarConductores(query) {
+  const sugerencias = document.getElementById('conductorSugerencias');
+  const q = query.trim().toLowerCase();
 
-    let conductorData = null;
-    if (conductorSnap.exists()) {
-      conductorData = conductorSnap.data();
+  if (!q) {
+    sugerencias.style.display = 'none';
+    sugerencias.innerHTML = '';
+    return;
+  }
+
+  const lista = getConductores().filter(c => {
+    return c.Codigo.toLowerCase().includes(q) ||
+           c.Nombre.toLowerCase().includes(q);
+  }).slice(0, 10); // máximo 10 resultados
+
+  if (!lista.length) {
+    sugerencias.style.display = 'none';
+    sugerencias.innerHTML = '';
+    return;
+  }
+
+  sugerencias.innerHTML = lista.map(c => `
+    <div onclick="seleccionarConductor('${c.Codigo}')"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);
+             display:flex;align-items:center;gap:10px;font-size:13px;
+             transition:background .15s"
+      onmouseover="this.style.background='var(--surface-hover,#f0f4ee)'"
+      onmouseout="this.style.background=''">
+      <span style="font-family:var(--font-mono);color:var(--primary);min-width:58px">${c.Codigo}</span>
+      <span style="flex:1;color:var(--text)">${c.Nombre}</span>
+      <span style="font-size:11px;color:var(--soft);background:var(--bg);
+                   padding:2px 7px;border-radius:10px">${c.PLATAFORMA}</span>
+    </div>
+  `).join('');
+
+  sugerencias.style.display = 'block';
+}
+
+function seleccionarConductor(codigo) {
+  const sugerencias = document.getElementById('conductorSugerencias');
+  const c = buscarConductor(codigo);
+  if (!c) return;
+
+  // Rellenar el campo de búsqueda con código + nombre
+  document.getElementById('buscarConductorInput').value = `${c.Codigo} — ${c.Nombre}`;
+  // Guardar código en el campo oculto
+  document.getElementById('codConductor').value = c.Codigo;
+  // Ocultar sugerencias
+  sugerencias.style.display = 'none';
+  sugerencias.innerHTML = '';
+  // Ejecutar el relleno del formulario
+  autocompletar();
+}
+
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click', function(e) {
+  const input = document.getElementById('buscarConductorInput');
+  const sugerencias = document.getElementById('conductorSugerencias');
+  if (input && sugerencias && !input.contains(e.target) && !sugerencias.contains(e.target)) {
+    sugerencias.style.display = 'none';
+  }
+});
+
+// ---- AUTOCOMPLETAR POR CÓDIGO ----
+function autocompletar() {
+  const enEdicion = !!document.getElementById('formRegistro').dataset.editId;
+  const cod = document.getElementById('codConductor').value.trim();
+  const c   = buscarConductor(cod);
+
+  // Normalizar a 6 dígitos en el campo — solo si NO estamos editando
+  if (c && !enEdicion) document.getElementById('codConductor').value = c.Codigo;
+
+  document.getElementById('nombreConductor').value = c?.Nombre    || '';
+  document.getElementById('plataforma').value      = c?.PLATAFORMA|| '';
+  document.getElementById('categoria').value       = c?.CATEGORIA || '';
+
+  // Bloquear/desbloquear formulario
+  const bloqueado = cod.length > 0 && !c;
+  document.querySelectorAll('#formRegistro input:not(#codConductor), #formRegistro select, #btn-guardar')
+    .forEach(el => el.disabled = bloqueado);
+  document.getElementById('codConductor').style.borderColor = bloqueado ? '#c0392b' : '';
+  if (bloqueado) { showToast('Código de conductor no encontrado', 'error'); }
+
+  // Equipaje: mostrar valor del conductor y ajustar coefNacional por defecto
+  const equipaje = c?.EQUIPAJE || '';
+  document.getElementById('equipaje').value = equipaje;
+  const catUpp = (c?.CATEGORIA || '').toUpperCase();
+  const esSinKmCat = ['COMODIN','PESCADO'].includes(catUpp);
+  if (esSinKmCat) {
+    // COMODÍN/PESCADO: días se calculan al rellenar fechas (calcularTiempos)
+    // Solo actualizar coefNacional si ya hay fechas en el formulario
+    const fs = document.getElementById('fechaSalida').value;
+    const fl = document.getElementById('fechaLlegada').value;
+    if (fs && fl) {
+      const diasFechas = Math.round((parseFecha(fl) - parseFecha(fs)) / 86400000) + 1;
+      if (diasFechas > 0) {
+        document.getElementById('coefNacional').value   = diasFechas;
+        document.getElementById('diasTrabajados').value = diasFechas;
+      }
+    }
+  } else if (equipaje === 'SIMPLE') {
+    document.getElementById('coefNacional').value = 2.7;
+  } else if (equipaje === 'DOBLE') {
+    document.getElementById('coefNacional').value = 1.30;
+  }
+
+  // Tractora: recuperar la asignada en Firestore (con fallback a localStorage)
+  if (c) {
+    const ultimaTractora = c.tractoraAsignada || localStorage.getItem(`tractora_${cod}`) || '';
+    const sel = document.getElementById('tractora');
+    if (ultimaTractora) {
+      if (sel.querySelector(`option[value="${ultimaTractora}"]`)) {
+        sel.value = ultimaTractora;
+      } else {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = ultimaTractora;
+        sel.appendChild(opt);
+        sel.value = ultimaTractora;
+      }
+    }
+    // Coef. Nacional: equipaje tiene prioridad; localStorage solo si no hay equipaje definido
+    if (!equipaje) {
+      const ultimoCoef = localStorage.getItem(`coef_${cod}`);
+      if (ultimoCoef !== null) {
+        document.getElementById('coefNacional').value = ultimoCoef;
+      }
+    }
+  }
+
+  // Pareja — solo en creación nueva; en edición el campo pareja es meramente informativo
+  if (!enEdicion) {
+    const parejaEl = document.getElementById('pareja');
+    const parejaLabel = document.getElementById('pareja-label');
+    if (equipaje === 'DOBLE' && c?.PAREJA) {
+      const codPareja = String(c.PAREJA).padStart(6, '0');
+      const condPareja = buscarConductor(codPareja);
+      if (condPareja) {
+        parejaEl.value = `${c.PAREJA} — ${condPareja.Nombre}`;
+        if (parejaLabel) parejaLabel.style.color = 'var(--primary)';
+      } else {
+        parejaEl.value = `${c.PAREJA} — ⚠️ No encontrado`;
+        if (parejaLabel) parejaLabel.style.color = '#c0392b';
+      }
     } else {
-      const q    = query(collection(_db, 'conductores'), where('Codigo', '==', codNorm));
-      const snap = await getDocs(q);
-      if (!snap.empty) conductorData = snap.docs[0].data();
+      parejaEl.value = c?.PAREJA || '';
+      if (parejaLabel) parejaLabel.style.color = '';
     }
-
-    if (!conductorData) {
-      input.style.borderColor = '#c0392b';
-      mToast('Código no encontrado. Comprueba el número.', 'error');
-      return;
-    }
-
-    input.style.borderColor = '';
-    _conductor = conductorData;
-    _tarifas   = tarifasSnap.docs.map(d => d.data());
-    _tractoras = tractorasSnap.docs.map(d => d.data().matricula.toUpperCase());
-
-    document.getElementById('m-nombre').textContent   = _conductor.Nombre;
-    document.getElementById('m-plat').textContent     = _conductor.PLATAFORMA + ' · ' + _conductor.CATEGORIA;
-    document.getElementById('header-sub').textContent = _conductor.Nombre;
-
-    const equipaje = _conductor.EQUIPAJE || '';
-    document.getElementById('m-equipaje').textContent = equipaje || '—';
-    if      (equipaje === 'SIMPLE') document.getElementById('m-coef').value = 2.7;
-    else if (equipaje === 'DOBLE')  document.getElementById('m-coef').value = 1.30;
-
-    document.getElementById('m-pareja').textContent = _conductor.PAREJA || '—';
-    document.getElementById('aviso-doble').style.display = equipaje === 'DOBLE' ? 'block' : 'none';
-
-    const tractAsig = _conductor.tractoraAsignada || localStorage.getItem(`tractora_${_conductor.Codigo}`) || '';
-    if (tractAsig) {
-      document.getElementById('m-tractora').value = tractAsig;
-      mValidarTractora();
-    }
-
-    document.getElementById('pantalla-login').style.display    = 'none';
-    document.getElementById('pantalla-registro').style.display = 'block';
-    mAdaptarPlataforma(_conductor.PLATAFORMA, _conductor.CATEGORIA);
-
-  } catch(e) {
-    console.error(e);
-    mToast('Error de conexión. Inténtalo de nuevo.', 'error');
-  } finally {
-    btn.textContent = 'Entrar';
-    btn.disabled = false;
   }
-};
 
-window.mCerrar = function() {
-  _conductor = null;
-  document.getElementById('pantalla-login').style.display    = 'block';
-  document.getElementById('pantalla-registro').style.display = 'none';
-  document.getElementById('m-codigo').value = '';
-  document.getElementById('header-sub').textContent = 'Introduce tu código para comenzar';
-};
+  adaptarPlataforma(c?.PLATAFORMA || '', c?.CATEGORIA || '');
+}
 
-// ---- ADAPTAR POR PLATAFORMA ----
-window.mAdaptarPlataforma = function(plat, cat) {
-  const esCau = plat === 'CAUDETE';
-  const esFil = plat === 'FILARDI';
-  const sinKm = ['COMODIN','PESCADO'].includes((cat||'').toUpperCase());
+// ---- ADAPTAR INTERFAZ POR PLATAFORMA ----
+function adaptarPlataforma(plataforma, categoria) {
+  const esCaudete  = plataforma === 'CAUDETE';
+  const esFilardi  = plataforma === 'FILARDI';
+  const sinKm      = ['COMODIN','PESCADO'].includes(categoria.toUpperCase());
 
-  show('m-field-hsal',  esCau);
-  show('m-field-hlleg', esCau);
-  show('m-field-resto', esCau);
-  show('m-field-dom',   esCau);
-  show('m-section-km',  true);
-  document.getElementById('m-kms-nota').style.display = esCau ? '' : 'none';
-  show('m-field-acarreos', !esCau);
-  show('m-field-vliss',    !esCau);
+  // Horas (solo CAUDETE)
+  ['field-horaSalida','field-horaLlegada','field-restoHoras'].forEach(id =>
+    document.getElementById(id).style.display = esCaudete ? 'flex' : 'none');
+  document.getElementById('horaSalida').required  = esCaudete;
+  document.getElementById('horaLlegada').required = esCaudete;
 
+  // Kilómetros — siempre visible, badge informativo en CAUDETE
+  document.getElementById('section-kms').style.display = 'block';
+  document.getElementById('kms-nota').style.display    = esCaudete ? '' : 'none';
+  const kmS = document.getElementById('kmSalida');
+  const kmV = document.getElementById('kmVuelta');
+  const tkEl = document.getElementById('totalKm');
   if (sinKm) {
-    document.getElementById('m-kmsal').readOnly  = true;
-    document.getElementById('m-kmvuel').readOnly = true;
-    document.getElementById('m-kmtotal').value   = (12000).toLocaleString('es-ES');
-  }
-
-  show('m-bloque-carga',  !esFil);
-  show('m-bloque-palet',  !esFil);
-  show('m-bloque-24h',    plat === 'TJG');
-  show('m-bloque-pausa',  plat === 'TJG');
-  show('m-bloque-nac',    esCau);
-  show('m-bloque-uk',     esFil);
-  show('m-bloque-ndlf',   esFil);
-};
-
-function show(id, cond) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = cond ? '' : 'none';
-}
-
-// ---- TIEMPOS ----
-window.mCalcTiempos = function() {
-  const plat = _conductor?.PLATAFORMA || '';
-  const fs = document.getElementById('m-fsal').value;
-  const fl = document.getElementById('m-flleg').value;
-  const inFS = document.getElementById('m-fsal');
-  const inFL = document.getElementById('m-flleg');
-
-  inFS.classList.remove('error'); inFL.classList.remove('error');
-
-  if (fs && fs > _hoy) { inFS.classList.add('error'); mToast('Fecha salida no puede ser futura','error'); return; }
-  if (fl && fl > _hoy) { inFL.classList.add('error'); mToast('Fecha llegada no puede ser futura','error'); return; }
-  if (fs && fl && fl <= fs) { inFL.classList.add('error'); mToast('Llegada debe ser posterior a salida','error'); return; }
-  if (!fs || !fl) return;
-
-  let dias = 0, resto = 0;
-  if (plat === 'CAUDETE') {
-    const hs = document.getElementById('m-hsal').value;
-    const hl = document.getElementById('m-hlleg').value;
-    if (!hs || !hl) return;
-    const diffH = (new Date(`${fl}T${hl}`) - new Date(`${fs}T${hs}`)) / 3600000;
-    dias  = Math.floor(diffH / 24);
-    resto = diffH % 24;
-    document.getElementById('m-resto').value = resto.toFixed(2);
-    document.getElementById('m-dom').value   = contarDomingos(fs, fl);
-    document.getElementById('m-fest').value  = contarFestivos(fs, fl);
+    kmS.value = ''; kmV.value = '';
+    if (!parseKm(tkEl.value)) tkEl.value = (12000).toLocaleString('es-ES');
+    kmS.readOnly = kmV.readOnly = true;
+    tkEl.readOnly = false;
+    tkEl.classList.remove('readonly', 'calc');
+    // Ocultar campos de entrada — no tiene sentido para PESCADO/COMODIN
+    kmS.closest('.field').style.display = 'none';
+    kmV.closest('.field').style.display = 'none';
   } else {
-    dias = Math.round((new Date(fl) - new Date(fs)) / 86400000) + 1;
+    kmS.readOnly = kmV.readOnly = false;
+    tkEl.readOnly = true;
+    tkEl.classList.add('readonly', 'calc');
+    kmS.closest('.field').style.display = '';
+    kmV.closest('.field').style.display = '';
+    if (!plataforma) tkEl.value = '';
   }
-  document.getElementById('m-dias').value = dias > 0 ? dias : 0;
-  mCalcDietas();
-};
 
-// ---- KM ----
-function mParseKm(str) {
-  return parseFloat(String(str).replace(/\./g,'').replace(',','.')) || 0;
+  // Bloques de operaciones por plataforma
+  document.querySelectorAll('.plat-TJG').forEach(el =>
+    el.style.display = plataforma === 'TJG' ? 'block' : 'none');
+  document.querySelectorAll('.plat-FILARDI').forEach(el =>
+    el.style.display = esFilardi ? 'block' : 'none');
+  document.querySelectorAll('.plat-CAUDETE').forEach(el =>
+    el.style.display = esCaudete ? 'block' : 'none');
+
+  // Resumido: mostrar/ocultar campos por plataforma
+  const vis = (id, cond) => document.getElementById(id).style.display = cond ? 'flex' : 'none';
+  vis('res-carga',   !esFilardi);
+  vis('res-palet',   !esFilardi);
+  vis('res-rebote',  true);
+  vis('res-24horas', plataforma === 'TJG');
+  vis('res-pausa',   plataforma === 'TJG');
+  vis('res-nacional',esCaudete);
+  vis('res-uk',      esFilardi);
+  vis('res-ndlf',    esFilardi);
+
+  // Detallado: carga/palet ocultos en FILARDI
+  document.getElementById('bloque-carga').style.display = esFilardi ? 'none' : 'block';
+  document.getElementById('bloque-palet').style.display = esFilardi ? 'none' : 'block';
+
+  // Acarreos y Vlissingen: solo TJG y FILARDI
+  vis('field-acarreos',   !esCaudete);
+  vis('field-vlissingen', !esCaudete);
+
+  // Domingos y Festivos: solo CAUDETE
+  vis('field-domingos', esCaudete);
+  vis('field-festivos', esCaudete);
+  if (!esCaudete) {
+    document.getElementById('chk-festivos').checked  = false;
+    document.getElementById('numDomingos').value     = '';
+    document.getElementById('numFestivos').value     = '';
+  }
+
+  const exC = document.getElementById('extrasConcepto'); if(exC) exC.value = '';
+  document.getElementById('section-resultado').style.display = 'none';
+
+  // Obligatoriedad de fechas y km según categoría
+  const esSinKm2 = sinKm;
+  const fsEl = document.getElementById('fechaSalida');
+  const flEl = document.getElementById('fechaLlegada');
+  const kmSEl = document.getElementById('kmSalida');
+  const kmVEl = document.getElementById('kmVuelta');
+  fsEl.required = !esSinKm2;
+  flEl.required = !esSinKm2;
+  // Km no usan required nativo (son texto), se validan en guardarRegistro
 }
-window.mFormatKm = function(input) {
-  const val = mParseKm(input.value);
-  if (val) input.value = val.toLocaleString('es-ES');
-};
-window.mCalcKm = function() {
-  const cat = (_conductor?.CATEGORIA||'').toUpperCase();
-  if (['COMODIN','PESCADO'].includes(cat)) {
-    document.getElementById('m-kmtotal').value = (12000).toLocaleString('es-ES');
-    mCalcDietas();
-    return;
-  }
-  const sal  = mParseKm(document.getElementById('m-kmsal').value);
-  const vuel = mParseKm(document.getElementById('m-kmvuel').value);
-  const inS  = document.getElementById('m-kmsal');
-  const inV  = document.getElementById('m-kmvuel');
-  if (sal && vuel && vuel < sal) {
-    inS.style.borderColor = '#c0392b';
-    inV.style.borderColor = '#c0392b';
-    mToast('Km Vuelta no puede ser menor que Km Salida','error');
-    document.getElementById('m-kmtotal').value = '';
-    return;
-  }
-  inS.style.borderColor = '';
-  inV.style.borderColor = '';
-  const total = sal && vuel ? vuel - sal : 0;
-  document.getElementById('m-kmtotal').value = total ? total.toLocaleString('es-ES') : '';
-  mCalcDietas();
-};
 
-// ---- OPERACIONES ----
-function mRenumerar(tipo) {
-  document.querySelectorAll(`#m-lista-${tipo} .op-row`).forEach((row, i) => {
-    const span = row.querySelector('.m-op-num');
+// ---- AÑADIR FILA DE OPERACIÓN (DETALLADO) ----
+function renumerarOperaciones(tipo) {
+  document.querySelectorAll(`#lista-${tipo} .operacion-row`).forEach((row, i) => {
+    const span = row.querySelector('.op-num');
     if (span) span.textContent = i + 1;
   });
 }
-window.mAddOp = function(tipo) {
-  const lista = document.getElementById(`m-lista-${tipo}`);
-  const n = lista.querySelectorAll('.op-row').length + 1;
+
+function addOperacion(tipo) {
+  const lista = document.getElementById(`lista-${tipo}`);
+  const n = lista.querySelectorAll('.operacion-row').length + 1;
   const row = document.createElement('div');
-  row.className = 'op-row';
+  row.className = 'operacion-row';
   row.innerHTML = `
-    <span class="m-op-num" style="min-width:20px;text-align:center;font-weight:700;color:var(--primary);font-size:13px;align-self:center">${n}</span>
-    <input type="date" max="${_hoy}">
+    <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
+      color:var(--primary);font-size:13px;align-self:center">${n}</span>
+    <input type="date">
     <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
-    <button class="btn-del-sm" onclick="this.parentElement.remove();mRenumerar('${tipo}');mCalcDietas()">🗑</button>
+    <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
   `;
   lista.appendChild(row);
-  mCalcDietas();
-};
-function mGetCount(tipo) {
-  return document.querySelectorAll(`#m-lista-${tipo} .op-row`).length;
-}
-function mGetDetalle(tipo) {
-  const rows = document.querySelectorAll(`#m-lista-${tipo} .op-row`);
-  return Array.from(rows).map(row => {
-    const inputs = row.querySelectorAll('input');
-    return { fecha: inputs[0]?.value || '', lugar: inputs[1]?.value || '' };
-  });
+  fijarLimiteFechas();
+  calcularDietas();
 }
 
-// ---- TARIFA ----
-function getTar(concepto, plat) {
-  const f = _tarifas.find(t => t.CONCEPTO === concepto);
-  return f ? (f[plat] || 0) : 0;
-}
+// ---- GUARDAR REGISTRO ----
+async function guardarRegistro() {
+  const plataforma = document.getElementById('plataforma').value;
+  if (!plataforma) { showToast('Introduce un código de conductor válido', 'error'); return; }
 
-// ---- CÁLCULO ----
-// DOBLE: carga y palet se comparten entre los dos conductores (÷ 2)
-window.mCalcDietas = function() {
-  if (!_conductor) return;
-  const plat     = _conductor.PLATAFORMA;
-  const precioKm = _conductor.PrecioKmt || 0;
+  const editId    = document.getElementById('formRegistro').dataset.editId || '';
+  const categoria = document.getElementById('categoria').value.toUpperCase();
+  const sinKmVal  = ['COMODIN','PESCADO'].includes(categoria);
 
-  const km    = mParseKm(document.getElementById('m-kmtotal').value);
-  const dias  = parseFloat(document.getElementById('m-dias').value)    || 0;
-  const resto = parseFloat(document.getElementById('m-resto').value)   || 0;
-  const coef  = parseFloat(document.getElementById('m-coef').value)    || 0;
-  const ext   = parseFloat(document.getElementById('m-extras').value)  || 0;
-  const acar  = parseFloat(document.getElementById('m-acarreos').value)|| 0;
-  const vliss = parseFloat(document.getElementById('m-vliss').value)   || 0;
-
-  // DOBLE: carga y palet se dividen entre los dos conductores
-  const divisor = (_conductor.EQUIPAJE||'').toUpperCase() === 'DOBLE' ? 2 : 1;
-  const nCarga  = mGetCount('carga') / divisor;
-  const nPalet  = mGetCount('palet') / divisor;
-  const nRebote = mGetCount('rebote');
-  const n24h    = mGetCount('24h');
-  const nPausa  = mGetCount('pausa');
-  const nNac    = mGetCount('nac');
-  const nUK     = mGetCount('uk');
-  const nNDLF   = mGetCount('ndlf');
-  const nDom    = plat==='CAUDETE' ? (parseFloat(document.getElementById('m-dom').value)||0) : 0;
-  const nFest   = plat==='CAUDETE' && document.getElementById('m-chk-fest').checked
-    ? (parseFloat(document.getElementById('m-fest').value)||0) : 0;
-
-  const cat = (_conductor.CATEGORIA||'').toUpperCase();
-
-  let res = {};
-  if (cat === 'PESCADO') {
-    const total = km * precioKm;
-    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
-    const DN = coef*45.19;
-    res = { tipo:'PESCADO', total, HE, HP, NOC, DN };
-  } else if (plat === 'TJG') {
-    const sumVar = nCarga*getTar('CARGA/DESCARGAS','TJG') + nPalet*getTar('MOV. PALETS','TJG')
-                 + nRebote*getTar('REBOTE','TJG') + n24h*getTar('24HORAS_PAUSA','TJG')
-                 + nPausa*getTar('24HORAS_PAUSA','TJG') + acar*getTar('ACARREOS','TJG')
-                 + vliss*getTar('DIETA_VLISSINGEN','TJG') + ext;
-    const total = km*precioKm + sumVar;
-    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
-    let DN, DI;
-    if (coef >= dias) { DI = 0; DN = Math.max(0, total-HE-HP-NOC); }
-    else { DN = coef*45.19; DI = Math.max(0, total-HE-HP-NOC-DN); }
-    res = { tipo:'TJG', total, HE, HP, NOC, DN, DI };
-  } else if (plat === 'FILARDI') {
-    const sumVar = nRebote*getTar('REBOTE','FILARDI') + nUK*getTar('UK','FILARDI')
-                 + nNDLF*getTar('NDLF','FILARDI') + acar*getTar('ACARREOS','FILARDI')
-                 + vliss*getTar('DIETA_VLISSINGEN','FILARDI') + ext;
-    const total = km*precioKm + sumVar;
-    const HE = 0.02926*0.4*km, HP = 0.02926*0.5*km, NOC = 0.02926*0.1*km;
-    const DN = coef*45.19;
-    let DI  = (dias-coef)*59;
-    let MEJ = total-HE-HP-NOC-DN-DI;
-    if (MEJ < 0) { DI = total-HE-HP-NOC-DN; MEJ = 0; }
-    res = { tipo:'FILARDI', total, HE, HP, NOC, DN, DI, MEJ };
-  } else if (plat === 'CAUDETE') {
-    const fs = document.getElementById('m-fsal').value;
-    const fl = document.getElementById('m-flleg').value;
-    let diasEfic = dias;
-    if (fs && fl) {
-      const [y,m,d]    = fs.split('-').map(Number);
-      const [y2,m2,d2] = fl.split('-').map(Number);
-      diasEfic = Math.round((new Date(y2,m2-1,d2) - new Date(y,m-1,d)) / 86400000) + 1;
-    }
-    const PE   = diasEfic * 8.75;
-    const DISP = (nDom+nFest)*getTar('DOMINGO_FESTIVOS','CAUDETE')
-               + nCarga*getTar('CARGA/DESCARGAS','CAUDETE')
-               + nPalet*getTar('MOV. PALETS','CAUDETE') + nNac*10.3;
-    const DIET = dias*getTar('DIA','CAUDETE') + resto*getTar('HORAS','CAUDETE')
-               + nRebote*getTar('REBOTE','CAUDETE') + ext;
-    res = { tipo:'CAUDETE', PE, DISP, DIET, total: PE+DISP+DIET };
+  // Validar fechas obligatorias
+  const fs = document.getElementById('fechaSalida').value;
+  const fl = document.getElementById('fechaLlegada').value;
+  if (!sinKmVal) {
+    if (!fs) { showToast('La fecha de salida es obligatoria', 'error'); document.getElementById('fechaSalida').focus(); return; }
+    if (!fl) { showToast('La fecha de llegada es obligatoria', 'error'); document.getElementById('fechaLlegada').focus(); return; }
+    // [2] Fecha llegada no puede ser anterior a fecha salida
+    if (fl < fs) { showToast('La fecha de llegada no puede ser anterior a la de salida', 'error'); document.getElementById('fechaLlegada').focus(); return; }
   }
 
-  mostrarResultadoMovil(res);
-  return res;
-};
+  // Validar km obligatorios (salvo COMODÍN/PESCADO)
+  if (!sinKmVal) {
+    const kmS = parseKm(document.getElementById('kmSalida').value);
+    const kmV = parseKm(document.getElementById('kmVuelta').value);
+    if (!kmS) { showToast('El Km de salida es obligatorio', 'error'); document.getElementById('kmSalida').focus(); return; }
+    if (!kmV) { showToast('El Km de vuelta es obligatorio', 'error'); document.getElementById('kmVuelta').focus(); return; }
+    // [2] Km vuelta no puede ser menor que km salida del mismo registro
+    if (kmV < kmS) { showToast('El Km de vuelta no puede ser menor que el Km de salida', 'error'); document.getElementById('kmVuelta').focus(); return; }
+  }
 
-function mostrarResultadoMovil(res) {
-  const sec  = document.getElementById('m-section-resultado');
-  const body = document.getElementById('m-resultado-body');
-  sec.style.display = 'block';
-  const f = v => `${(+v).toFixed(2)} €`;
-  body.innerHTML =
-    `<div class="resultado-total"><span>Total Dietas</span><span class="valor">${f(res.total)}</span></div>`;
+  // [3] coefNacional no puede ser mayor que diasTrabajados
+  const diasTrab   = parseFloat(document.getElementById('diasTrabajados').value) || 0;
+  const coefNacEl  = document.getElementById('coefNacional');
+  const coefNacVal = parseFloat(coefNacEl.value) || 0;
+  if (coefNacVal > diasTrab && diasTrab > 0) {
+    coefNacEl.value = diasTrab;
+    showToast(`⚠️ Días conduciendo en España ajustado a ${diasTrab} (no puede superar los días trabajados)`, '');
+  }
+
+  // Validar solapamiento de fechas con otros registros del mismo conductor
+  // [1] Permitir mismo día: solapamiento real excluye el caso fs=fl con registro anterior de fl=fs
+  const codCond = document.getElementById('codConductor').value.trim();
+  const registrosCond = getRegistros().filter(r =>
+    r.codigoConductor === codCond && r.id !== editId
+  );
+  const solapado = registrosCond.find(r => fs < r.fechaLlegada && fl > r.fechaSalida);
+  if (solapado && !sinKmVal) {
+    if (!confirm(`⚠️ Las fechas se solapan con un registro existente (${solapado.fechaSalida} → ${solapado.fechaLlegada}). ¿Continuar igualmente?`)) return;
+  }
+
+  // [4] Km salida ≥ km vuelta del registro anterior de la misma tractora — aviso pero no bloquea
+  const tractoraSel = document.getElementById('tractora').value;
+  if (tractoraSel && !sinKmVal) {
+    const kmSActual = parseKm(document.getElementById('kmSalida').value);
+    const registrosTractora = getRegistros()
+      .filter(r => r.tractora === tractoraSel && r.id !== editId && r.fechaLlegada <= fs)
+      .sort((a, b) => b.fechaLlegada.localeCompare(a.fechaLlegada));
+    if (registrosTractora.length) {
+      const ultimo = registrosTractora[0];
+      if (ultimo.kmVuelta && kmSActual && kmSActual < ultimo.kmVuelta) {
+        if (!confirm(`⚠️ Km salida (${kmSActual.toLocaleString('es-ES')}) menor que km vuelta del registro anterior de esta tractora (${Number(ultimo.kmVuelta).toLocaleString('es-ES')}). ¿Continuar igualmente?`)) return;
+      }
+    }
+  }
+
+  // calcularDietas() ya devuelve el resultado; lo reutilizamos
+  const resultado = calcularDietas();
+
+  const nDomingos = parseFloat(document.getElementById('numDomingos').value) || 0;
+  const nFestivos = parseFloat(document.getElementById('numFestivos').value) || 0;
+
+  const tractora = document.getElementById('tractora').value;
+  const coefNac  = document.getElementById('coefNacional').value;
+  const cod      = document.getElementById('codConductor').value.trim();
+  if (tractora) {
+    localStorage.setItem(`tractora_${cod}`, tractora); // fallback local
+    updateTractoraConductor(cod, tractora);             // guardar en Firestore
+  }
+  if (coefNac)  localStorage.setItem(`coef_${cod}`, coefNac);
+
+  const datosRegistro = {
+    codigoConductor: document.getElementById('codConductor').value.trim(),
+    nombreConductor: document.getElementById('nombreConductor').value,
+    tractora,
+    equipaje:        document.getElementById('equipaje').value,
+    pareja:          document.getElementById('pareja').value,
+    plataforma,
+    categoria:       document.getElementById('categoria').value,
+    fechaSalida:     document.getElementById('fechaSalida').value,
+    horaSalida:      document.getElementById('horaSalida').value,
+    fechaLlegada:    document.getElementById('fechaLlegada').value,
+    horaLlegada:     document.getElementById('horaLlegada').value,
+    diasTrabajados:  parseFloat(document.getElementById('diasTrabajados').value) || 0,
+    restoHoras:      parseFloat(document.getElementById('restoHoras').value)     || 0,
+    coefNacional:    parseFloat(document.getElementById('coefNacional').value)   || 0,
+    nDomingos,
+    nFestivos,
+    festivosEnLiquidacion: document.getElementById('chk-festivos').checked,
+    kmSalida:        parseKm(document.getElementById('kmSalida').value),
+    kmVuelta:        parseKm(document.getElementById('kmVuelta').value),
+    totalKm:         parseKm(document.getElementById('totalKm').value),
+    nCarga:          getCount('carga'),
+    nPalet:          getCount('palet'),
+    nRebote:         getCount('rebote'),
+    n24h:            getCount('24horas'),
+    nPausa:          getCount('pausa'),
+    nNacional:       getCount('nacional'),
+    nUK:             getCount('uk'),
+    nNDLF:           getCount('ndlf'),
+    acarreos:        parseFloat(document.getElementById('acarreos').value)         || 0,
+    dietaVlissingen: parseFloat(document.getElementById('dietaVlissingen').value)  || 0,
+    extrasConcepto:  document.getElementById('extrasConcepto')?.value || '',
+    extras:          parseFloat(document.getElementById('extras').value)           || 0,
+    gastosViaje:     modoActual === 'detallado' ? leerGastosDetallados() : (parseFloat(document.getElementById('gastosViaje').value) || 0),
+    gastosDetalle:   modoActual === 'detallado' ? leerGastosDetallados(true) : [],
+    anticipos:       parseFloat(document.getElementById('anticipos').value)        || 0,
+    modo:            modoActual,
+    resultado,
+  };
+
+  // Trazabilidad
+  const ahora = new Date().toISOString();
+  if (editId) {
+    datosRegistro.modificadoPor     = 'admin';
+    datosRegistro.fechaModificacion = ahora;
+    // Preservar campos de trazabilidad del registro original
+    const regOriginal = getRegistros().find(r => r.id === editId);
+    if (regOriginal) {
+      // Identidad del conductor — nunca se cambia al editar
+      datosRegistro.codigoConductor = regOriginal.codigoConductor;
+      datosRegistro.nombreConductor = regOriginal.nombreConductor;
+      // Campos de pareja — meramente informativos, no se tocan al editar
+      datosRegistro.pareja         = regOriginal.pareja         || '';
+      datosRegistro.registroPareja = regOriginal.registroPareja || '';
+      datosRegistro.esDuplicado    = regOriginal.esDuplicado    || false;
+      // Trazabilidad
+      datosRegistro.creadoPor    = regOriginal.creadoPor  || 'admin';
+      datosRegistro.creadoEn     = regOriginal.creadoEn   || regOriginal.fechaCreacion || ahora;
+      datosRegistro.estadoDietas = regOriginal.estadoDietas;
+      // Si el admin marcó "Aprobar al guardar", pasar a pendiente
+      const chkAprobar = document.getElementById('chk-aprobar');
+      if (chkAprobar && chkAprobar.closest('#chk-aprobar-wrap')?.style.display !== 'none' && chkAprobar.checked) {
+        datosRegistro.estadoDietas = 'pendiente';
+      }
+      datosRegistro.estadoGastos = regOriginal.estadoGastos;
+    }
+    await updateRegistro(editId, datosRegistro);
+    showToast('Registro actualizado ✓', 'success');
+  } else {
+    // SALVAGUARDA: nunca crear registro nuevo si editId tiene valor (por si acaso)
+    if (document.getElementById('formRegistro').dataset.editId) {
+      showToast('Error: se detectó edición activa pero no se procesó. Recarga y vuelve a intentarlo.', 'error');
+      console.error('guardarRegistro: editId en dataset pero no en variable local — abortando addRegistro');
+      return;
+    }
+    datosRegistro.creadoPor = 'admin';
+    datosRegistro.creadoEn  = ahora;
+    const regGuardado = await addRegistro(datosRegistro);
+    showToast('Registro guardado ✓', 'success');
+
+    // Si es DOBLE y NO es ya un duplicado, duplicar para la pareja (SOLO en creación nueva)
+    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja && !datosRegistro.esDuplicado) {
+      const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
+      const condPareja = buscarConductor(codPareja);
+      if (condPareja && confirm(`¿Duplicar este registro para la pareja ${condPareja.Nombre}?`)) {
+        // Recalcular resultado con el PrecioKmt propio de la pareja (no copiar el del original)
+        const resultadoPareja = calcularDietasParaConductor(condPareja, datosRegistro);
+        const datosPareja = {
+          ...datosRegistro,
+          codigoConductor: condPareja.Codigo,
+          nombreConductor: condPareja.Nombre,
+          tractora:        condPareja.tractoraAsignada || datosRegistro.tractora,
+          equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
+          pareja:          `${datosRegistro.codigoConductor} — ${datosRegistro.nombreConductor}`,
+          creadoPor:       'admin',
+          creadoEn:        ahora,
+          // Copiar conteos de operaciones del registro original
+          nCarga:    datosRegistro.nCarga,
+          nPalet:    datosRegistro.nPalet,
+          nRebote:   datosRegistro.nRebote,
+          n24h:      datosRegistro.n24h,
+          nPausa:    datosRegistro.nPausa,
+          nNacional: datosRegistro.nNacional,
+          nUK:       datosRegistro.nUK,
+          nNDLF:     datosRegistro.nNDLF,
+          // NO copiar gastos del conductor original: cada conductor tiene sus propios gastos
+          gastosViaje:   0,
+          gastosDetalle: [],
+          anticipos:     0,
+          // Usar resultado recalculado con PrecioKmt de la pareja
+          resultado:     resultadoPareja,
+        };
+        await addRegistro(datosPareja);
+        showToast(`Registro duplicado para ${condPareja.Nombre} ✓`, 'success');
+      }
+    }
+  }
+
+  renderHistorial();
+  limpiarFormulario();
 }
 
-// ---- GUARDAR ----
-window.mGuardar = async function() {
-  if (!_conductor) return;
-  const plat = _conductor.PLATAFORMA;
-  const fs = document.getElementById('m-fsal').value;
-  const fl = document.getElementById('m-flleg').value;
-  if (!fs || !fl) { mToast('Introduce fechas de salida y llegada','error'); return; }
+// ---- GASTOS DETALLADOS ----
+function addGasto(datos) {
+  const lista = document.getElementById('lista-gastos');
+  const row   = document.createElement('div');
+  row.className = 'gasto-row';
+  const hoy = new Date().toISOString().slice(0,10);
 
-  const tractora = document.getElementById('m-tractora').value.trim().toUpperCase();
-  if (tractora && !_tractoras.includes(tractora)) {
-    mToast('Matrícula de tractora no válida','error');
-    document.getElementById('m-tractora').focus();
+  const opts = getConceptos().map(c =>
+    `<option value="${c.nombre}"${datos?.concepto === c.nombre ? ' selected' : ''}>${c.nombre}</option>`
+  ).join('');
+
+  const fecha   = datos?.fecha   || hoy;
+  const lugar   = datos?.lugar   || '';
+  const moneda  = datos?.moneda  || '€';
+  const importe = datos?.importe != null ? datos.importe : '';
+
+  row.innerHTML = `
+    <input type="date" value="${fecha}" max="${hoy}" title="Fecha">
+    <select title="Concepto">${opts}</select>
+    <input type="text" placeholder="Lugar" value="${lugar}" title="Lugar"
+           oninput="this.value=this.value.toUpperCase()">
+    <select title="Moneda">
+      <option value="€"${moneda==='€'?' selected':''}>€ EUR</option>
+      <option value="£"${moneda==='£'?' selected':''}>£ GBP</option>
+      <option value="$"${moneda==='$'?' selected':''}>$ USD</option>
+      <option value="Otro"${moneda==='Otro'?' selected':''}>Otro</option>
+    </select>
+    <input type="number" min="0" step="0.01" value="${importe}" placeholder="0,00"
+           style="font-weight:600;color:var(--primary);text-align:right"
+           title="Importe" oninput="actualizarTotalGastos()" onfocus="this.select()">
+    <button type="button" class="btn-del" title="Eliminar"
+      onclick="this.parentElement.remove();actualizarTotalGastos()">🗑</button>
+  `;
+  lista.appendChild(row);
+  if (!datos) {
+    const imp = row.querySelector('input[type="number"]');
+    if (imp) imp.focus();
+  }
+  actualizarTotalGastos();
+}
+
+function actualizarTotalGastos() {
+  const rows  = document.querySelectorAll('#lista-gastos .gasto-row');
+  const total = Array.from(rows).reduce((s, r) => {
+    return s + (parseFloat(r.querySelectorAll('input[type="number"]')[0]?.value) || 0);
+  }, 0);
+  const div = document.getElementById('gastos-total');
+  if (rows.length > 0) {
+    div.style.display = 'block';
+    div.textContent   = `Total Gastos: ${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+  } else {
+    div.style.display = 'none';
+  }
+}
+
+function leerGastosDetallados(comoArray = false) {
+  const rows = document.querySelectorAll('#lista-gastos .gasto-row');
+  const gastos = Array.from(rows).map(r => {
+    const inputs  = r.querySelectorAll('input');
+    const selects = r.querySelectorAll('select');
+    return {
+      fecha:    inputs[0].value,
+      concepto: selects[0].value,
+      lugar:    inputs[1].value,
+      moneda:   selects[1].value,
+      importe:  parseFloat(inputs[2].value) || 0,
+    };
+  }).filter(g => g.importe > 0);
+
+  if (comoArray) return gastos;
+  return gastos.reduce((s, g) => s + g.importe, 0);
+}
+
+// ---- LIMPIAR FORMULARIO ----
+function limpiarFormulario() {
+  document.getElementById('formRegistro').reset();
+  // Limpiar también el campo visual de búsqueda de conductor
+  const buscarEl = document.getElementById('buscarConductorInput');
+  if (buscarEl) buscarEl.value = '';
+  const sugsEl = document.getElementById('conductorSugerencias');
+  if (sugsEl) { sugsEl.style.display = 'none'; sugsEl.innerHTML = ''; }
+  ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('section-resultado').style.display = 'none';
+  document.getElementById('lista-gastos').innerHTML = '';
+  document.getElementById('gastos-total').style.display = 'none';
+  ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
+    document.getElementById(`lista-${tipo}`).innerHTML = '');
+  adaptarPlataforma('', '');
+  // Restaurar modo nuevo registro
+  delete document.getElementById('formRegistro').dataset.editId;
+  document.getElementById('btn-guardar').textContent = '💾 Guardar Registro';
+  document.getElementById('btn-cancelar-edicion').style.display = 'none';
+  const chkWrap = document.getElementById('chk-aprobar-wrap');
+  if (chkWrap) chkWrap.style.display = 'none';
+}
+
+function cancelarEdicion() {
+  limpiarFormulario();
+  showToast('Edición cancelada');
+}
+
+// ---- SIDEBAR HISTORIAL ----
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('closed');
+  document.getElementById('overlay').classList.toggle('active');
+}
+
+window.limpiarFiltrosHistorial = function limpiarFiltrosHistorial() {
+  ['filtroHistorial','filtroDesde','filtroHasta'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['filtroPlataforma','filtroEstado','filtroEquipaje','filtroOrigen'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  renderHistorial();
+};
+
+function renderHistorial() {
+  const lista     = document.getElementById('listaHistorial');
+  const filtro    = (document.getElementById('filtroHistorial')?.value || '').toLowerCase();
+  const fPlat     = document.getElementById('filtroPlataforma')?.value  || '';
+  const fEstado   = document.getElementById('filtroEstado')?.value      || '';
+  const fEquipaje = document.getElementById('filtroEquipaje')?.value    || '';
+  const fOrigen   = document.getElementById('filtroOrigen')?.value      || '';
+  const fDesde    = document.getElementById('filtroDesde')?.value       || '';
+  const fHasta    = document.getElementById('filtroHasta')?.value       || '';
+
+  let regs = getRegistros().slice().reverse();
+  if (filtro)    regs = regs.filter(r =>
+    (r.nombreConductor||'').toLowerCase().includes(filtro) ||
+    String(r.codigoConductor).includes(filtro));
+  if (fPlat)     regs = regs.filter(r => r.plataforma   === fPlat);
+  if (fEstado)   regs = regs.filter(r => (r.estadoDietas || 'pendiente') === fEstado);
+  if (fEquipaje) regs = regs.filter(r => (r.equipaje||'').toUpperCase() === fEquipaje);
+  if (fOrigen)   regs = regs.filter(r => fOrigen === 'movil' ? r.origenMovil : !r.origenMovil);
+  if (fDesde)    regs = regs.filter(r => r.fechaSalida  >= fDesde);
+  if (fHasta)    regs = regs.filter(r => r.fechaLlegada <= fHasta);
+
+  if (!regs.length) {
+    lista.innerHTML = '<p style="padding:16px;color:#888;font-size:12px">Sin registros</p>';
     return;
   }
 
-  const resultado = mCalcDietas();
-  if (!resultado) return;
+  // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
+  const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
+    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
+  const resto   = regs.filter(r => r.estadoDietas !== 'pendiente_validacion')
+    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
+  const ordenados = [...pendVal, ...resto];
 
-  if (tractora) localStorage.setItem(`tractora_${_conductor.Codigo}`, tractora);
+  const fmt2 = v => v != null ? Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : '—';
 
-  const reg = {
-    codigoConductor: _conductor.Codigo,
-    nombreConductor: _conductor.Nombre,
-    tractora,
-    equipaje:        _conductor.EQUIPAJE || '',
-    pareja:          _conductor.PAREJA   || '',
-    plataforma:      plat,
-    categoria:       _conductor.CATEGORIA,
-    fechaSalida:     fs,
-    horaSalida:      document.getElementById('m-hsal').value,
-    fechaLlegada:    fl,
-    horaLlegada:     document.getElementById('m-hlleg').value,
-    diasTrabajados:  parseFloat(document.getElementById('m-dias').value)  || 0,
-    restoHoras:      parseFloat(document.getElementById('m-resto').value) || 0,
-    coefNacional:    parseFloat(document.getElementById('m-coef').value)  || 0,
-    nDomingos:       parseFloat(document.getElementById('m-dom').value)   || 0,
-    nFestivos:       parseFloat(document.getElementById('m-fest').value)  || 0,
-    festivosEnLiquidacion: document.getElementById('m-chk-fest').checked,
-    kmSalida:        mParseKm(document.getElementById('m-kmsal').value),
-    kmVuelta:        mParseKm(document.getElementById('m-kmvuel').value),
-    totalKm:         mParseKm(document.getElementById('m-kmtotal').value),
-    // Guardar conteos brutos (sin dividir) para que administración vea el total real
-    nCarga:    mGetCount('carga'),  nPalet:    mGetCount('palet'),
-    nRebote:   mGetCount('rebote'), n24h:      mGetCount('24h'),
-    nPausa:    mGetCount('pausa'),  nNacional: mGetCount('nac'),
-    nUK:       mGetCount('uk'),     nNDLF:     mGetCount('ndlf'),
-    opCarga:   mGetDetalle('carga'),   opPalet:   mGetDetalle('palet'),
-    opRebote:  mGetDetalle('rebote'),  op24h:     mGetDetalle('24h'),
-    opPausa:   mGetDetalle('pausa'),   opNacional:mGetDetalle('nac'),
-    opUK:      mGetDetalle('uk'),      opNDLF:    mGetDetalle('ndlf'),
-    acarreos:        parseFloat(document.getElementById('m-acarreos').value)|| 0,
-    dietaVlissingen: parseFloat(document.getElementById('m-vliss').value)   || 0,
-    extras:          parseFloat(document.getElementById('m-extras').value)  || 0,
-    gastosViaje:     parseFloat(document.getElementById('m-gastos').value)  || 0,
-    detalleGastos:   _gastosData.map(g => ({...g})),
-    anticipos:       0,
-    modo:            'movil',
-    origenMovil:     true,
-    fechaCreacion:   new Date().toISOString(),
-    resultado: {
-      sumDietas:       resultado.total,
-      TOTAL:           resultado.total,
-      H_EXTRA:         resultado.HE   || 0,
-      H_PRESEN:        resultado.HP   || 0,
-      NOCTURNO:        resultado.NOC  || 0,
-      DIET_NAC:        resultado.DN   || 0,
-      DIET_INTER:      resultado.DI   || 0,
-      MEJORA:          resultado.MEJ  || 0,
-      PLUS_EFICIENCIA: resultado.PE   || 0,
-      DISPONIBILIDAD:  resultado.DISP || 0,
-      DIETAS:          resultado.DIET || 0,
-    }
-  };
+  let html = `<table class="hist-tabla">
+    <thead><tr>
+      <th>Conductor</th>
+      <th>Plat.</th>
+      <th>Período</th>
+      <th>Km Sal./Lle.</th>
+      <th>Días</th>
+      <th>Km Tot.</th>
+      <th>Total</th>
+      <th>Estado</th>
+      <th>Acciones</th>
+    </tr></thead>
+    <tbody>`;
 
-  try {
-    reg.estadoDietas = 'pendiente_validacion';
-    reg.estadoGastos = 'pendiente';
-    reg.creadoPor    = 'movil';
-    reg.creadoEn     = new Date().toISOString();
-    reg.esDuplicado  = false;
+  html += ordenados.map(r => {
+    const total      = r.plataforma === 'CAUDETE'
+      ? fmt2(r.resultado?.TOTAL)
+      : fmt2(r.resultado?.sumDietas);
+    const edDietas   = r.estadoDietas || 'pendiente';
+    const edGastos   = r.estadoGastos || 'pendiente';
+    const esPendVal  = edDietas === 'pendiente_validacion';
+    const origenIcon = r.origenMovil ? '📱' : '🖥️';
+    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : '';
 
-    if (!navigator.onLine) {
-      const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
-      pendientes.push(reg);
-      localStorage.setItem(OFFLINE_KEY, JSON.stringify(pendientes));
-      mToast('Sin conexión — registro guardado localmente ✓');
-      document.getElementById('pantalla-registro').style.display = 'none';
-      document.getElementById('pantalla-ok').style.display       = 'flex';
-      document.getElementById('pantalla-ok').querySelector('p').textContent =
-        'Tu registro se enviará automáticamente cuando recuperes la conexión.';
-      _fotosData = [];
-      return;
-    }
-
-    const ref = await addDoc(collection(_db, 'registros'), reg);
-    const regId = ref.id;
-
-    // Guardar fotos como Base64 en Firestore
-    if (_fotosData.length) {
-      try {
-        const fotos = await subirFotos();
-        const { updateDoc, doc: fDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-        await updateDoc(fDoc(_db, 'registros', regId), { fotosBase64: fotos });
-        reg.fotosBase64 = fotos;
-      } catch(ef) {
-        console.warn('Error guardando fotos:', ef);
-      }
-    }
-
-    // Aviso por email via Google Apps Script
-    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwLcE3hz5f0reOAolRClSckEZX8RRPA3vFewoJVSSLlSAuBIMlWEzazHtDTgQVS_p5_Mw/exec';
-    try {
-      fetch(WEBHOOK_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          ...reg, id: regId,
-          totalDietas: resultado.total ? resultado.total.toFixed(2) + ' €' : '—',
-          fotosAdjuntas: (reg.fotosBase64 || []).map((f, i) => ({
-            nombre: `foto_${i+1}.jpg`,
-            base64: f.base64.split(',')[1]
-          }))
-        })
-      }).catch(err => console.warn('Aviso email no enviado:', err));
-    } catch(err) {
-      console.warn('Error preparando aviso:', err);
-    }
-
-    // Si es DOBLE y NO es duplicado, duplicar para la pareja
-    if (_conductor.EQUIPAJE === 'DOBLE' && _conductor.PAREJA && !reg.esDuplicado) {
-      const codPareja = String(_conductor.PAREJA).split('—')[0].trim().padStart(6, '0');
-      try {
-        let condPareja = null;
-        const snapP = await getDoc(doc(_db, 'conductores', codPareja));
-        if (snapP.exists()) {
-          condPareja = snapP.data();
-        } else {
-          const q = query(collection(_db, 'conductores'), where('Codigo', '==', codPareja));
-          const sq = await getDocs(q);
-          if (!sq.empty) condPareja = sq.docs[0].data();
-        }
-        if (condPareja) {
-          const regPareja = {
-            ...reg,
-            codigoConductor: condPareja.Codigo,
-            nombreConductor: condPareja.Nombre,
-            tractora:        condPareja.tractoraAsignada || reg.tractora,
-            equipaje:        condPareja.EQUIPAJE         || 'DOBLE',
-            pareja:          `${_conductor.Codigo} — ${_conductor.Nombre}`,
-            registroPareja:  regId,
-            esDuplicado:     true,
-            origenMovil:     false,
-            creadoEn:        new Date().toISOString(),
-          };
-          const refP = await addDoc(collection(_db, 'registros'), regPareja);
-          const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(ref, { registroPareja: refP.id });
-        }
-      } catch(ep) {
-        console.warn('No se pudo duplicar para la pareja:', ep);
-      }
-    }
-
-    _fotosData = [];
-    document.getElementById('pantalla-registro').style.display = 'none';
-    document.getElementById('pantalla-ok').style.display       = 'flex';
-  } catch(e) {
-    console.error(e);
-    mToast('Error al enviar el registro. Comprueba tu conexión.','error');
-  }
-};
-
-window.mNuevoRegistro = function() {
-  document.getElementById('pantalla-ok').style.display       = 'none';
-  document.getElementById('pantalla-registro').style.display = 'block';
-  mLimpiar();
-};
-
-window.mLimpiar = function() {
-  _fotosData = [];
-  renderFotos();
-  _gastosData = [];
-  mRenderGastos();
-  ['m-fsal','m-hsal','m-flleg','m-hlleg','m-dias','m-resto','m-coef',
-   'm-kmsal','m-kmvuel','m-kmtotal','m-acarreos','m-vliss','m-extras','m-gastos',
-   'm-dom','m-fest'].forEach(id => {
-     const el = document.getElementById(id);
-     if (el) el.value = '';
-  });
-  document.getElementById('m-coef').value   = '0';
-  document.getElementById('m-extras').value = '0';
-  document.getElementById('m-chk-fest').checked = false;
-  ['carga','palet','rebote','24h','pausa','nac','uk','ndlf'].forEach(t =>
-    document.getElementById(`m-lista-${t}`).innerHTML = '');
-  document.getElementById('m-section-resultado').style.display = 'none';
-};
-
-// ---- TRACTORA ----
-window.mFiltrarTractoras = function() {
-  const input = document.getElementById('m-tractora');
-  const lista = document.getElementById('m-tractora-sugerencias');
-  const estado= document.getElementById('m-tractora-estado');
-  const val   = input.value.toUpperCase();
-  input.value = val;
-  estado.style.display = 'none';
-  if (!val) { lista.style.display = 'none'; return; }
-  const coincidencias = _tractoras.filter(m => m.includes(val));
-  if (!coincidencias.length) { lista.style.display = 'none'; return; }
-  lista.innerHTML = coincidencias.map(m => {
-    const idx = m.indexOf(val);
-    const html = idx >= 0
-      ? m.slice(0,idx) + `<strong>${m.slice(idx, idx+val.length)}</strong>` + m.slice(idx+val.length)
-      : m;
-    return `<div class="sug-item" onmousedown="mSeleccionarTractora('${m}')">${html}</div>`;
+    return `<tr style="${rowStyle}">
+      <td>
+        <span style="font-weight:600">${r.nombreConductor}</span>
+        <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
+        ${r.equipaje==='DOBLE' && r.registroPareja
+          ? `<span style="font-size:10px;color:#92400e;cursor:pointer" onclick="editarRegistro('${r.registroPareja}')"> 👥</span>` : ''}
+        <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
+      </td>
+      <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
+      <td style="font-size:12px;white-space:nowrap;text-align:right">${r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') : '—'}<br>${r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') : '—'}</td>
+      <td style="text-align:center">${r.diasTrabajados || '—'}</td>
+      <td style="font-size:11px;white-space:nowrap;text-align:right">${r.totalKm ? Number(r.totalKm).toLocaleString('es-ES') + ' km' : '—'}</td>
+      <td style="font-weight:600;white-space:nowrap;color:${esPendVal?'#9d174d':'#4a7c59'}">
+        ${esPendVal ? '⏳ Pendiente' : total}
+      </td>
+      <td>
+        <span class="estado-badge estado-${edDietas}" style="cursor:pointer;display:block;margin-bottom:2px"
+          onclick="abrirModalEstado('${r.id}','dietas','${edDietas}')">💰 ${edDietas}</span>
+        <span class="estado-badge estado-${edGastos}" style="cursor:pointer;display:block"
+          onclick="abrirModalEstado('${r.id}','gastos','${edGastos}')">🧾 ${edGastos}</span>
+      </td>
+      <td style="white-space:nowrap">
+        ${esPendVal ? `<button class="btn btn-primary" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
+          onclick="editarRegistro('${r.id}')">✅ Validar y editar</button>` : ''}
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;display:block;margin-bottom:3px;width:100%"
+          onclick="editarRegistro('${r.id}')">✏️ Editar</button>
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:#c0392b;display:block;width:100%"
+          onclick="borrarRegistro('${r.id}')">🗑️ Borrar</button>
+      </td>
+    </tr>`;
   }).join('');
-  lista.style.display = 'block';
-};
-window.mSeleccionarTractora = function(matricula) {
-  document.getElementById('m-tractora').value = matricula;
-  document.getElementById('m-tractora-sugerencias').style.display = 'none';
-  const estado = document.getElementById('m-tractora-estado');
-  estado.style.display = 'block';
-  estado.style.color   = '#3d7a5c';
-  estado.textContent   = '✓ Matrícula válida';
-  document.getElementById('m-tractora').style.borderColor = '#3d7a5c';
-};
-window.mCerrarSugerencias = function() {
-  const lista  = document.getElementById('m-tractora-sugerencias');
-  const input  = document.getElementById('m-tractora');
-  const estado = document.getElementById('m-tractora-estado');
-  lista.style.display = 'none';
-  const val = input.value.trim().toUpperCase();
-  if (!val) { input.style.borderColor = ''; estado.style.display = 'none'; return; }
-  if (_tractoras.includes(val)) {
-    input.style.borderColor = '#3d7a5c';
-    estado.style.display = 'block'; estado.style.color = '#3d7a5c';
-    estado.textContent = '✓ Matrícula válida';
-  } else {
-    input.style.borderColor = '#c0392b';
-    estado.style.display = 'block'; estado.style.color = '#c0392b';
-    estado.textContent = '✗ Matrícula no encontrada';
-  }
-};
-window.mValidarTractora = window.mCerrarSugerencias;
 
-// ---- CALENDARIO ----
-function parseFecha(fecha) {
-  const [y, m, d] = String(fecha).split('-').map(Number);
-  return new Date(y, m - 1, d);
+  html += '</tbody></table>';
+  lista.innerHTML = html;
 }
-function contarDomingos(ini, fin) {
-  let n=0, d=parseFecha(ini), f=parseFecha(fin);
-  while(d<=f){ if(d.getDay()===0) n++; d.setDate(d.getDate()+1); }
-  return n;
+
+async function validarDesdeHistorial(id) {
+  if (!confirm('¿Aprobar este registro del móvil?')) return;
+  await setEstadoDietas(id, 'pendiente');
+  showToast('Registro aprobado ✓', 'success');
+  renderHistorial();
 }
-function contarFestivos(ini, fin) {
-  const fest=[[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
-  let n=0, d=parseFecha(ini), f=parseFecha(fin);
-  while(d<=f){
-    const m=d.getMonth()+1, dd=d.getDate();
-    if(d.getDay()!==0 && fest.some(([fm,fd])=>fm===m&&fd===dd)) n++;
-    d.setDate(d.getDate()+1);
+
+// ---- TABLAS BASE DE DATOS ----
+function poblarInfConductoresDatalist() {
+  const dl = document.getElementById('inf-conductores-list');
+  if (!dl) return;
+  dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
+    .join('');
+}
+
+function infFiltrarConductor(input) {
+  // Si el usuario seleccionó una opción del datalist, extraer solo el código
+  const val = input.value;
+  const match = val.match(/^(\d{5,6})/);
+  if (match) input.value = match[1];
+}
+
+function renderTablas() {
+  // Conductores
+  document.getElementById('tbody-conductores').innerHTML =
+    getConductores().map(c => {
+      const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+      const condPar = codPar ? buscarConductor(codPar) : null;
+      const parejaInfo = condPar ? `${codPar} — ${condPar.Nombre.split(',')[0]}` : (codPar || '—');
+      const equipajeBadge = c.EQUIPAJE
+        ? `<span style="font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;
+                        background:${c.EQUIPAJE==='DOBLE'?'#e0f2fe':'#f0fdf4'};
+                        color:${c.EQUIPAJE==='DOBLE'?'#0369a1':'#166534'}">${c.EQUIPAJE}</span>`
+        : '—';
+      return `<tr>
+        <td><span class="hist-plat plat-${c.PLATAFORMA}-badge">${c.PLATAFORMA}</span></td>
+        <td>${c.CATEGORIA}</td>
+        <td style="font-family:var(--font-mono)">${c.Codigo}</td>
+        <td style="font-weight:500">${c.Nombre}</td>
+        <td style="font-family:var(--font-mono)">${c.NIF||'—'}</td>
+        <td class="td-iban">${c.IBAN||'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${c.PrecioKmt}</td>
+        <td class="td-email" title="${c.Email||''}">${c.Email||'—'}</td>
+        <td style="text-align:center">${equipajeBadge}</td>
+        <td style="color:var(--soft)">${parejaInfo}</td>
+        <td style="color:var(--soft)">${c.tractoraAsignada||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-icon" onclick="editarConductor('${c.Codigo}')" title="Editar">✏️</button>
+          <button class="btn-icon" onclick="confirmarEliminar('${c.Codigo}')" title="Eliminar">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+  // Tarifas — celdas editables directamente
+  document.getElementById('tbody-tarifas').innerHTML =
+    getTarifas().map(t => `<tr>
+      <td><strong>${t.CONCEPTO}</strong></td>
+      ${['TJG','CAUDETE','FILARDI'].map(plat => `
+        <td>
+          <input type="number" value="${t[plat]}" step="0.01" min="0"
+            style="width:80px;padding:4px 6px;border:1px solid var(--border);
+                   border-radius:4px;font-size:13px;font-family:var(--font)"
+            onchange="guardarTarifa('${t.CONCEPTO}','${plat}',this.value)"
+            onfocus="this.style.borderColor='var(--primary)'"
+            onblur="this.style.borderColor='var(--border)'">
+        </td>`).join('')}
+    </tr>`).join('');
+
+  // Tractoras
+  renderTablaTractoras();
+
+  // Conceptos
+  renderTablaConceptos();
+}
+
+// ---- BD TABS ----
+function showBDTab(tab) {
+  document.querySelectorAll('.bd-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.bd-tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(`bd-${tab}`).style.display = 'block';
+  event.currentTarget.classList.add('active');
+}
+// ---- MODAL CONDUCTOR ----
+function nuevoConductor() {
+  document.getElementById('modal-title').textContent = 'Nuevo Conductor';
+  document.getElementById('m-codigo-original').value = '';
+  ['m-plataforma','m-categoria','m-codigo','m-nombre','m-nif','m-iban','m-precio','m-email','m-equipaje']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-pareja').value        = '';
+  document.getElementById('m-pareja-input').value  = '';
+  document.getElementById('m-pareja-nombre').textContent = '';
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
+  document.getElementById('modal-conductor').style.display = 'flex';
+}
+
+function editarConductor(codigo) {
+  const c = buscarConductor(codigo);
+  if (!c) return;
+  document.getElementById('modal-title').textContent   = 'Editar Conductor';
+  document.getElementById('m-codigo-original').value   = codigo;
+  document.getElementById('m-plataforma').value        = c.PLATAFORMA;
+  document.getElementById('m-categoria').value         = c.CATEGORIA;
+  document.getElementById('m-codigo').value            = c.Codigo;
+  document.getElementById('m-nombre').value            = c.Nombre;
+  document.getElementById('m-nif').value               = c.NIF    || '';
+  document.getElementById('m-iban').value              = c.IBAN   || '';
+  document.getElementById('m-precio').value            = c.PrecioKmt || '';
+  document.getElementById('m-email').value             = c.Email    || '';
+  document.getElementById('m-equipaje').value           = c.EQUIPAJE || '';
+  // Cargar pareja
+  const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+  document.getElementById('m-pareja').value = codPar;
+  if (codPar) {
+    const condPar = buscarConductor(codPar);
+    document.getElementById('m-pareja-input').value = condPar ? `${codPar} — ${condPar.Nombre}` : codPar;
+    document.getElementById('m-pareja-nombre').textContent = condPar ? condPar.Nombre : '⚠️ No encontrado';
+  } else {
+    document.getElementById('m-pareja-input').value = '';
+    document.getElementById('m-pareja-nombre').textContent = '';
   }
-  return n;
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
+  document.getElementById('modal-conductor').style.display = 'flex';
+}
+
+async function guardarConductor() {
+  const conductor = {
+    PLATAFORMA: document.getElementById('m-plataforma').value,
+    CATEGORIA:  document.getElementById('m-categoria').value,
+    Codigo:     document.getElementById('m-codigo').value.trim(),
+    Nombre:     document.getElementById('m-nombre').value.trim(),
+    NIF:        document.getElementById('m-nif').value.trim(),
+    IBAN:       document.getElementById('m-iban').value.trim(),
+    PrecioKmt:  parseFloat(document.getElementById('m-precio').value) || 0,
+    Email:      document.getElementById('m-email').value.trim(),
+    EQUIPAJE:   document.getElementById('m-equipaje').value,
+    PAREJA:     document.getElementById('m-pareja').value.trim() || null,
+  };
+  if (!conductor.Codigo || !conductor.Nombre) {
+    showToast('Código y Nombre son obligatorios', 'error'); return;
+  }
+  await upsertConductor(conductor);
+  renderTablas();
+  cerrarModal();
+  showToast('Conductor guardado ✓', 'success');
+}
+
+async function confirmarEliminar(codigo) {
+  if (confirm(`¿Eliminar conductor ${codigo}?`)) {
+    await eliminarConductor(codigo);
+    renderTablas();
+    showToast('Conductor eliminado');
+  }
+}
+
+function cerrarModal() {
+  document.getElementById('modal-conductor').style.display = 'none';
+}
+
+// ---- TARIFAS ----
+async function guardarTarifa(concepto, plataforma, valor) {
+  await upsertTarifa(concepto, plataforma, valor);
+  showToast(`Tarifa actualizada ✓`, 'success');
+}
+
+// ---- TRACTORAS ----
+function poblarSelectTractoras() {
+  const sel = document.getElementById('tractora');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  getTractoras().forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = t.matricula;
+    sel.appendChild(opt);
+  });
+  if (actual) sel.value = actual;
+}
+
+function renderTablaTractoras() {
+  document.getElementById('tbody-tractoras').innerHTML =
+    getTractoras().map(t => `<tr>
+      <td>${t.matricula}</td>
+      <td>
+        <button class="btn-icon" onclick="editarTractora('${t.matricula}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="confirmarEliminarTractora('${t.matricula}')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function nuevaTractora() {
+  document.getElementById('t-matricula-original').value = '';
+  document.getElementById('t-matricula').value = '';
+  document.getElementById('modal-tractora').style.display = 'flex';
+}
+
+function editarTractora(matricula) {
+  document.getElementById('t-matricula-original').value = matricula;
+  document.getElementById('t-matricula').value = matricula;
+  document.getElementById('modal-tractora').style.display = 'flex';
+}
+
+async function guardarTractora() {
+  const mat      = document.getElementById('t-matricula').value.trim().toUpperCase();
+  const original = document.getElementById('t-matricula-original').value;
+  if (!mat) { showToast('Introduce una matrícula', 'error'); return; }
+  await upsertTractora(mat, original || null);
+  renderTablaTractoras();
+  poblarSelectTractoras();
+  cerrarModalTractora();
+  showToast('Tractora guardada ✓', 'success');
+}
+
+async function confirmarEliminarTractora(matricula) {
+  if (confirm(`¿Eliminar tractora ${matricula}?`)) {
+    await eliminarTractora(matricula);
+    renderTablaTractoras();
+    poblarSelectTractoras();
+    showToast('Tractora eliminada');
+  }
+}
+
+function cerrarModalTractora() {
+  document.getElementById('modal-tractora').style.display = 'none';
+}
+
+// ---- CONCEPTOS DE GASTO ----
+function renderTablaConceptos() {
+  document.getElementById('tbody-conceptos').innerHTML =
+    getConceptos().map(c => `<tr>
+      <td>${c.nombre}</td>
+      <td>
+        <button class="btn-icon" onclick="editarConcepto('${c.id}','${c.nombre}')">✏️</button>
+        <button class="btn-icon" onclick="confirmarEliminarConcepto('${c.id}','${c.nombre}')">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function nuevoConcepto() {
+  document.getElementById('c-id-original').value = '';
+  document.getElementById('c-nombre').value = '';
+  document.getElementById('modal-concepto').style.display = 'flex';
+}
+
+function editarConcepto(id, nombre) {
+  document.getElementById('c-id-original').value = id;
+  document.getElementById('c-nombre').value = nombre;
+  document.getElementById('modal-concepto').style.display = 'flex';
+}
+
+async function guardarConcepto() {
+  const nombre   = document.getElementById('c-nombre').value.trim();
+  const idOrig   = document.getElementById('c-id-original').value;
+  if (!nombre) { showToast('Introduce un nombre', 'error'); return; }
+  await upsertConcepto({ id: idOrig || null, nombre });
+  renderTablaConceptos();
+  cerrarModalConcepto();
+  showToast('Concepto guardado ✓', 'success');
+}
+
+async function confirmarEliminarConcepto(id, nombre) {
+  if (confirm(`¿Eliminar concepto "${nombre}"?`)) {
+    await eliminarConcepto(id);
+    renderTablaConceptos();
+    showToast('Concepto eliminado');
+  }
+}
+
+function cerrarModalConcepto() {
+  document.getElementById('modal-concepto').style.display = 'none';
+}
+
+// ---- EDITAR / BORRAR REGISTROS ----
+async function editarRegistro(id) {
+  const r = getRegistros().find(x => x.id === id);
+  if (!r) return;
+
+  // Modo del formulario
+  if (r.modo && r.modo !== modoActual) setModo(r.modo);
+
+  // Datos básicos del conductor
+  document.getElementById('codConductor').value    = r.codigoConductor;
+  // Rellenar también el campo visual de búsqueda
+  const cEdit = buscarConductor(r.codigoConductor);
+  document.getElementById('buscarConductorInput').value = cEdit
+    ? `${cEdit.Codigo} — ${cEdit.Nombre}`
+    : r.codigoConductor;
+  autocompletar();
+  // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
+  document.getElementById('coefNacional').value    = r.coefNacional || 0;
+
+  // Fechas y tiempos
+  document.getElementById('fechaSalida').value     = r.fechaSalida;
+  document.getElementById('fechaLlegada').value    = r.fechaLlegada;
+  document.getElementById('horaSalida').value      = r.horaSalida  || '';
+  document.getElementById('horaLlegada').value     = r.horaLlegada || '';
+
+  // Kilómetros
+  document.getElementById('kmSalida').value        = r.kmSalida    || '';
+  document.getElementById('kmVuelta').value        = r.kmVuelta    || '';
+  document.getElementById('totalKm').value         = r.totalKm     || '';
+
+  // Otros conceptos
+  document.getElementById('acarreos').value        = r.acarreos    || 0;
+  document.getElementById('dietaVlissingen').value = r.dietaVlissingen || 0;
+  document.getElementById('extras').value          = r.extras      || 0;
+  const exCEl = document.getElementById('extrasConcepto'); if(exCEl) exCEl.value = r.extrasConcepto || '';
+  document.getElementById('anticipos').value       = r.anticipos   || 0;
+
+  // Domingos / festivos (CAUDETE)
+  document.getElementById('numDomingos').value     = r.nDomingos   || '';
+  document.getElementById('numFestivos').value     = r.nFestivos   || '';
+  if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
+
+  // Marcar modo edición
+  document.getElementById('formRegistro').dataset.editId = id;
+  document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
+  document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
+
+  // Mostrar/ocultar opción de aprobar si viene del móvil pendiente de validación
+  let checkAprobar = document.getElementById('chk-aprobar-wrap');
+  if (!checkAprobar) {
+    checkAprobar = document.createElement('div');
+    checkAprobar.id = 'chk-aprobar-wrap';
+    checkAprobar.style.cssText = 'display:none;align-items:center;gap:8px;margin-top:8px;padding:10px 14px;background:#f0fdf4;border:1.5px solid #4a7c59;border-radius:8px';
+    checkAprobar.innerHTML = `
+      <input type="checkbox" id="chk-aprobar" checked style="width:16px;height:16px;accent-color:#4a7c59">
+      <label for="chk-aprobar" style="font-size:13px;font-weight:500;color:#2d6a4f;cursor:pointer">
+        ✅ Aprobar registro al guardar (viene del móvil pendiente de validación)
+      </label>`;
+    document.getElementById('btn-guardar').parentElement.insertBefore(
+      checkAprobar, document.getElementById('btn-guardar')
+    );
+  }
+  checkAprobar.style.display = r.estadoDietas === 'pendiente_validacion' ? 'flex' : 'none';
+
+  // Navegar al formulario
+  if (!document.getElementById('sidebar').classList.contains('closed')) toggleSidebar();
+  document.getElementById('formRegistro').scrollIntoView({ behavior: 'smooth' });
+
+  // Operaciones y gastos DESPUÉS de adaptarPlataforma (que se llama en autocompletar)
+  setTimeout(() => {
+    calcularTiempos();
+
+    // Reconstruir operaciones con detalle si viene del móvil
+    ['carga','palet','rebote','24horas','pausa','nacional','uk','ndlf'].forEach(tipo =>
+      document.getElementById(`lista-${tipo}`).innerHTML = '');
+    const opMap = { nCarga:'carga', nPalet:'palet', nRebote:'rebote',
+                    n24h:'24horas', nPausa:'pausa', nNacional:'nacional',
+                    nUK:'uk', nNDLF:'ndlf' };
+    const opDetalleMap = { carga:'opCarga', palet:'opPalet', rebote:'opRebote',
+                           '24horas':'op24h', pausa:'opPausa', nacional:'opNacional',
+                           uk:'opUK', ndlf:'opNDLF' };
+    Object.entries(opMap).forEach(([campo, tipo]) => {
+      const n = r[campo] || 0;
+      const detalles = r[opDetalleMap[tipo]] || [];
+      for (let i = 0; i < n; i++) {
+        addOperacion(tipo);
+        const lista = document.getElementById(`lista-${tipo}`);
+        const rows  = lista.querySelectorAll('.operacion-row');
+        const row   = rows[rows.length - 1];
+        if (row && detalles[i]) {
+          const inputs = row.querySelectorAll('input');
+          if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
+          if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+        }
+      }
+    });
+
+    // Rellenar campos del modo Resumido
+    const rMap = { nCarga:'r-carga', nPalet:'r-palet', nRebote:'r-rebote',
+                   n24h:'r-24horas', nPausa:'r-pausa', nNacional:'r-nacional',
+                   nUK:'r-uk', nNDLF:'r-ndlf' };
+    Object.entries(rMap).forEach(([campo, elId]) => {
+      const el = document.getElementById(elId);
+      if (el) el.value = r[campo] || 0;
+    });
+
+    // Reconstruir gastos de viaje — usando addGasto(datos) directamente
+    document.getElementById('lista-gastos').innerHTML = '';
+    if (r.gastosDetalle && r.gastosDetalle.length) {
+      r.gastosDetalle.forEach(g => addGasto(g));
+      actualizarTotalGastos();
+    } else if (r.gastosViaje && !r.gastosDetalle?.length) {
+      document.getElementById('gastosViaje').value = r.gastosViaje || 0;
+    }
+
+    calcularDietas();
+  }, 100);
+
+  showToast('Registro cargado para editar', '');
+}
+
+async function borrarRegistro(id) {
+  if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+  const reg = getRegistros().find(r => r.id === id);
+  try {
+    // Marcar como pendiente ANTES de borrar para que onSnapshot lo ignore
+    if (typeof window.marcarPendienteBorrado === 'function') window.marcarPendienteBorrado(id);
+    await window.deleteRegistro(id);
+  } catch(e) {
+    console.error('Error al borrar:', e.code, e.message);
+    showToast('Error al borrar: ' + e.message, 'error');
+    return;
+  }
+  showToast('Registro eliminado');
+  renderHistorial();
+}
+
+// ---- ESTADOS ----
+function abrirModalEstado(id, tipo, estadoActual) {
+  document.getElementById('estado-reg-id').value  = id;
+  document.getElementById('estado-tipo').value    = tipo;
+  document.getElementById('estado-titulo').textContent =
+    tipo === 'dietas' ? '💰 Estado Dietas' : '🧾 Estado Gastos';
+  const sel = document.getElementById('estado-valor');
+  // Mostrar opciones según tipo
+  sel.innerHTML = tipo === 'dietas'
+    ? `<option value="pendiente">🟡 Pendiente</option>
+       <option value="liquidado">🟢 Liquidado</option>
+       <option value="bloqueado">🔒 Bloqueado</option>`
+    : `<option value="pendiente">🟡 Pendiente</option>
+       <option value="pagado">🟢 Pagado</option>
+       <option value="bloqueado">🔒 Bloqueado</option>`;
+  sel.value = estadoActual;
+  document.getElementById('modal-estado').style.display = 'flex';
+}
+
+async function confirmarCambioEstado() {
+  const id    = document.getElementById('estado-reg-id').value;
+  const tipo  = document.getElementById('estado-tipo').value;
+  const valor = document.getElementById('estado-valor').value;
+  if (tipo === 'dietas') await setEstadoDietas(id, valor);
+  else                   await setEstadoGastos(id, valor);
+  cerrarModalEstado();
+  showToast('Estado actualizado ✓', 'success');
+}
+
+function cerrarModalEstado() {
+  document.getElementById('modal-estado').style.display = 'none';
+}
+
+// ---- LIQUIDACIONES ----
+function showLiqTab(tab) {
+  document.querySelectorAll('.liq-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.liq-tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(`liq-${tab}`).style.display = 'block';
+  event.currentTarget.classList.add('active');
+  if (tab === 'dietas')     cargarLiqDietas();
+  if (tab === 'gastos')     cargarLiqGastos();
+  if (tab === 'validacion')   cargarLiqValidacion();
+  if (tab === 'historial-liq') cargarHistorialLiq();
+}
+
+function cargarLiqDietas() {
+  const plat   = document.getElementById('liq-d-plat').value;
+  const cod    = document.getElementById('liq-d-conductor').value.trim();
+  const desde  = document.getElementById('liq-d-desde').value;
+  const hasta  = document.getElementById('liq-d-hasta').value;
+  const estado = document.getElementById('liq-d-estado').value;
+
+  let regs = getRegistros().filter(r =>
+    (r.estadoDietas || 'pendiente') === estado &&
+    r.estadoDietas !== 'pendiente_validacion'
+  );
+  if (plat)  regs = regs.filter(r => r.plataforma === plat);
+  if (cod)   regs = regs.filter(r => String(r.codigoConductor) === cod);
+  if (desde) regs = regs.filter(r => r.fechaSalida >= desde);
+  if (hasta) regs = regs.filter(r => r.fechaSalida <= hasta);
+
+  const tbody = document.getElementById('tbody-liq-dietas');
+  tbody.innerHTML = regs.map(r => {
+    const total = r.plataforma === 'CAUDETE'
+      ? (r.resultado?.TOTAL || 0) : (r.resultado?.sumDietas || 0);
+    return `<tr>
+      <td><input type="checkbox" class="chk-liq-d" data-id="${r.id}"
+          data-total="${total}" onchange="actualizarTotalLiqDietas()"></td>
+      <td>${r.nombreConductor}<br><small>${r.codigoConductor}</small></td>
+      <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td>${r.diasTrabajados}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td><span class="estado-badge estado-${r.estadoDietas||'pendiente'}">${r.estadoDietas||'pendiente'}</span></td>
+      <td><button class="btn-icon" onclick="abrirModalEstado('${r.id}','dietas','${r.estadoDietas||'pendiente'}')">✏️</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros</td></tr>';
+
+  actualizarTotalLiqDietas();
+}
+
+function actualizarTotalLiqDietas() {
+  const total = Array.from(document.querySelectorAll('.chk-liq-d:checked'))
+    .reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
+  document.getElementById('liq-d-total').textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+}
+
+function liqDietasToggleTodos() {
+  const todos = document.getElementById('chk-d-todos').checked;
+  document.querySelectorAll('.chk-liq-d').forEach(c => c.checked = todos);
+  actualizarTotalLiqDietas();
+}
+
+function liqDietasMarcarTodos() {
+  document.querySelectorAll('.chk-liq-d').forEach(c => c.checked = true);
+  document.getElementById('chk-d-todos').checked = true;
+  actualizarTotalLiqDietas();
+}
+
+async function liqDietasLiquidar() {
+  const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
+  if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+  if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
+
+  // Incluir también los registros pareja de los DOBLE
+  const idsConPareja = new Set(ids);
+  getRegistros().forEach(r => {
+    if (ids.includes(r.id) && r.registroPareja) idsConPareja.add(r.registroPareja);
+  });
+
+  await liquidarRegistros([...idsConPareja]);
+  showToast(`${idsConPareja.size} registros liquidados ✓`, 'success');
+  cargarLiqDietas();
+}
+
+// ---- DETECTOR DE DUPLICADOS EN GASTOS ----
+function detectarDuplicadosGastos(regs) {
+  // Genera una clave por conductor+importe+fecha+periodo
+  // Dos gastos son "duplicados sospechosos" si comparten las 4 dimensiones
+  const claves = new Map();
+  regs.forEach(r => {
+    const gastos = r.gastosDetalle?.length ? r.gastosDetalle : (r.gastosViaje ? [{ importe: r.gastosViaje, fecha: r.fechaSalida, concepto: '—' }] : []);
+    gastos.forEach(g => {
+      const clave = `${r.codigoConductor}|${g.importe}|${g.fecha || ''}|${r.fechaSalida}|${r.fechaLlegada}`;
+      if (!claves.has(clave)) claves.set(clave, []);
+      claves.get(clave).push(r.id);
+    });
+  });
+  // IDs de registros que tienen al menos un gasto duplicado
+  const idsDuplicados = new Set();
+  claves.forEach((ids, clave) => {
+    if (ids.length > 1) ids.forEach(id => idsDuplicados.add(id));
+  });
+  return idsDuplicados;
+}
+
+function filtrarDuplicadosGastos() {
+  const chk = document.getElementById('liq-g-solo-dup');
+  if (chk) chk.checked = !chk.checked;
+  cargarLiqGastos();
+}
+
+function cargarLiqGastos() {
+  // Popular datalist
+  const dl = document.getElementById('liq-g-conductores-list');
+  if (dl) dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo}">${c.Codigo} — ${c.Nombre}</option>`)
+    .join('');
+
+  const rawCod = document.getElementById('liq-g-conductor').value.trim();
+  const match  = rawCod.match(/^(\d{5,6})/);
+  const cod    = match ? match[1] : rawCod;
+  const desde  = document.getElementById('liq-g-desde').value;
+  const hasta  = document.getElementById('liq-g-hasta').value;
+  const estado = document.getElementById('liq-g-estado').value;
+  const soloDup = document.getElementById('liq-g-solo-dup')?.checked || false;
+
+  // Solo registros con gastos > 0
+  let regs = getRegistros().filter(r =>
+    (r.estadoGastos || 'pendiente') === estado &&
+    ((r.gastosDetalle?.length > 0) || (r.gastosViaje > 0))
+  );
+  if (cod)   regs = regs.filter(r => String(r.codigoConductor) === cod);
+  if (desde) regs = regs.filter(r => r.fechaSalida >= desde);
+  if (hasta) regs = regs.filter(r => r.fechaSalida <= hasta);
+
+  // Ordenar por código
+  regs.sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
+
+  // Detectar duplicados en el conjunto filtrado
+  const idsDup = detectarDuplicadosGastos(regs);
+
+  // Actualizar contador de duplicados en UI
+  const contDup = document.getElementById('liq-g-cont-dup');
+  if (contDup) {
+    contDup.textContent = idsDup.size > 0
+      ? `⚠️ ${idsDup.size} registro(s) con posibles duplicados`
+      : '✅ Sin duplicados detectados';
+    contDup.style.color = idsDup.size > 0 ? '#b45309' : '#166534';
+  }
+
+  // Filtrar solo duplicados si está marcado
+  if (soloDup) regs = regs.filter(r => idsDup.has(r.id));
+
+  const conductores = getConductores();
+  const tbody = document.getElementById('tbody-liq-gastos');
+  tbody.innerHTML = regs.map(r => {
+    const c     = conductores.find(x => String(x.Codigo) === String(r.codigoConductor));
+    const total = r.gastosDetalle?.reduce((s,g) => s + g.importe, 0) || r.gastosViaje || 0;
+    const esDup = idsDup.has(r.id);
+    // Concepto: lista de conceptos únicos del detalle
+    const conceptos = r.gastosDetalle?.length
+      ? [...new Set(r.gastosDetalle.map(g => g.concepto || g.tipo || ''))].filter(Boolean).join(', ')
+      : (r.detalleGastos?.length
+        ? [...new Set(r.detalleGastos.map(g => g.tipo || ''))].filter(Boolean).join(', ')
+        : '—');
+    const dupBadge = esDup
+      ? `<span title="Posible duplicado detectado" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#b45309;border-radius:8px;font-weight:600;margin-left:4px">⚠️ DUP</span>`
+      : '';
+    const rowStyle = esDup ? 'background:#fffbeb;' : '';
+    return `<tr style="${rowStyle}">
+      <td><input type="checkbox" class="chk-liq-g" data-id="${r.id}"
+          data-total="${total}" data-iban="${c?.IBAN||''}"
+          data-nombre="${r.nombreConductor}"
+          onchange="actualizarTotalLiqGastos()"></td>
+      <td>${r.nombreConductor}${dupBadge}<br><small>${r.codigoConductor}</small></td>
+      <td style="font-size:11px;font-family:monospace">${c?.IBAN||'—'}</td>
+      <td style="white-space:nowrap">${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td style="font-size:11px;color:#555">${conceptos}</td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td><span class="estado-badge estado-${r.estadoGastos||'pendiente'}">${r.estadoGastos||'pendiente'}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="abrirModalEstado('${r.id}','gastos','${r.estadoGastos||'pendiente'}')" title="Cambiar estado">✏️</button>
+        <button class="btn-icon" onclick="editarRegistro('${r.id}')" title="Editar gastos del registro">📋</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
+
+  actualizarTotalLiqGastos();
+}
+
+function actualizarTotalLiqGastos() {
+  const total = Array.from(document.querySelectorAll('.chk-liq-g:checked'))
+    .reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
+  document.getElementById('liq-g-total').textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+}
+
+function liqGastosToggleTodos() {
+  const todos = document.getElementById('chk-g-todos').checked;
+  document.querySelectorAll('.chk-liq-g').forEach(c => c.checked = todos);
+  actualizarTotalLiqGastos();
+}
+
+function liqGastosMarcarTodos() {
+  document.querySelectorAll('.chk-liq-g').forEach(c => c.checked = true);
+  document.getElementById('chk-g-todos').checked = true;
+  actualizarTotalLiqGastos();
+}
+
+async function liqGastosPagar() {
+  const ids = Array.from(document.querySelectorAll('.chk-liq-g:checked')).map(c => c.dataset.id);
+  if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+  if (!confirm(`¿Marcar como pagados los gastos de ${ids.length} registro(s)?`)) return;
+  await pagarGastosRegistros(ids);
+  showToast(`${ids.length} registros marcados como pagados ✓`, 'success');
+  cargarLiqGastos();
+}
+
+function liqGastosXML() {
+  const checks = document.querySelectorAll('.chk-liq-g:checked');
+  if (!checks.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+  // Pre-rellenar modal SEPA con datos memorizados
+  const mem = JSON.parse(localStorage.getItem('sepa_config') || '{}');
+  document.getElementById('sepa-nombre').value   = mem.nombre   || '';
+  document.getElementById('sepa-iban').value     = mem.iban     || '';
+  document.getElementById('sepa-bic').value      = mem.bic      || '';
+  document.getElementById('sepa-concepto').value = mem.concepto || `Gastos viaje ${new Date().toLocaleDateString('es-ES',{month:'2-digit',year:'numeric'})}`;
+  document.getElementById('modal-sepa').style.display = 'flex';
+}
+
+function cerrarModalSEPA() {
+  document.getElementById('modal-sepa').style.display = 'none';
+}
+
+function generarXMLSEPA() {
+  const nombre   = document.getElementById('sepa-nombre').value.trim();
+  const iban     = document.getElementById('sepa-iban').value.trim().replace(/\s/g,'');
+  const bic      = document.getElementById('sepa-bic').value.trim();
+  const concepto = document.getElementById('sepa-concepto').value.trim();
+
+  if (!nombre || !iban || !bic) { showToast('Completa todos los campos obligatorios', 'error'); return; }
+
+  // Memorizar config
+  localStorage.setItem('sepa_config', JSON.stringify({ nombre, iban, bic, concepto }));
+
+  const checks = Array.from(document.querySelectorAll('.chk-liq-g:checked'));
+  const fecha  = new Date().toISOString().slice(0,10);
+  const msgId  = `MSG${Date.now()}`;
+  let totalSum = 0;
+  let txs = '';
+
+  checks.forEach((c, i) => {
+    const importe = parseFloat(c.dataset.total || 0);
+    if (!importe || !c.dataset.iban) return;
+    totalSum += importe;
+    txs += `
+    <CdtTrfTxInf>
+      <PmtId><EndToEndId>TX${i+1}-${msgId}</EndToEndId></PmtId>
+      <Amt><InstdAmt Ccy="EUR">${importe.toFixed(2)}</InstdAmt></Amt>
+      <CdtrAgt><FinInstnId><BICFI>${bic}</BICFI></FinInstnId></CdtrAgt>
+      <Cdtr><Nm>${c.dataset.nombre.substring(0,70)}</Nm></Cdtr>
+      <CdtrAcct><Id><IBAN>${c.dataset.iban}</IBAN></Id></CdtrAcct>
+      <RmtInf><Ustrd>${concepto.substring(0,140)}</Ustrd></RmtInf>
+    </CdtTrfTxInf>`;
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${new Date().toISOString().slice(0,19)}</CreDtTm>
+      <NbOfTxs>${checks.length}</NbOfTxs>
+      <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
+      <InitgPty><Nm>${nombre.substring(0,70)}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>PMT${msgId}</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <NbOfTxs>${checks.length}</NbOfTxs>
+      <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
+      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
+      <ReqdExctnDt>${fecha}</ReqdExctnDt>
+      <Dbtr><Nm>${nombre.substring(0,70)}</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${iban}</IBAN></Id></DbtrAcct>
+      <DbtrAgt><FinInstnId><BICFI>${bic}</BICFI></FinInstnId></DbtrAgt>
+      ${txs}
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>`;
+
+  const blob = new Blob([xml], { type: 'application/xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sepa_gastos_${fecha}.xml`;
+  a.click();
+  URL.revokeObjectURL(url);
+  cerrarModalSEPA();
+  showToast('XML SEPA generado ✓', 'success');
+}
+
+function cargarLiqValidacion() {
+  const cod  = document.getElementById('liq-v-conductor').value.trim();
+  let regs = getRegistros().filter(r => r.estadoDietas === 'pendiente_validacion');
+  if (cod) regs = regs.filter(r => String(r.codigoConductor) === cod);
+
+  const tbody = document.getElementById('tbody-liq-validacion');
+  tbody.innerHTML = regs.map(r => {
+    const total = r.plataforma === 'CAUDETE'
+      ? (r.resultado?.TOTAL||0) : (r.resultado?.sumDietas||0);
+    return `<tr>
+      <td>${r.nombreConductor}<br><small>${r.codigoConductor}</small></td>
+      <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td>${r.diasTrabajados}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td><span class="estado-badge" style="background:#fce7f3;color:#9d174d">📱 Móvil</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:12px"
+          onclick="aprobarRegistro('${r.id}')">✅ Aprobar</button>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:#c0392b"
+          onclick="rechazarRegistro('${r.id}')">❌ Rechazar</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">Sin registros pendientes de validación</td></tr>';
+}
+
+async function aprobarRegistro(id) {
+  await setEstadoDietas(id, 'pendiente');
+  showToast('Registro aprobado ✓', 'success');
+  cargarLiqValidacion();
+}
+
+async function rechazarRegistro(id) {
+  if (!confirm('¿Rechazar y eliminar este registro?')) return;
+  await deleteRegistro(id);
+  showToast('Registro rechazado y eliminado');
+  cargarLiqValidacion();
+}
+
+async function liqValidarTodos() {
+  const ids = getRegistros()
+    .filter(r => r.estadoDietas === 'pendiente_validacion')
+    .map(r => r.id);
+  if (!ids.length) { showToast('No hay registros pendientes', 'error'); return; }
+  if (!confirm(`¿Aprobar todos los ${ids.length} registros pendientes?`)) return;
+  await Promise.all(ids.map(id => setEstadoDietas(id, 'pendiente')));
+  showToast(`${ids.length} registros aprobados ✓`, 'success');
+  cargarLiqValidacion();
+}
+
+// ---- HISTORIAL DE LIQUIDACIONES ----
+function cargarHistorialLiq() {
+  const plat   = document.getElementById('liq-h-plat').value;
+  const cod    = document.getElementById('liq-h-conductor').value.trim();
+  const estado = document.getElementById('liq-h-estado')?.value || '';
+  const desde  = document.getElementById('liq-h-desde').value;
+  const hasta  = document.getElementById('liq-h-hasta').value;
+
+  // Sin filtro de estado: mostrar liquidado, pagado o gastos pagados (comportamiento original)
+  // Con filtro de estado: aplicar exactamente el estado seleccionado
+  let regs;
+  if (estado) {
+    regs = getRegistros().filter(r => r.estadoDietas === estado || r.estadoGastos === estado);
+  } else {
+    regs = getRegistros().filter(r =>
+      r.estadoDietas === 'liquidado' || r.estadoDietas === 'pagado' || r.estadoGastos === 'pagado'
+    );
+  }
+  if (plat)  regs = regs.filter(r => r.plataforma === plat);
+  if (cod)   regs = regs.filter(r => String(r.codigoConductor).includes(cod));
+  if (desde) regs = regs.filter(r => r.fechaSalida  >= desde);
+  if (hasta) regs = regs.filter(r => r.fechaLlegada <= hasta);
+
+  // Ordenar por fecha liquidación desc
+  regs.sort((a, b) => (b.fechaLiquidacion || '').localeCompare(a.fechaLiquidacion || ''));
+
+  const fmt2 = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  let totalDietas = 0;
+
+  const tbody = document.getElementById('tbody-historial-liq');
+  tbody.innerHTML = regs.map(r => {
+    const dietas = r.plataforma === 'CAUDETE'
+      ? (r.resultado?.TOTAL || 0) : (r.resultado?.sumDietas || 0);
+    const gastos = r.gastosViaje || 0;
+    totalDietas += dietas;
+    const fLiq = r.fechaLiquidacion
+      ? new Date(r.fechaLiquidacion).toLocaleDateString('es-ES')
+      : '—';
+    const estadoBadge = `<span class="estado-badge estado-${r.estadoDietas}">${r.estadoDietas}</span>`;
+    return `<tr>
+      <td>${r.nombreConductor}</td>
+      <td>${r.codigoConductor}</td>
+      <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
+      <td>${r.fechaSalida} → ${r.fechaLlegada}</td>
+      <td style="text-align:center">${r.diasTrabajados}</td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600;color:var(--primary)">${fmt2(dietas)} €</td>
+      <td style="font-family:var(--font-mono);text-align:right">${gastos ? fmt2(gastos)+' €' : '—'}</td>
+      <td style="text-align:center;font-size:12px;color:var(--soft)">${fLiq}</td>
+      <td>${estadoBadge}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:#888">Sin registros liquidados</td></tr>';
+
+  document.getElementById('liq-h-total').textContent = fmt2(totalDietas) + ' €';
+}
+
+function exportarHistorialLiq() {
+  const tbody = document.getElementById('tbody-historial-liq');
+  const rows  = tbody.querySelectorAll('tr');
+  if (!rows.length || rows[0].cells.length < 2) {
+    showToast('No hay datos para exportar', 'error'); return;
+  }
+  const headers = ['Conductor','Código','Plataforma','Período','Días','Total Dietas','Gastos Viaje','Fecha Liquidación','Estado'];
+  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+  const lines = [headers.map(esc).join(';')];
+  rows.forEach(row => {
+    const cells = Array.from(row.cells).map(td => esc(td.textContent.trim()));
+    lines.push(cells.join(';'));
+  });
+  const csv  = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `historial_liquidaciones_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado ✓', 'success');
+}
+
+
+// ---- AUTOCOMPLETE PAREJA EN MODAL CONDUCTOR ----
+function filtrarParejaModal(query) {
+  const sugs = document.getElementById('m-pareja-sugerencias');
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    sugs.style.display = 'none';
+    sugs.innerHTML = '';
+    document.getElementById('m-pareja').value = '';
+    document.getElementById('m-pareja-nombre').textContent = '';
+    return;
+  }
+  const lista = getConductores().filter(c =>
+    c.Codigo.toLowerCase().includes(q) || c.Nombre.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  if (!lista.length) {
+    sugs.style.display = 'none';
+    sugs.innerHTML = '';
+    return;
+  }
+  sugs.innerHTML = lista.map(c => `
+    <div onclick="seleccionarParejaModal('${c.Codigo}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+             display:flex;align-items:center;gap:10px;font-size:12px;transition:background .15s"
+      onmouseover="this.style.background='var(--surface-hover,#f0f4ee)'"
+      onmouseout="this.style.background=''">
+      <span style="font-family:var(--font-mono);color:var(--primary);min-width:58px">${c.Codigo}</span>
+      <span style="flex:1;color:var(--text)">${c.Nombre}</span>
+      <span style="font-size:11px;color:var(--soft);background:var(--bg);
+                   padding:2px 6px;border-radius:10px">${c.PLATAFORMA}</span>
+    </div>
+  `).join('');
+  sugs.style.display = 'block';
+}
+
+function seleccionarParejaModal(codigo) {
+  const c = buscarConductor(codigo);
+  if (!c) return;
+  document.getElementById('m-pareja').value       = codigo;
+  document.getElementById('m-pareja-input').value = `${codigo} — ${c.Nombre}`;
+  document.getElementById('m-pareja-nombre').textContent = c.Nombre;
+  document.getElementById('m-pareja-sugerencias').style.display = 'none';
+  document.getElementById('m-pareja-sugerencias').innerHTML = '';
+}
+
+// Cerrar sugerencias pareja al clic fuera
+document.addEventListener('click', function(e) {
+  const input = document.getElementById('m-pareja-input');
+  const sugs  = document.getElementById('m-pareja-sugerencias');
+  if (input && sugs && !input.contains(e.target) && !sugs.contains(e.target)) {
+    sugs.style.display = 'none';
+  }
+});
+
+
+// ---- EXPORTAR CONDUCTORES CSV ----
+function exportarConductoresCSV() {
+  const conductores = getConductores();
+  if (!conductores.length) { showToast('No hay conductores para exportar', 'error'); return; }
+
+  const headers = ['Plataforma','Categoría','Código','Nombre','NIF','IBAN','PrecioKmt','Email','Equipaje','Pareja','Tractora'];
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+  const lines = [headers.map(esc).join(';')];
+  conductores.forEach(c => {
+    const codPar = c.PAREJA ? String(c.PAREJA).padStart(6,'0') : '';
+    const condPar = codPar ? buscarConductor(codPar) : null;
+    const parejaTexto = condPar ? `${codPar} — ${condPar.Nombre}` : (codPar || '');
+    lines.push([
+      c.PLATAFORMA, c.CATEGORIA, c.Codigo, c.Nombre,
+      c.NIF||'', c.IBAN||'', c.PrecioKmt||0, c.Email||'',
+      c.EQUIPAJE||'', parejaTexto, c.tractoraAsignada||''
+    ].map(esc).join(';'));
+  });
+
+  const csv  = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `conductores_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${conductores.length} conductores exportados ✓`, 'success');
 }
 
 // ---- TOAST ----
-window.mToast = function(msg, tipo='') {
-  const t = document.getElementById('m-toast');
+function showToast(msg, tipo = '') {
+  const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = `toast ${tipo} show`;
-  setTimeout(()=> t.className='toast', 3000);
-};
-
-// ---- FOTOS ----
-window.mAñadirFotos = function(input) {
-  const files = Array.from(input.files);
-  files.forEach(file => {
-    if (_fotosData.length >= 10) { mToast('Máximo 10 fotos por registro', 'error'); return; }
-    const reader = new FileReader();
-    reader.onload = e => {
-      _fotosData.push({ file, dataUrl: e.target.result });
-      renderFotos();
-    };
-    reader.readAsDataURL(file);
-  });
-  input.value = '';
-};
-function renderFotos() {
-  const grid = document.getElementById('m-fotos-grid');
-  const botones = document.getElementById('m-foto-botones');
-  grid.innerHTML = _fotosData.map((f, i) => `
-    <div class="foto-thumb">
-      <img src="${f.dataUrl}" alt="foto ${i+1}">
-      <button class="del-foto" onclick="mBorrarFoto(${i})" title="Eliminar">✕</button>
-    </div>
-  `).join('');
-  botones.style.display = _fotosData.length >= 10 ? 'none' : 'grid';
-}
-window.mBorrarFoto = function(i) {
-  _fotosData.splice(i, 1);
-  renderFotos();
-};
-async function subirFotos() {
-  const fotos = [];
-  for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 1200, 0.80);
-    fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
-  }
-  return fotos;
-}
-function comprimirFoto(file, maxSize, quality) {
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > maxSize || h > maxSize) {
-        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
-        else       { w = Math.round(w * maxSize / h); h = maxSize; }
-      }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.src = url;
-  });
+  setTimeout(() => t.className = 'toast', 3000);
 }
 
-// ---- OFFLINE ----
-async function sincronizarOffline() {
-  const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
-  if (!pendientes.length) return;
-  let sincronizados = 0;
-  const restantes = [];
-  for (const reg of pendientes) {
-    try {
-      await addDoc(collection(_db, 'registros'), reg);
-      sincronizados++;
-    } catch(e) {
-      restantes.push(reg);
+// =============================================
+// ENVÍO DE LIQUIDACIONES POR EMAIL
+// =============================================
+const WEBHOOK_URL   = 'https://script.google.com/macros/s/AKfycbzSzXhako36YtFdyP8OOKhV8WjQ9k5tTTlAGswT_TtBLyQWOtEkvHEaDrTW-PlT0PUT2w/exec';
+const TOKEN_SECRETO = 'olano2024sec';
+
+// Llamado desde informes.js — envío masivo con filtros
+window.enviarLiquidacionesMasivo = async function({ desde, hasta, plataforma, ids }) {
+  showToast('Enviando liquidaciones…', '');
+  try {
+    const resp = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'liquidaciones',
+        token: TOKEN_SECRETO,
+        desde, hasta, plataforma, ids: ids || []
+      })
+    });
+    // no-cors no devuelve body — marcar como enviados localmente
+    if (ids?.length) {
+      await Promise.all(ids.map(id => marcarEmailEnviado(id)));
+    } else {
+      const regs = getRegistros().filter(r =>
+        r.estadoDietas === 'liquidado' &&
+        (!desde || r.fechaSalida >= desde) &&
+        (!hasta  || r.fechaSalida <= hasta) &&
+        (!plataforma || r.plataforma === plataforma)
+      );
+      await Promise.all(regs.map(r => marcarEmailEnviado(r.id)));
     }
+    showToast('Liquidaciones enviadas ✓', 'success');
+    renderHistorial();
+  } catch(err) {
+    showToast('Error al enviar: ' + err.message, 'error');
   }
-  localStorage.setItem(OFFLINE_KEY, JSON.stringify(restantes));
-  if (sincronizados > 0) mToast(`${sincronizados} registro(s) sincronizado(s) ✓`);
-}
-</script>
-</body>
-</html>
+};
