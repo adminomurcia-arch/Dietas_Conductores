@@ -1229,7 +1229,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 400, 0.5);
+    const base64 = await comprimirFoto(f.file, 1200, 0.80);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
