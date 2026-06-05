@@ -462,7 +462,7 @@
         </div>
         <div class="field">
           <label>Plataforma</label>
-          <select id="inf-conductor-plataforma">
+          <select id="inf-conductor-plataforma" onchange="toggleConductorNumLiq()">
             <option value="">Todas</option>
             <option value="TJG">TJG</option>
             <option value="FILARDI">FILARDI</option>
@@ -479,7 +479,7 @@
         </div>
         <div class="field">
           <label>Estado dietas</label>
-          <select id="inf-conductor-estado">
+          <select id="inf-conductor-estado" onchange="toggleConductorNumLiq()">
             <option value="">Todos</option>
             <option value="pendiente">Pendiente</option>
             <option value="liquidado">Liquidado</option>
@@ -493,9 +493,11 @@
             <input type="date" id="inf-hasta">
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="field-conductor-num-liq" style="display:none">
           <label>Núm. Liquidación</label>
-          <input type="text" id="inf-conductor-num-liq" placeholder="LIQ-2025-06-001" style="text-transform:uppercase">
+          <select id="inf-conductor-num-liq">
+            <option value="">Todas las liquidaciones</option>
+          </select>
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarConductor()">🔍 Previsualizar</button>
       </div>
@@ -506,7 +508,8 @@
         <p>TJG y FILARDI</p>
         <div class="field">
           <label>Plataforma</label>
-          <select id="inf-plataforma-gestoria">
+          <select id="inf-plataforma-gestoria" onchange="toggleGestoriaNumLiq()">
+            <option value="">Todas las plataformas</option>
             <option value="TJG">TJG</option>
             <option value="FILARDI">FILARDI</option>
             <option value="CAUDETE">CAUDETE</option>
