@@ -1018,19 +1018,17 @@ async function editarRegistro(id) {
   // Modo del formulario
   if (r.modo && r.modo !== modoActual) setModo(r.modo);
 
-  // Marcar modo edición ANTES de autocompletar para que las guardas funcionen
-  document.getElementById('formRegistro').dataset.editId = id;
-
-  // Datos básicos del conductor
-  document.getElementById('codConductor').value    = r.codigoConductor;
-  // Rellenar también el campo visual de búsqueda
-  const cEdit = buscarConductor(r.codigoConductor);
-  document.getElementById('buscarConductorInput').value = cEdit
-    ? `${cEdit.Codigo} — ${cEdit.Nombre}`
-    : r.codigoConductor;
-  autocompletar();
-  // Sobreescribir coefNacional con el del registro (no el por defecto de equipaje)
-  document.getElementById('coefNacional').value    = r.coefNacional || 0;
+  // Datos del conductor — fijos en edición, no se tocan
+  document.getElementById('codConductor').value         = r.codigoConductor;
+  document.getElementById('nombreConductor').value      = r.nombreConductor  || '';
+  document.getElementById('plataforma').value           = r.plataforma        || '';
+  document.getElementById('categoria').value            = r.categoria         || '';
+  document.getElementById('equipaje').value             = r.equipaje          || '';
+  document.getElementById('pareja').value               = r.pareja            || '';
+  document.getElementById('buscarConductorInput').value = `${r.codigoConductor} — ${r.nombreConductor || ''}`;
+  document.getElementById('coefNacional').value         = r.coefNacional      || 0;
+  // Adaptar interfaz según plataforma del registro (sin tocar conductor)
+  adaptarPlataforma(r.plataforma || '', r.categoria || '');
 
   // Fechas y tiempos
   document.getElementById('fechaSalida').value     = r.fechaSalida;
@@ -1055,7 +1053,8 @@ async function editarRegistro(id) {
   document.getElementById('numFestivos').value     = r.nFestivos   || '';
   if (r.festivosEnLiquidacion) document.getElementById('chk-festivos').checked = true;
 
-  // Marcar modo edición (editId ya asignado arriba, antes de autocompletar)
+  // Marcar modo edición
+  document.getElementById('formRegistro').dataset.editId = id;
   document.getElementById('btn-guardar').textContent = '💾 Actualizar Registro';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
 
