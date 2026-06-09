@@ -652,7 +652,7 @@ function mRenderGastos() {
   lista.innerHTML = _gastosData.map((g, i) => `
     <div class="gasto-row">
       <button class="gasto-del" onclick="mDelGasto(${i})">✕</button>
-      <input type="date" value="${g.fecha}" onchange="mGastoChange(${i},'fecha',this.value)">
+      <input type="date" value="${g.fecha}" max="${_hoy}" onchange="mGastoChange(${i},'fecha',this.value)">
       <select onchange="mGastoChange(${i},'tipo',this.value)">
         ${TIPOS_GASTO.map(t => `<option value="${t}" ${g.tipo===t?'selected':''}>${t}</option>`).join('')}
       </select>
