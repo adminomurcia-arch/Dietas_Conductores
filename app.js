@@ -544,17 +544,22 @@ async function guardarRegistro() {
     }
     datosRegistro.creadoPor = 'admin';
     datosRegistro.creadoEn  = ahora;
-    const regGuardado = await addRegistro(datosRegistro);
-    showToast('Registro guardado ✓', 'success');
+    try {
+      const regGuardado = await addRegistro(datosRegistro);
+      showToast('Registro guardado ✓', 'success');
 
-    // DOBLE: ofrecer cargar datos para la pareja (sin grabar — el admin revisa y graba)
-    if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja) {
-      const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
-      const condPareja = buscarConductor(codPareja);
-      if (condPareja && confirm(`¿Cargar los mismos datos para la pareja ${condPareja.Nombre}?`)) {
-        cargarDatosParaPareja(datosRegistro, condPareja);
-        return; // No limpiar formulario — queda listo para revisar y grabar
+      // DOBLE: ofrecer cargar datos para la pareja (sin grabar — el admin revisa y graba)
+      if (datosRegistro.equipaje === 'DOBLE' && datosRegistro.pareja) {
+        const codPareja  = String(datosRegistro.pareja).split('—')[0].trim().padStart(6,'0');
+        const condPareja = buscarConductor(codPareja);
+        if (condPareja && confirm(`¿Cargar los mismos datos para la pareja ${condPareja.Nombre}?`)) {
+          cargarDatosParaPareja(datosRegistro, condPareja);
+          return;
+        }
       }
+    } catch(e) {
+      showToast(e.message || 'Error al guardar el registro', 'error');
+      return;
     }
   }
 
