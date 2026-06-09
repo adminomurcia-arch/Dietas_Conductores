@@ -605,6 +605,7 @@
 <!-- TOAST -->
 <div id="m-toast" class="toast"></div>
 
+<script src="utils.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
@@ -1239,6 +1240,13 @@ window.mGuardar = async function() {
     }
   };
 
+  // Validar tamaño del documento antes de guardar (sin fotos aún)
+  const bytesBase = new TextEncoder().encode(JSON.stringify(reg)).length;
+  if (bytesBase > 900_000) {
+    mToast(`El registro ocupa ${Math.round(bytesBase/1024)} KB — reduce el número de fotos`, 'error');
+    return;
+  }
+
   try {
     reg.estadoDietas = 'pendiente_validacion';
     reg.estadoGastos = 'pendiente';
@@ -1379,26 +1387,7 @@ window.mCerrarSugerencias = function() {
 };
 window.mValidarTractora = window.mCerrarSugerencias;
 
-// ---- CALENDARIO ----
-function parseFecha(fecha) {
-  const [y, m, d] = String(fecha).split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-function contarDomingos(ini, fin) {
-  let n=0, d=parseFecha(ini), f=parseFecha(fin);
-  while(d<=f){ if(d.getDay()===0) n++; d.setDate(d.getDate()+1); }
-  return n;
-}
-function contarFestivos(ini, fin) {
-  const fest=[[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
-  let n=0, d=parseFecha(ini), f=parseFecha(fin);
-  while(d<=f){
-    const m=d.getMonth()+1, dd=d.getDate();
-    if(d.getDay()!==0 && fest.some(([fm,fd])=>fm===m&&fd===dd)) n++;
-    d.setDate(d.getDate()+1);
-  }
-  return n;
-}
+// parseFecha, contarDomingos, contarFestivos → utils.js
 
 // ---- TOAST ----
 window.mToast = function(msg, tipo='') {
