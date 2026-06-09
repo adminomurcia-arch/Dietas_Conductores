@@ -2,46 +2,8 @@
 // calculos.js — Lógica de cálculo de dietas
 // =============================================
 
-// ---- HELPERS DE CALENDARIO ----
-function parseFecha(fecha) {
-  // Evita desfase de zona horaria interpretando siempre en local
-  const [y, m, d] = String(fecha).split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function esDomingo(fecha) {
-  return parseFecha(fecha).getDay() === 0;
-}
-
-function esFestivoNacional(fecha) {
-  const d   = parseFecha(fecha);
-  const mes = d.getMonth() + 1;
-  const dia = d.getDate();
-  return [[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]]
-    .some(([m, dd]) => m === mes && dd === dia);
-}
-
-function contarDomingos(inicio, fin) {
-  let n = 0;
-  const d = parseFecha(inicio);
-  const f = parseFecha(fin);
-  while (d <= f) { if (d.getDay() === 0) n++; d.setDate(d.getDate() + 1); }
-  return n;
-}
-
-function contarFestivos(inicio, fin) {
-  // Solo festivos que NO caen en domingo (para no duplicar)
-  const fest = [[1,1],[6,1],[19,3],[1,5],[15,8],[12,10],[1,11],[6,12],[8,12],[25,12]];
-  let n = 0;
-  const d = parseFecha(inicio);
-  const f = parseFecha(fin);
-  while (d <= f) {
-    const mes = d.getMonth() + 1, dia = d.getDate();
-    if (d.getDay() !== 0 && fest.some(([m, dd]) => m === mes && dd === dia)) n++;
-    d.setDate(d.getDate() + 1);
-  }
-  return n;
-}
+// Funciones de calendario: parseFecha, contarDomingos, contarFestivos, esDomingo, esFestivoNacional
+// → definidas en utils.js (cargado antes en index.html)
 
 // ---- LEER OPERACIONES ----
 function getCount(tipo) {
