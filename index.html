@@ -578,9 +578,10 @@
         </div>
         <div class="field">
           <label>Formato</label>
-          <select id="inf-rrhh-formato">
+          <select id="inf-rrhh-formato" onchange="toggleRrhhConductorField()">
             <option value="detallado">Detallado</option>
             <option value="resumido">Resumido</option>
+            <option value="pausas">24H / Pausas</option>
           </select>
         </div>
         <div class="field">
@@ -594,6 +595,10 @@
         <div class="field">
           <label>Núm. Liquidación</label>
           <input type="text" id="inf-rrhh-num-liq" placeholder="LIQ-2025-06-001" style="text-transform:uppercase">
+        </div>
+        <div class="field" id="inf-rrhh-field-conductor" style="display:none">
+          <label>Conductor (código)</label>
+          <input type="text" id="inf-rrhh-conductor" placeholder="Ej: 010001" maxlength="6">
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarRRHH()">🔍 Previsualizar</button>
       </div>
