@@ -227,17 +227,14 @@ export async function initDB() {
 async function cargarConductores() {
   try {
     const snap = await getDocs(collection(db, COL_CONDUCTORES));
-    console.log(`Firestore conductores encontrados: ${snap.size}`);
     if (snap.size === 0) {
       // Solo sembrar si la colección está completamente vacía
-      console.log('Colección vacía — sembrando conductores por defecto...');
       await seedConductores();
     } else {
       _conductores = snap.docs.map(d => {
         const c = d.data();
         return { ...c, Codigo: padCodigo(c.Codigo) };
       });
-      console.log(`Conductores cargados: ${_conductores.length}`);
     }
   } catch (e) {
     console.error('Error cargando conductores:', e);
@@ -253,7 +250,6 @@ async function seedConductores() {
     normalizados.map(c => setDoc(doc(db, COL_CONDUCTORES, c.Codigo), c))
   );
   _conductores = normalizados;
-  console.log(`Sembrados ${_conductores.length} conductores`);
 }
 
 export function getConductores() {
@@ -296,13 +292,11 @@ export async function eliminarConductor(codigo) {
 async function cargarTarifas() {
   try {
     const snap = await getDocs(collection(db, COL_TARIFAS));
-    console.log(`Firestore tarifas encontradas: ${snap.size}`);
     if (snap.size < TARIFAS_DEFAULT.length) {
       // Sembrar siempre desde cero con IDs corregidos
       await seedTarifas();
     } else {
       _tarifas = snap.docs.map(d => d.data());
-      console.log(`Tarifas cargadas: ${_tarifas.length}`);
     }
   } catch (e) {
     console.error('Error cargando tarifas:', e);
@@ -350,17 +344,13 @@ export async function upsertTarifa(concepto, plataforma, valor) {
 export async function cargarTractoras() {
   try {
     const snap = await getDocs(query(collection(db, COL_TRACTORAS), orderBy('matricula')));
-    console.log(`Firestore tractoras encontradas: ${snap.size}`);
     if (snap.size < TRACTORAS_DEFAULT.length) {
-      console.log('Sembrando tractoras...');
       await Promise.all(
         TRACTORAS_DEFAULT.map(t => setDoc(doc(db, COL_TRACTORAS, t.matricula), t))
       );
       _tractoras = [...TRACTORAS_DEFAULT];
-      console.log(`Sembradas ${_tractoras.length} tractoras`);
     } else {
       _tractoras = snap.docs.map(d => d.data());
-      console.log(`Tractoras cargadas: ${_tractoras.length}`);
     }
   } catch (e) {
     console.error('Error cargando tractoras:', e);
@@ -430,7 +420,19 @@ export function getRegistros() {
   return _registros;
 }
 
+// ---- CONTROL DE TAMAÑO (límite Firestore: 1 MB por documento) ----
+export function checkDocSize(reg) {
+  const bytes = new TextEncoder().encode(JSON.stringify(reg)).length;
+  const KB = Math.round(bytes / 1024);
+  if (bytes > 900_000) {
+    throw new Error(`El registro ocupa ${KB} KB y supera el límite (900 KB). Reduce el número de fotos.`);
+  }
+  return KB;
+}
+
 export async function addRegistro(reg) {
+  // Validar tamaño antes de escribir
+  checkDocSize(reg);
   // Estados iniciales
   reg.estadoDietas  = reg.origenMovil ? 'pendiente_validacion' : 'pendiente';
   reg.estadoGastos  = 'pendiente';
