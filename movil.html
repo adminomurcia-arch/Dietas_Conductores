@@ -198,6 +198,43 @@
       line-height: 1;
     }
 
+    /* DRAWER OPERACIÓN AVANZADA */
+    .drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45);
+                      z-index:200; display:none; }
+    .drawer-overlay.open { display:block; }
+    .drawer { position:fixed; bottom:0; left:0; right:0; background:var(--surface);
+              border-radius:16px 16px 0 0; z-index:201; padding:20px 20px 40px;
+              transform:translateY(100%); transition:transform .3s ease;
+              max-height:92vh; overflow-y:auto; }
+    .drawer.open { transform:translateY(0); }
+    .drawer-handle { width:40px; height:4px; background:var(--border);
+                     border-radius:2px; margin:0 auto 16px; }
+    .drawer-title { font-size:15px; font-weight:600; color:var(--primary);
+                    margin-bottom:16px; }
+    .drawer-field { margin-bottom:12px; }
+    .drawer-field label { display:block; font-size:12px; font-weight:500;
+                          color:var(--soft); margin-bottom:4px; }
+    .drawer-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+    .drawer-horas { background:var(--calc-bg); border-radius:8px; padding:10px 14px;
+                    display:flex; justify-content:space-between; align-items:center;
+                    margin-bottom:12px; }
+    .drawer-horas .label { font-size:12px; color:var(--soft); }
+    .drawer-horas .valor { font-family:var(--mono); font-weight:600;
+                           color:var(--calc-text); font-size:16px; }
+    .drawer-btn-ok { width:100%; padding:14px; background:var(--primary); color:#fff;
+                     border:none; border-radius:10px; font-family:var(--font);
+                     font-size:15px; font-weight:600; cursor:pointer; margin-top:4px; }
+    .drawer-btn-ok:active { background:var(--primary-h); }
+    /* Fila resumen operación avanzada */
+    .op-row-avanzada { display:flex; align-items:center; gap:8px; padding:8px 0;
+                       border-bottom:1px solid var(--border); }
+    .op-row-avanzada:last-child { border:none; }
+    .op-row-avanzada .op-resumen { flex:1; font-size:12px; color:var(--text); line-height:1.5; }
+    .op-row-avanzada .op-resumen strong { color:var(--primary); font-family:var(--mono); }
+    .op-row-avanzada .op-edit-btn { background:var(--calc-bg); border:1px solid var(--border);
+                                    border-radius:6px; padding:5px 9px; font-size:12px;
+                                    cursor:pointer; color:var(--primary); font-family:var(--font); }
+
     /* OFFLINE */
     .offline-badge { position:fixed; top:0; left:0; right:0; background:#c0392b; color:#fff;
                      text-align:center; padding:6px; font-size:12px; font-weight:600; z-index:9999;
@@ -390,7 +427,7 @@
 
     <div class="op-bloque" id="m-bloque-pausa" style="display:none">
       <div class="op-header">
-        <span>Pausa</span>
+        <span>Horas/Días Parado</span>
         <button class="btn-add-sm" onclick="mAddOp('pausa')">+ Añadir</button>
       </div>
       <div class="op-lista" id="m-lista-pausa"></div>
@@ -518,6 +555,51 @@
   <button class="btn-primary" onclick="mNuevoRegistro()" style="max-width:280px">
     Nuevo Registro
   </button>
+</div>
+
+<!-- DRAWER OPERACIÓN AVANZADA (24H / Horas-Días Parado) -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="mDrawerCerrar()"></div>
+<div class="drawer" id="drawer-avanzada">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="drawer-titulo">Añadir operación</div>
+
+  <div class="drawer-grid2">
+    <div class="drawer-field">
+      <label>Fecha inicio *</label>
+      <input type="date" id="dr-fini" oninput="mDrawerCalcHoras()">
+    </div>
+    <div class="drawer-field">
+      <label>Hora inicio *</label>
+      <input type="time" id="dr-hini" oninput="mDrawerCalcHoras()">
+    </div>
+  </div>
+  <div class="drawer-grid2">
+    <div class="drawer-field">
+      <label>Fecha fin *</label>
+      <input type="date" id="dr-ffin" oninput="mDrawerCalcHoras()">
+    </div>
+    <div class="drawer-field">
+      <label>Hora fin *</label>
+      <input type="time" id="dr-hfin" oninput="mDrawerCalcHoras()">
+    </div>
+  </div>
+
+  <div class="drawer-horas">
+    <span class="label">Duración calculada</span>
+    <span class="valor" id="dr-horas">— h</span>
+  </div>
+
+  <div class="drawer-field">
+    <label>Lugar *</label>
+    <input type="text" id="dr-lugar" placeholder="Ej: BÉLGICA / CALAIS"
+           oninput="this.value=this.value.toUpperCase()">
+  </div>
+  <div class="drawer-field">
+    <label>Observaciones</label>
+    <input type="text" id="dr-obs" placeholder="Texto libre (opcional)">
+  </div>
+
+  <button class="drawer-btn-ok" onclick="mDrawerConfirmar()">✅ Confirmar</button>
 </div>
 
 <!-- TOAST -->
@@ -796,30 +878,184 @@ window.mCalcKm = function() {
 };
 
 // ---- OPERACIONES ----
+// Tipos que usan drawer avanzado (fecha/hora inicio-fin + horas + lugar + obs)
+const OP_AVANZADAS = ['24h', 'pausa'];
+
 function mRenumerar(tipo) {
   document.querySelectorAll(`#m-lista-${tipo} .op-row`).forEach((row, i) => {
     const span = row.querySelector('.m-op-num');
     if (span) span.textContent = i + 1;
   });
 }
+
+// Estado drawer
+let _drawerTipo   = null;
+let _drawerIdx    = null; // null = nueva fila, number = editar existente
+let _drawerDatos  = [];   // array por tipo: { fechaInicio, horaInicio, fechaFin, horaFin, horas, lugar, obs }
+
 window.mAddOp = function(tipo) {
-  const lista = document.getElementById(`m-lista-${tipo}`);
-  const n = lista.querySelectorAll('.op-row').length + 1;
-  const row = document.createElement('div');
-  row.className = 'op-row';
-  row.innerHTML = `
-    <span class="m-op-num" style="min-width:20px;text-align:center;font-weight:700;color:var(--primary);font-size:13px;align-self:center">${n}</span>
-    <input type="date" max="${_hoy}">
-    <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
-    <button class="btn-del-sm" onclick="this.parentElement.remove();mRenumerar('${tipo}');mCalcDietas()">🗑</button>
-  `;
-  lista.appendChild(row);
+  if (OP_AVANZADAS.includes(tipo)) {
+    _drawerTipo = tipo;
+    _drawerIdx  = null;
+    mDrawerAbrir(tipo, null);
+  } else {
+    const lista = document.getElementById(`m-lista-${tipo}`);
+    const n = lista.querySelectorAll('.op-row').length + 1;
+    const row = document.createElement('div');
+    row.className = 'op-row';
+    row.innerHTML = `
+      <span class="m-op-num" style="min-width:20px;text-align:center;font-weight:700;color:var(--primary);font-size:13px;align-self:center">${n}</span>
+      <input type="date" max="${_hoy}">
+      <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn-del-sm" onclick="this.parentElement.remove();mRenumerar('${tipo}');mCalcDietas()">🗑</button>
+    `;
+    lista.appendChild(row);
+    mCalcDietas();
+  }
+};
+
+// ---- DRAWER ----
+window.mDrawerAbrir = function(tipo, idx) {
+  _drawerTipo = tipo;
+  _drawerIdx  = idx;
+  const label = tipo === '24h' ? '24 Horas' : 'Horas/Días Parado';
+  document.getElementById('drawer-titulo').textContent =
+    (idx === null ? 'Añadir' : 'Editar') + ' — ' + label;
+
+  // Vaciar campos
+  ['dr-fini','dr-hini','dr-ffin','dr-hfin','dr-lugar','dr-obs'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('dr-horas').textContent = '— h';
+
+  // Si es edición, pre-rellenar
+  if (idx !== null) {
+    const key = `_op_${tipo}`;
+    const datos = window[key] || [];
+    const d = datos[idx];
+    if (d) {
+      document.getElementById('dr-fini').value  = d.fechaInicio || '';
+      document.getElementById('dr-hini').value  = d.horaInicio  || '';
+      document.getElementById('dr-ffin').value  = d.fechaFin    || '';
+      document.getElementById('dr-hfin').value  = d.horaFin     || '';
+      document.getElementById('dr-lugar').value = d.lugar       || '';
+      document.getElementById('dr-obs').value   = d.obs         || '';
+      mDrawerCalcHoras();
+    }
+  }
+
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('drawer-avanzada').classList.add('open');
+  setTimeout(() => document.getElementById('dr-fini').focus(), 300);
+};
+
+window.mDrawerCerrar = function() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.getElementById('drawer-avanzada').classList.remove('open');
+};
+
+window.mDrawerCalcHoras = function() {
+  const fi = document.getElementById('dr-fini').value;
+  const hi = document.getElementById('dr-hini').value;
+  const ff = document.getElementById('dr-ffin').value;
+  const hf = document.getElementById('dr-hfin').value;
+  const el = document.getElementById('dr-horas');
+  if (fi && hi && ff && hf) {
+    const ini = new Date(`${fi}T${hi}`);
+    const fin = new Date(`${ff}T${hf}`);
+    const diff = (fin - ini) / 3600000;
+    if (diff > 0) {
+      const d = Math.floor(diff / 24);
+      const h = (diff % 24).toFixed(1);
+      el.textContent = d > 0 ? `${d}d ${h}h (${diff.toFixed(1)}h total)` : `${diff.toFixed(1)} h`;
+      return diff;
+    }
+  }
+  el.textContent = '— h';
+  return 0;
+};
+
+window.mDrawerConfirmar = function() {
+  const fi    = document.getElementById('dr-fini').value;
+  const hi    = document.getElementById('dr-hini').value;
+  const ff    = document.getElementById('dr-ffin').value;
+  const hf    = document.getElementById('dr-hfin').value;
+  const lugar = document.getElementById('dr-lugar').value.trim();
+  const obs   = document.getElementById('dr-obs').value.trim();
+
+  if (!fi)    { mToast('Introduce la fecha de inicio', 'error'); return; }
+  if (!hi)    { mToast('Introduce la hora de inicio', 'error'); return; }
+  if (!ff)    { mToast('Introduce la fecha de fin', 'error'); return; }
+  if (!hf)    { mToast('Introduce la hora de fin', 'error'); return; }
+  if (!lugar) { mToast('Introduce el lugar', 'error'); return; }
+
+  const ini  = new Date(`${fi}T${hi}`);
+  const fin  = new Date(`${ff}T${hf}`);
+  const diff = (fin - ini) / 3600000;
+  if (diff <= 0) { mToast('La fecha/hora de fin debe ser posterior al inicio', 'error'); return; }
+
+  const horas = parseFloat(diff.toFixed(2));
+  const dato  = { fechaInicio: fi, horaInicio: hi, fechaFin: ff, horaFin: hf, horas, lugar, obs };
+
+  const key = `_op_${_drawerTipo}`;
+  if (!window[key]) window[key] = [];
+
+  if (_drawerIdx === null) {
+    window[key].push(dato);
+  } else {
+    window[key][_drawerIdx] = dato;
+  }
+
+  mDrawerRenderLista(_drawerTipo);
+  mDrawerCerrar();
   mCalcDietas();
 };
+
+function mDrawerRenderLista(tipo) {
+  const key   = `_op_${tipo}`;
+  const datos = window[key] || [];
+  const lista = document.getElementById(`m-lista-${tipo}`);
+  lista.innerHTML = datos.map((d, i) => {
+    const resumen = `<strong>${d.horas}h</strong> · ${d.fechaInicio} ${d.horaInicio} → ${d.fechaFin} ${d.horaFin} · ${d.lugar}${d.obs ? ' · ' + d.obs : ''}`;
+    return `
+      <div class="op-row-avanzada">
+        <span style="min-width:20px;text-align:center;font-weight:700;color:var(--primary);font-size:13px">${i+1}</span>
+        <span class="op-resumen">${resumen}</span>
+        <button class="op-edit-btn" onclick="mDrawerAbrir('${tipo}',${i})">✏️</button>
+        <button class="btn-del-sm" onclick="mDrawerBorrar('${tipo}',${i})">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+window.mDrawerBorrar = function(tipo, idx) {
+  const key = `_op_${tipo}`;
+  if (window[key]) {
+    window[key].splice(idx, 1);
+    mDrawerRenderLista(tipo);
+    mCalcDietas();
+  }
+};
+
 function mGetCount(tipo) {
+  if (OP_AVANZADAS.includes(tipo)) {
+    return (window[`_op_${tipo}`] || []).length;
+  }
   return document.querySelectorAll(`#m-lista-${tipo} .op-row`).length;
 }
 function mGetDetalle(tipo) {
+  if (OP_AVANZADAS.includes(tipo)) {
+    return (window[`_op_${tipo}`] || []).map(d => ({
+      fechaInicio: d.fechaInicio,
+      horaInicio:  d.horaInicio,
+      fechaFin:    d.fechaFin,
+      horaFin:     d.horaFin,
+      horas:       d.horas,
+      lugar:       d.lugar,
+      obs:         d.obs || '',
+      // compatibilidad: campo fecha/lugar para lectura legacy
+      fecha:       d.fechaInicio,
+    }));
+  }
   const rows = document.querySelectorAll(`#m-lista-${tipo} .op-row`);
   return Array.from(rows).map(row => {
     const inputs = row.querySelectorAll('input');
@@ -1089,6 +1325,9 @@ window.mLimpiar = function() {
   document.getElementById('m-chk-fest').checked = false;
   ['carga','palet','rebote','24h','pausa','nac','uk','ndlf'].forEach(t =>
     document.getElementById(`m-lista-${t}`).innerHTML = '');
+  // Limpiar datos de operaciones avanzadas
+  window._op_24h   = [];
+  window._op_pausa = [];
   document.getElementById('m-section-resultado').style.display = 'none';
 };
 
@@ -1201,7 +1440,7 @@ window.mBorrarFoto = function(i) {
 async function subirFotos() {
   const fotos = [];
   for (const f of _fotosData) {
-    const base64 = await comprimirFoto(f.file, 400, 0.5);
+    const base64 = await comprimirFoto(f.file, 1200, 0.82);
     fotos.push({ base64, nombre: f.file.name, tipo: f.file.type });
   }
   return fotos;
