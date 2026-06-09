@@ -319,6 +319,12 @@ function previsualizarGestoria() {
 // ============================================================
 // PREVISUALIZACIÓN — RRHH
 // ============================================================
+function toggleRrhhConductorField() {
+  const fmt = document.getElementById('inf-rrhh-formato').value;
+  const field = document.getElementById('inf-rrhh-field-conductor');
+  if (field) field.style.display = fmt === 'pausas' ? '' : 'none';
+}
+
 function previsualizarRRHH() {
   const plat     = document.getElementById('inf-rrhh-plataforma').value;
   const formato  = document.getElementById('inf-rrhh-formato').value;
@@ -385,6 +391,43 @@ function previsualizarRRHH() {
         'TOTAL': fmt2(r.resultado?.sumDietas || r.resultado?.TOTAL),
       };
     });
+  }
+
+  if (formato === 'pausas') {
+    const codFiltro = (document.getElementById('inf-rrhh-conductor')?.value || '').trim().padStart(6,'0').replace(/^0+$/, '');
+    headers = ['COD','NOMBRE','PLATAFORMA','SALIDA_VIAJE','LLEGADA_VIAJE','TIPO_OP','FECHA_OP','H_INICIO','H_FIN','HORAS','LUGAR','ESTADO'];
+    filas = [];
+    regs.forEach(r => {
+      if (codFiltro && String(r.codigoConductor).padStart(6,'0') !== codFiltro) return;
+      const estado = r.estadoDietas || 'pendiente';
+      const fmtF = f => f ? f.split('-').reverse().join('/') : '—';
+      const addOps = (arr, tipo) => {
+        if (!arr?.length) return;
+        arr.forEach(op => {
+          filas.push({
+            'COD':         r.codigoConductor,
+            'NOMBRE':      r.nombreConductor,
+            'PLATAFORMA':  r.plataforma,
+            'SALIDA_VIAJE':fmtF(r.fechaSalida),
+            'LLEGADA_VIAJE':fmtF(r.fechaLlegada),
+            'TIPO_OP':     tipo,
+            'FECHA_OP':    fmtF(op.fechaInicio || op.fecha),
+            'H_INICIO':    op.horaInicio || '—',
+            'H_FIN':       op.horaFin    || '—',
+            'HORAS':       op.horas != null ? op.horas : '—',
+            'LUGAR':       op.lugar || '—',
+            'ESTADO':      estado,
+          });
+        });
+      };
+      addOps(r.op24h,   '24H');
+      addOps(r.opPausa, 'PAUSA');
+    });
+    if (!filas.length) { showToast('No hay operaciones 24H/Pausa para ese filtro', 'error'); return; }
+    const titulo2 = `RRHH_Pausas_${plat || 'Todas'}`;
+    _informe = { tipo: 'rrhh', datos: regs, headers, filas, titulo: titulo2 };
+    mostrarPreview(headers, filas, `RRHH — 24H/Pausas (${plat || 'Todas'})`);
+    return;
   }
 
   const titulo = `RRHH_${plat || 'Todas'}_${formato}`;
@@ -598,10 +641,13 @@ function generarCuerpoEmail(conductor, registros) {
   txt += `Le remitimos el detalle de sus kilómetros y operaciones:\n\n`;
 
   registros.forEach((r, i) => {
-    const fSal = r.fechaSalida  ? r.fechaSalida.split('-').reverse().join('/') : '—';
-    const fLle = r.fechaLlegada ? r.fechaLlegada.split('-').reverse().join('/') : '—';
+    const fSal   = r.fechaSalida  ? r.fechaSalida.split('-').reverse().join('/')  : '—';
+    const fLle   = r.fechaLlegada ? r.fechaLlegada.split('-').reverse().join('/') : '—';
+    const esCau  = r.plataforma === 'CAUDETE';
+    const hSal   = esCau && r.horaSalida  ? ` ${r.horaSalida}`  : '';
+    const hLle   = esCau && r.horaLlegada ? ` ${r.horaLlegada}` : '';
     txt += SEP + '\n';
-    txt += `VIAJE ${i + 1}  |  ${fSal} → ${fLle}\n`;
+    txt += `VIAJE ${i + 1}  |  ${fSal}${hSal} → ${fLle}${hLle}\n`;
     txt += SEP + '\n';
 
     // Kilómetros y días
@@ -631,11 +677,13 @@ function generarCuerpoEmail(conductor, registros) {
       [fmtN(r.nNacional),       'Nacionales',       r.opNacional],
       [fmtN(r.nUK),             'UK',               r.opUK],
       [fmtN(r.nNDLF),           'NDLF',             r.opNDLF],
-      [fmtN(r.nDomingos),       'Domingos',         null],
-      [fmtN(r.nFestivos),       'Festivos',         null],
+      ...(esCau ? [
+        [fmtN(r.nDomingos), 'Domingos', null],
+        [fmtN(r.nFestivos), 'Festivos', null],
+        [fmtN(r.restoHoras), 'Resto horas', null],
+      ] : []),
       [fmtN(r.acarreos),        'Acarreos',         null],
       [fmtN(r.dietaVlissingen), 'Vlissingen',       null],
-      [fmtN(r.restoHoras),      'Resto horas',      null],
     ].filter(([v]) => v !== null);
 
     if (opsDef.length) {
