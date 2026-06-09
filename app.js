@@ -308,16 +308,78 @@ function addOperacion(tipo) {
   const n = lista.querySelectorAll('.operacion-row').length + 1;
   const row = document.createElement('div');
   row.className = 'operacion-row';
-  row.innerHTML = `
-    <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
-      color:var(--primary);font-size:13px;align-self:center">${n}</span>
-    <input type="date">
-    <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
-    <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
-  `;
+
+  if (tipo === '24horas' || tipo === 'pausa') {
+    row.innerHTML = `
+      <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
+        color:var(--primary);font-size:13px;align-self:start;padding-top:4px">${n}</span>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Fecha inicio</div>
+          <input type="date" data-field="fechaInicio" onchange="calcularDietas()">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Hora inicio</div>
+          <input type="time" data-field="horaInicio">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Fecha fin</div>
+          <input type="date" data-field="fechaFin" onchange="calcularDietas()">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Hora fin</div>
+          <input type="time" data-field="horaFin">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Horas</div>
+          <input type="text" data-field="horas" readonly
+            style="background:var(--calc-bg,#eaf4ef);color:var(--calc-text,#2a5c40);font-weight:600">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Lugar</div>
+          <input type="text" data-field="lugar" placeholder="Lugar"
+            oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:10px;color:var(--soft);margin-bottom:2px">Observaciones</div>
+          <input type="text" data-field="obs" placeholder="Texto libre (opcional)">
+        </div>
+      </div>
+      <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
+    `;
+  } else {
+    row.innerHTML = `
+      <span class="op-num" style="min-width:22px;text-align:center;font-weight:600;
+        color:var(--primary);font-size:13px;align-self:center">${n}</span>
+      <input type="date">
+      <input type="text" placeholder="Lugar" oninput="this.value=this.value.toUpperCase()">
+      <button type="button" class="btn-del" onclick="this.parentElement.remove();renumerarOperaciones('${tipo}');calcularDietas()">🗑</button>
+    `;
+  }
+
   lista.appendChild(row);
   fijarLimiteFechas();
   calcularDietas();
+}
+
+// ---- LEER DETALLE DE OPERACIONES ----
+function leerDetalleOp(tipo) {
+  const rows = document.querySelectorAll(`#lista-${tipo} .operacion-row`);
+  return Array.from(rows).map(row => {
+    if (tipo === '24horas' || tipo === 'pausa') {
+      const g = f => row.querySelector(`[data-field="${f}"]`)?.value || '';
+      return {
+        fechaInicio: g('fechaInicio'), horaInicio: g('horaInicio'),
+        fechaFin:    g('fechaFin'),    horaFin:    g('horaFin'),
+        horas:       parseFloat(g('horas')) || 0,
+        lugar:       g('lugar'),       obs:        g('obs'),
+        fecha:       g('fechaInicio'), // compatibilidad
+      };
+    } else {
+      const inputs = row.querySelectorAll('input');
+      return { fecha: inputs[0]?.value || '', lugar: inputs[1]?.value || '' };
+    }
+  });
 }
 
 // ---- GUARDAR REGISTRO ----
@@ -428,6 +490,10 @@ async function guardarRegistro() {
     nNacional:       getCount('nacional'),
     nUK:             getCount('uk'),
     nNDLF:           getCount('ndlf'),
+    opCarga:    leerDetalleOp('carga'),   opPalet:    leerDetalleOp('palet'),
+    opRebote:   leerDetalleOp('rebote'),  op24h:      leerDetalleOp('24horas'),
+    opPausa:    leerDetalleOp('pausa'),   opNacional: leerDetalleOp('nacional'),
+    opUK:       leerDetalleOp('uk'),      opNDLF:     leerDetalleOp('ndlf'),
     acarreos:        parseFloat(document.getElementById('acarreos').value)         || 0,
     dietaVlissingen: parseFloat(document.getElementById('dietaVlissingen').value)  || 0,
     extrasConcepto:  document.getElementById('extrasConcepto')?.value || '',
@@ -649,12 +715,22 @@ function cargarDatosParaPareja(reg, condPareja) {
         const rows  = lista.querySelectorAll('.operacion-row');
         const row   = rows[rows.length - 1];
         if (row && detalles[i]) {
-          const inputs = row.querySelectorAll('input');
-          if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
-          if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+          if (tipo === '24horas' || tipo === 'pausa') {
+            const d = detalles[i];
+            const f = (f,v) => { const el=row.querySelector(`[data-field="${f}"]`); if(el && v) el.value=v; };
+            f('fechaInicio', d.fechaInicio); f('horaInicio', d.horaInicio);
+            f('fechaFin',    d.fechaFin);    f('horaFin',    d.horaFin);
+            f('horas',       d.horas != null ? d.horas : '');
+            f('lugar',       d.lugar);       f('obs',         d.obs || '');
+          } else {
+            const inputs = row.querySelectorAll('input');
+            if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
+            if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+          }
         }
       }
     });
+
     // Modo resumido
     const rMap = { nCarga:'r-carga', nPalet:'r-palet', nRebote:'r-rebote',
                    n24h:'r-24horas', nPausa:'r-pausa', nNacional:'r-nacional',
@@ -1173,9 +1249,18 @@ async function editarRegistro(id) {
         const rows  = lista.querySelectorAll('.operacion-row');
         const row   = rows[rows.length - 1];
         if (row && detalles[i]) {
-          const inputs = row.querySelectorAll('input');
-          if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
-          if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+          if (tipo === '24horas' || tipo === 'pausa') {
+            const d = detalles[i];
+            const f = (f,v) => { const el=row.querySelector(`[data-field="${f}"]`); if(el && v!==undefined) el.value=v; };
+            f('fechaInicio', d.fechaInicio); f('horaInicio', d.horaInicio);
+            f('fechaFin',    d.fechaFin);    f('horaFin',    d.horaFin);
+            f('horas',       d.horas != null ? d.horas : '');
+            f('lugar',       d.lugar);       f('obs',         d.obs || '');
+          } else {
+            const inputs = row.querySelectorAll('input');
+            if (inputs[0] && detalles[i].fecha) inputs[0].value = detalles[i].fecha;
+            if (inputs[1] && detalles[i].lugar) inputs[1].value = detalles[i].lugar;
+          }
         }
       }
     });
