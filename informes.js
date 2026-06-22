@@ -852,3 +852,147 @@ function ecCerrarCola() {
   _emailCola    = [];
   _emailColaIdx = 0;
 }
+
+// =============================================
+// BLOQUE 5 — INFORME DE INTEGRIDAD DE DATOS
+// =============================================
+function previsualizarIntegridad() {
+  const regs  = getRegistros();
+  const conds = getConductores();
+  const problemas = [];
+
+  // 1. Conductores sin IBAN
+  conds.forEach(c => {
+    if (!c.IBAN) problemas.push({
+      tipo: '👤 Conductor', severidad: 'alta',
+      descripcion: `Sin IBAN`,
+      detalle: `${c.Codigo} — ${c.Nombre} (${c.PLATAFORMA})`
+    });
+  });
+
+  // 2. Conductores sin PrecioKmt
+  conds.forEach(c => {
+    if (!c.PrecioKmt || c.PrecioKmt <= 0) problemas.push({
+      tipo: '👤 Conductor', severidad: 'alta',
+      descripcion: `PrecioKmt = 0`,
+      detalle: `${c.Codigo} — ${c.Nombre} (${c.PLATAFORMA})`
+    });
+  });
+
+  // 3. Conductores sin NIF
+  conds.forEach(c => {
+    if (!c.NIF) problemas.push({
+      tipo: '👤 Conductor', severidad: 'media',
+      descripcion: `Sin NIF`,
+      detalle: `${c.Codigo} — ${c.Nombre}`
+    });
+  });
+
+  // 4. Conductores sin Email
+  conds.forEach(c => {
+    if (!c.Email) problemas.push({
+      tipo: '👤 Conductor', severidad: 'baja',
+      descripcion: `Sin email`,
+      detalle: `${c.Codigo} — ${c.Nombre}`
+    });
+  });
+
+  // 5. Registros liquidados sin número de liquidación
+  regs.filter(r => r.estadoDietas === 'liquidado' && !r.numLiquidacion).forEach(r => {
+    problemas.push({
+      tipo: '📋 Registro', severidad: 'media',
+      descripcion: `Liquidado sin número`,
+      detalle: `${r.codigoConductor} — ${r.nombreConductor} | ${r.fechaSalida} → ${r.fechaLlegada}`
+    });
+  });
+
+  // 6. Registros con total = 0
+  regs.filter(r => r.estadoDietas !== 'pendiente_validacion').forEach(r => {
+    const total = r.plataforma === 'CAUDETE' ? (r.resultado?.TOTAL||0) : (r.resultado?.sumDietas||0);
+    if (total <= 0) problemas.push({
+      tipo: '📋 Registro', severidad: 'alta',
+      descripcion: `Total dietas = 0 €`,
+      detalle: `${r.codigoConductor} — ${r.nombreConductor} | ${r.fechaSalida} → ${r.fechaLlegada} | ${r.plataforma}`
+    });
+  });
+
+  // 7. Registros con días trabajados = 0
+  regs.forEach(r => {
+    if (!r.diasTrabajados || r.diasTrabajados <= 0) problemas.push({
+      tipo: '📋 Registro', severidad: 'alta',
+      descripcion: `Días trabajados = 0`,
+      detalle: `${r.codigoConductor} — ${r.nombreConductor} | ${r.fechaSalida} → ${r.fechaLlegada}`
+    });
+  });
+
+  // 8. Registros con extras sin concepto
+  regs.filter(r => (r.extras||0) > 0 && !r.extrasConcepto).forEach(r => {
+    problemas.push({
+      tipo: '📋 Registro', severidad: 'media',
+      descripcion: `Extras sin concepto (${Number(r.extras).toLocaleString('es-ES',{minimumFractionDigits:2})} €)`,
+      detalle: `${r.codigoConductor} — ${r.nombreConductor} | ${r.fechaSalida} → ${r.fechaLlegada}`
+    });
+  });
+
+  // 9. Registros pendientes de validación > 7 días
+  const hace7dias = new Date(); hace7dias.setDate(hace7dias.getDate() - 7);
+  regs.filter(r => r.estadoDietas === 'pendiente_validacion').forEach(r => {
+    const creado = new Date(r.fechaCreacion || r.creadoEn || 0);
+    if (creado < hace7dias) problemas.push({
+      tipo: '⏳ Validación', severidad: 'media',
+      descripcion: `Pendiente de validación > 7 días`,
+      detalle: `${r.codigoConductor} — ${r.nombreConductor} | creado: ${creado.toLocaleDateString('es-ES')}`
+    });
+  });
+
+  // Mostrar resultados
+  const colSev = { alta: '#fee2e2', media: '#fef3c7', baja: '#f0fdf4' };
+  const txtSev = { alta: '#991b1b', media: '#92400e', baja: '#166534' };
+  const labelSev = { alta: '🔴 Alta', media: '🟡 Media', baja: '🟢 Baja' };
+
+  const resumen = `${problemas.length} problema(s) detectado(s) en ${regs.length} registros y ${conds.length} conductores`;
+
+  const headers = ['Tipo', 'Severidad', 'Descripción', 'Detalle'];
+  const filas   = problemas.map(p => ({
+    'Tipo':        p.tipo,
+    'Severidad':   labelSev[p.severidad],
+    'Descripción': p.descripcion,
+    'Detalle':     p.detalle,
+  }));
+
+  _informe = { tipo: 'integridad', datos: problemas, headers, filas, titulo: 'Informe de Integridad' };
+
+  if (!problemas.length) {
+    document.getElementById('inf-preview-empty').style.display = 'none';
+    document.getElementById('inf-preview-content').style.display = 'block';
+    document.getElementById('inf-preview-titulo').textContent = '✅ Sin problemas detectados';
+    document.getElementById('inf-preview-tabla').innerHTML =
+      `<div style="text-align:center;padding:40px;color:#166534;font-size:15px;font-weight:500">
+        ✅ Todos los datos están en orden. No se detectaron problemas.
+      </div>`;
+    return;
+  }
+
+  // Tabla con colores por severidad
+  let html = `<div style="margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1.5px solid #f59e0b;
+    border-radius:8px;font-size:13px;font-weight:500;color:#92400e">⚠️ ${resumen}</div>`;
+  html += `<table class="data-table" style="font-size:12px">
+    <thead><tr>
+      ${headers.map(h => `<th>${h}</th>`).join('')}
+    </tr></thead>
+    <tbody>`;
+  html += problemas.map(p => `
+    <tr style="background:${colSev[p.severidad]}">
+      <td style="white-space:nowrap">${p.tipo}</td>
+      <td style="white-space:nowrap;font-weight:600;color:${txtSev[p.severidad]}">${labelSev[p.severidad]}</td>
+      <td>${p.descripcion}</td>
+      <td style="font-size:11px;color:#555">${p.detalle}</td>
+    </tr>`).join('');
+  html += '</tbody></table>';
+
+  document.getElementById('inf-preview-empty').style.display = 'none';
+  document.getElementById('inf-preview-content').style.display = 'block';
+  document.getElementById('inf-preview-titulo').textContent = `🔍 Integridad — ${problemas.length} problema(s)`;
+  document.getElementById('btn-inf-email').style.display = 'none'; // No tiene sentido enviar esto por email
+  document.getElementById('inf-preview-tabla').innerHTML = html;
+}
