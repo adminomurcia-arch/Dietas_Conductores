@@ -505,17 +505,6 @@ async function guardarRegistro() {
     resultado,
   };
 
-  // ---- VALIDACIONES REFORZADAS (Bloque 1+2) ----
-  const { errores: errVal, avisos: avisosVal } = validarDatosRegistro(datosRegistro, plataforma, categoria, resultado);
-  if (errVal.length) {
-    showToast('⛔ ' + errVal[0], 'error');
-    return;
-  }
-  if (avisosVal.length) {
-    const msg = avisosVal.map((a, i) => `${i+1}. ${a}`).join('\n');
-    if (!confirm(`⚠️ Avisos antes de guardar:\n\n${msg}\n\n¿Continuar igualmente?`)) return;
-  }
-
   // Trazabilidad
   const ahora = new Date().toISOString();
   if (editId) {
@@ -569,14 +558,7 @@ async function guardarRegistro() {
         }
       }
     } catch(e) {
-      // Bloque 4: si es error de red/Firebase, guardar localmente
-      const esErrorRed = e.code === 'unavailable' || e.message?.toLowerCase().includes('network') || !navigator.onLine;
-      if (esErrorRed) {
-        syncGuardarPendiente(datosRegistro, 'add');
-        showToast('⚠️ Sin conexión — registro guardado localmente para sincronizar', 'error');
-      } else {
-        showToast(e.message || 'Error al guardar el registro', 'error');
-      }
+      showToast(e.message || 'Error al guardar el registro', 'error');
       return;
     }
   }
@@ -815,6 +797,71 @@ window.limpiarFiltrosHistorial = function limpiarFiltrosHistorial() {
   renderHistorial();
 };
 
+// ---- DETECTOR DE DUPLICADOS EN HISTORIAL ----
+function detectarDuplicadosHistorial(regs) {
+  // Mapa de parejas: codigo -> codigo_pareja
+  const parejas = new Map();
+  getConductores().forEach(c => {
+    if (c.PAREJA) parejas.set(String(c.Codigo).padStart(6,'0'), String(c.PAREJA).padStart(6,'0'));
+  });
+
+  // sonParejaDoble: dos registros de conductores que son pareja DOBLE entre sí
+  function sonParejaDoble(a, b) {
+    const codA = String(a.codigoConductor).padStart(6,'0');
+    const codB = String(b.codigoConductor).padStart(6,'0');
+    if (codA === codB) return false;
+    const esDobleA = (a.equipaje||'').toUpperCase() === 'DOBLE';
+    const esDobleB = (b.equipaje||'').toUpperCase() === 'DOBLE';
+    if (!esDobleA || !esDobleB) return false;
+    return parejas.get(codA) === codB || parejas.get(codB) === codA;
+  }
+
+  // resultado: Map id -> [motivo, ...]
+  const resultado = new Map();
+  const add = (id, motivo) => {
+    if (!resultado.has(id)) resultado.set(id, []);
+    if (!resultado.get(id).includes(motivo)) resultado.get(id).push(motivo);
+  };
+
+  for (let i = 0; i < regs.length; i++) {
+    for (let j = i + 1; j < regs.length; j++) {
+      const a = regs[i], b = regs[j];
+      const codA = String(a.codigoConductor).padStart(6,'0');
+      const codB = String(b.codigoConductor).padStart(6,'0');
+
+      // Caso 1: mismo conductor, mismas fechas
+      if (codA === codB && a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada) {
+        add(a.id, 'Caso 1: mismo conductor, fechas idénticas');
+        add(b.id, 'Caso 1: mismo conductor, fechas idénticas');
+      }
+
+      // Caso 2: misma tractora, mismas fechas o mismos km
+      if (a.tractora && b.tractora && a.tractora === b.tractora) {
+        const mismasFechas = a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada;
+        const mismosKm    = a.kmSalida && b.kmSalida && a.kmSalida === b.kmSalida && a.kmVuelta && a.kmVuelta === b.kmVuelta;
+        if (mismasFechas) {
+          add(a.id, `Caso 2: misma tractora (${a.tractora}), fechas idénticas`);
+          add(b.id, `Caso 2: misma tractora (${b.tractora}), fechas idénticas`);
+        }
+        if (mismosKm) {
+          add(a.id, `Caso 2: misma tractora (${a.tractora}), km idénticos`);
+          add(b.id, `Caso 2: misma tractora (${b.tractora}), km idénticos`);
+        }
+      }
+
+      // Caso 3: conductores distintos, mismas fechas y mismo totalKm — excluir parejas DOBLE
+      if (codA !== codB && !sonParejaDoble(a, b)) {
+        if (a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada
+            && a.totalKm && a.totalKm === b.totalKm) {
+          add(a.id, `Caso 3: conductores distintos con fechas y km idénticos`);
+          add(b.id, `Caso 3: conductores distintos con fechas y km idénticos`);
+        }
+      }
+    }
+  }
+  return resultado; // Map id -> [motivos]
+}
+
 function renderHistorial() {
   const lista     = document.getElementById('listaHistorial');
   const filtro    = (document.getElementById('filtroHistorial')?.value || '').toLowerCase();
@@ -841,16 +888,30 @@ function renderHistorial() {
     return;
   }
 
-  // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
-  const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
+  // Detectar duplicados sobre el conjunto filtrado
+  const dupMap = detectarDuplicadosHistorial(regs);
+
+  // Ordenar: duplicados primero, luego pendientes de validación, luego resto
+  const duplicados = regs.filter(r => dupMap.has(r.id))
     .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
-  const resto   = regs.filter(r => r.estadoDietas !== 'pendiente_validacion')
+  const pendVal = regs.filter(r => !dupMap.has(r.id) && r.estadoDietas === 'pendiente_validacion')
     .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
-  const ordenados = [...pendVal, ...resto];
+  const resto   = regs.filter(r => !dupMap.has(r.id) && r.estadoDietas !== 'pendiente_validacion')
+    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
+  const ordenados = [...duplicados, ...pendVal, ...resto];
 
   const fmt2 = v => v != null ? Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : '—';
 
-  let html = `<table class="hist-tabla">
+  // Cabecera de aviso si hay duplicados
+  let html = '';
+  if (duplicados.length) {
+    html += `<div style="margin:8px;padding:10px 12px;background:#fee2e2;border:1.5px solid #fca5a5;
+      border-radius:8px;font-size:12px;font-weight:600;color:#991b1b">
+      ⚠️ ${duplicados.length} registro(s) con posible duplicidad — revisar antes de liquidar
+    </div>`;
+  }
+
+  html += `<table class="hist-tabla">
     <thead><tr>
       <th>Conductor</th>
       <th>Plat.</th>
@@ -871,27 +932,31 @@ function renderHistorial() {
     const edDietas   = r.estadoDietas || 'pendiente';
     const edGastos   = r.estadoGastos || 'pendiente';
     const esPendVal  = edDietas === 'pendiente_validacion';
+    const esDup      = dupMap.has(r.id);
     const origenIcon = r.origenMovil ? '📱' : '🖥️';
-    const anomalias  = analizarAnomalias(r);
-    const warnIcon   = anomalias.length
-      ? `<span title="${anomalias.join('\n')}" style="cursor:help;color:#b45309;font-size:12px;margin-left:3px">⚠️</span>`
+    const rowStyle   = esDup
+      ? 'background:#fee2e2;border-left:3px solid #dc2626;'
+      : (esPendVal ? 'background:#fdf2f8;' : '');
+    const dupBadge   = esDup
+      ? `<span style="display:inline-block;margin-top:3px;font-size:10px;padding:2px 6px;
+           background:#dc2626;color:#fff;border-radius:6px;font-weight:700;letter-spacing:.3px"
+           title="${dupMap.get(r.id).join('&#10;')}">⚠️ DUPLICADO</span>`
       : '';
-    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : (anomalias.length ? 'background:#fffbeb;' : '');
 
     return `<tr style="${rowStyle}">
       <td>
         <span style="font-weight:600">${r.nombreConductor}</span>
         <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
         ${r.equipaje==='DOBLE' ? `<span style="font-size:10px;color:#92400e" title="Conductor DOBLE"> 👥</span>` : ''}
-        ${warnIcon}
         <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
+        <br>${dupBadge}
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
       <td style="font-size:12px;white-space:nowrap;text-align:right">${r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') : '—'}<br>${r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') : '—'}</td>
       <td style="text-align:center">${r.diasTrabajados || '—'}</td>
       <td style="font-size:11px;white-space:nowrap;text-align:right">${r.totalKm ? Number(r.totalKm).toLocaleString('es-ES') + ' km' : '—'}</td>
-      <td style="font-weight:600;white-space:nowrap;color:${esPendVal?'#9d174d':'#4a7c59'}">
+      <td style="font-weight:600;white-space:nowrap;color:${esDup?'#991b1b':(esPendVal?'#9d174d':'#4a7c59')}">
         ${esPendVal ? '⏳ Pendiente' : total}
       </td>
       <td>
@@ -1922,226 +1987,3 @@ window.enviarLiquidacionesMasivo = async function({ desde, hasta, plataforma, id
     showToast('Error al enviar: ' + err.message, 'error');
   }
 };
-
-// =============================================
-// BLOQUE 4 — REGISTRO LOCAL DE FALLOS FIREBASE
-// =============================================
-const SYNC_PENDING_KEY = 'dietas_sync_pending';
-
-function syncGuardarPendiente(datos, tipo) {
-  const lista = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '[]');
-  lista.push({
-    tipo,       // 'add' | 'update'
-    datos,
-    ts: new Date().toISOString(),
-    id: `p_${Date.now()}`
-  });
-  localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(lista));
-  syncActualizarPanel();
-}
-
-function syncEliminarPendiente(pid) {
-  const lista = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '[]')
-    .filter(x => x.id !== pid);
-  localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(lista));
-  syncActualizarPanel();
-}
-
-function syncActualizarPanel() {
-  const lista = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '[]');
-  const panel = document.getElementById('sync-panel');
-  const badge = document.getElementById('sync-badge');
-  if (!panel) return;
-  if (!lista.length) {
-    panel.style.display = 'none';
-    if (badge) badge.style.display = 'none';
-    return;
-  }
-  panel.style.display = 'flex';
-  if (badge) { badge.textContent = lista.length; badge.style.display = 'inline-flex'; }
-  const ul = document.getElementById('sync-lista');
-  if (!ul) return;
-  ul.innerHTML = lista.map(p => {
-    const fecha = new Date(p.ts).toLocaleString('es-ES');
-    const cond  = p.datos?.nombreConductor || '—';
-    const per   = p.datos?.fechaSalida ? `${p.datos.fechaSalida} → ${p.datos.fechaLlegada}` : '';
-    return `<li style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #fee2e2">
-      <span style="flex:1;font-size:12px">
-        <strong>${cond}</strong> ${per}<br>
-        <span style="color:#888;font-size:11px">${fecha} — ${p.tipo === 'add' ? 'Nuevo' : 'Edición'}</span>
-      </span>
-      <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:#166534"
-        onclick="syncReintentar('${p.id}')">🔄 Reintentar</button>
-      <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:#c0392b"
-        onclick="syncDescartar('${p.id}')">✕</button>
-    </li>`;
-  }).join('');
-}
-
-async function syncReintentar(pid) {
-  const lista  = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '[]');
-  const item   = lista.find(x => x.id === pid);
-  if (!item) return;
-  try {
-    if (item.tipo === 'add') {
-      await addRegistro(item.datos);
-    } else {
-      await updateRegistro(item.datos.id, item.datos);
-    }
-    syncEliminarPendiente(pid);
-    showToast('Registro sincronizado ✓', 'success');
-    renderHistorial();
-  } catch(e) {
-    showToast('Sigue sin poder guardar: ' + (e.message || e), 'error');
-  }
-}
-
-function syncDescartar(pid) {
-  if (!confirm('¿Descartar este registro pendiente? Se perderá.')) return;
-  syncEliminarPendiente(pid);
-  showToast('Registro descartado');
-}
-
-// Inicializar panel al arrancar
-window.addEventListener('load', () => syncActualizarPanel());
-
-// =============================================
-// BLOQUE 3 — INDICADORES ⚠️ EN HISTORIAL
-// =============================================
-function analizarAnomalias(r) {
-  const avisos = [];
-  const plataforma = r.plataforma || '';
-  const esCaudete  = plataforma === 'CAUDETE';
-  const total      = esCaudete ? (r.resultado?.TOTAL || 0) : (r.resultado?.sumDietas || 0);
-  const cat        = (r.categoria || '').toUpperCase();
-  const sinKm      = ['COMODIN','PESCADO'].includes(cat);
-
-  // Total cero o negativo (siempre sospechoso)
-  if (total <= 0 && r.estadoDietas !== 'pendiente_validacion') {
-    avisos.push('Total dietas = 0 €');
-  }
-
-  // Días trabajados = 0
-  if (!r.diasTrabajados || r.diasTrabajados <= 0) {
-    avisos.push('Días trabajados = 0');
-  }
-
-  // TJG/FILARDI sin ninguna operación ni km
-  if (!sinKm && !esCaudete) {
-    const totalOps = (r.nCarga||0)+(r.nPalet||0)+(r.nRebote||0)+(r.n24h||0)+
-                     (r.nPausa||0)+(r.nUK||0)+(r.nNDLF||0);
-    if (!r.totalKm && totalOps === 0 && !r.acarreos && !r.dietaVlissingen) {
-      avisos.push('Sin km ni operaciones');
-    }
-  }
-
-  // CAUDETE sin operaciones caudete
-  if (esCaudete) {
-    const totalOpsC = (r.nCarga||0)+(r.nPalet||0)+(r.nRebote||0)+(r.nNacional||0)+(r.nDomingos||0)+(r.nFestivos||0);
-    if (totalOpsC === 0 && !r.restoHoras) {
-      avisos.push('Sin operaciones CAUDETE');
-    }
-  }
-
-  // Total anormalmente alto (>3000 para TJG/FILARDI, >5000 para CAUDETE)
-  const umbralAlto = esCaudete ? 5000 : 3000;
-  if (total > umbralAlto) {
-    avisos.push(`Total alto: ${total.toLocaleString('es-ES',{minimumFractionDigits:2})} €`);
-  }
-
-  // Extras sin concepto
-  if ((r.extras || 0) > 0 && !r.extrasConcepto) {
-    avisos.push('Extras sin concepto');
-  }
-
-  // Conductor sin IBAN (no se podrá pagar)
-  const cond = typeof getConductores === 'function'
-    ? getConductores().find(c => c.Codigo === String(r.codigoConductor).padStart(6,'0'))
-    : null;
-  if (cond && !cond.IBAN) avisos.push('Conductor sin IBAN');
-
-  return avisos;
-}
-
-// =============================================
-// BLOQUE 1+2 — VALIDACIONES REFORZADAS
-// =============================================
-function validarDatosRegistro(datosRegistro, plataforma, categoria, resultado) {
-  const errores  = [];
-  const avisos   = [];
-  const sinKm    = ['COMODIN','PESCADO'].includes(categoria);
-  const esCaudete = plataforma === 'CAUDETE';
-  const esFilardi = plataforma === 'FILARDI';
-
-  // --- ERRORES BLOQUEANTES ---
-
-  // Total calculado = 0 (datos incompletos)
-  const total = esCaudete ? (resultado?.TOTAL || 0) : (resultado?.sumDietas || 0);
-  if (total <= 0) {
-    errores.push('El total calculado es 0 €. Revisa los datos antes de guardar.');
-  }
-
-  // Extras > 0 sin concepto
-  if ((datosRegistro.extras || 0) > 0 && !datosRegistro.extrasConcepto) {
-    errores.push('Has introducido un importe en "Extras" pero no has indicado el concepto.');
-  }
-
-  // CAUDETE: horas negativas o días = 0
-  if (esCaudete && datosRegistro.diasTrabajados <= 0) {
-    errores.push('CAUDETE: Los días trabajados son 0. Revisa las horas de salida y llegada.');
-  }
-
-  // --- AVISOS (no bloquean, piden confirmación) ---
-
-  // Km total sospechosamente bajo (<300 km para más de 1 día, no COMODIN/PESCADO)
-  if (!sinKm && datosRegistro.totalKm && datosRegistro.totalKm < 300 && datosRegistro.diasTrabajados > 1) {
-    avisos.push(`Km total muy bajo (${datosRegistro.totalKm.toLocaleString('es-ES')} km) para ${datosRegistro.diasTrabajados} días.`);
-  }
-
-  // Km total muy alto (>6000 km)
-  if (!sinKm && datosRegistro.totalKm > 6000) {
-    avisos.push(`Km total muy alto: ${datosRegistro.totalKm.toLocaleString('es-ES')} km.`);
-  }
-
-  // TJG sin operaciones (0 cargas, 0 rebotes, etc.)
-  if (plataforma === 'TJG') {
-    const totalOps = (datosRegistro.nCarga||0)+(datosRegistro.nPalet||0)+
-                     (datosRegistro.nRebote||0)+(datosRegistro.n24h||0)+
-                     (datosRegistro.nPausa||0)+(datosRegistro.acarreos||0)+
-                     (datosRegistro.dietaVlissingen||0);
-    if (totalOps === 0) {
-      avisos.push('TJG: No se han registrado operaciones (cargas, rebotes, 24H…).');
-    }
-  }
-
-  // FILARDI sin operaciones
-  if (esFilardi) {
-    const totalOpsF = (datosRegistro.nRebote||0)+(datosRegistro.nUK||0)+
-                      (datosRegistro.nNDLF||0)+(datosRegistro.acarreos||0)+
-                      (datosRegistro.dietaVlissingen||0);
-    if (totalOpsF === 0) {
-      avisos.push('FILARDI: No se han registrado operaciones (rebotes, UK, NDLF…).');
-    }
-  }
-
-  // Total muy alto
-  const umbralAlto = esCaudete ? 5000 : 3000;
-  if (total > umbralAlto) {
-    avisos.push(`Total dietas elevado: ${total.toLocaleString('es-ES',{minimumFractionDigits:2})} €. ¿Es correcto?`);
-  }
-
-  // Conductor sin IBAN (no bloqueante, pero importante para el pago)
-  const cond = typeof getConductores === 'function'
-    ? getConductores().find(c => c.Codigo === String(datosRegistro.codigoConductor).padStart(6,'0'))
-    : null;
-  if (cond && !cond.IBAN) {
-    avisos.push(`El conductor ${datosRegistro.nombreConductor} no tiene IBAN registrado — no se podrá generar pago.`);
-  }
-
-  // Conductor sin PrecioKmt (→ total = 0 en TJG/FILARDI/PESCADO)
-  if (cond && (!cond.PrecioKmt || cond.PrecioKmt <= 0) && !esCaudete) {
-    avisos.push(`El conductor ${datosRegistro.nombreConductor} tiene PrecioKmt = 0.`);
-  }
-
-  return { errores, avisos };
-}
