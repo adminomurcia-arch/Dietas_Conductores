@@ -758,6 +758,7 @@ function limpiarFormulario() {
   // Limpiar también el campo visual de búsqueda de conductor
   const buscarEl = document.getElementById('buscarConductorInput');
   if (buscarEl) buscarEl.value = '';
+  if (buscarEl) buscarEl.removeAttribute('readOnly');
   const sugsEl = document.getElementById('conductorSugerencias');
   if (sugsEl) { sugsEl.style.display = 'none'; sugsEl.innerHTML = ''; }
   ['nombreConductor','plataforma','categoria','equipaje','pareja'].forEach(id =>
@@ -797,71 +798,6 @@ window.limpiarFiltrosHistorial = function limpiarFiltrosHistorial() {
   renderHistorial();
 };
 
-// ---- DETECTOR DE DUPLICADOS EN HISTORIAL ----
-function detectarDuplicadosHistorial(regs) {
-  // Mapa de parejas: codigo -> codigo_pareja
-  const parejas = new Map();
-  getConductores().forEach(c => {
-    if (c.PAREJA) parejas.set(String(c.Codigo).padStart(6,'0'), String(c.PAREJA).padStart(6,'0'));
-  });
-
-  // sonParejaDoble: dos registros de conductores que son pareja DOBLE entre sí
-  function sonParejaDoble(a, b) {
-    const codA = String(a.codigoConductor).padStart(6,'0');
-    const codB = String(b.codigoConductor).padStart(6,'0');
-    if (codA === codB) return false;
-    const esDobleA = (a.equipaje||'').toUpperCase() === 'DOBLE';
-    const esDobleB = (b.equipaje||'').toUpperCase() === 'DOBLE';
-    if (!esDobleA || !esDobleB) return false;
-    return parejas.get(codA) === codB || parejas.get(codB) === codA;
-  }
-
-  // resultado: Map id -> [motivo, ...]
-  const resultado = new Map();
-  const add = (id, motivo) => {
-    if (!resultado.has(id)) resultado.set(id, []);
-    if (!resultado.get(id).includes(motivo)) resultado.get(id).push(motivo);
-  };
-
-  for (let i = 0; i < regs.length; i++) {
-    for (let j = i + 1; j < regs.length; j++) {
-      const a = regs[i], b = regs[j];
-      const codA = String(a.codigoConductor).padStart(6,'0');
-      const codB = String(b.codigoConductor).padStart(6,'0');
-
-      // Caso 1: mismo conductor, mismas fechas
-      if (codA === codB && a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada) {
-        add(a.id, 'Caso 1: mismo conductor, fechas idénticas');
-        add(b.id, 'Caso 1: mismo conductor, fechas idénticas');
-      }
-
-      // Caso 2: misma tractora, mismas fechas o mismos km
-      if (a.tractora && b.tractora && a.tractora === b.tractora) {
-        const mismasFechas = a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada;
-        const mismosKm    = a.kmSalida && b.kmSalida && a.kmSalida === b.kmSalida && a.kmVuelta && a.kmVuelta === b.kmVuelta;
-        if (mismasFechas) {
-          add(a.id, `Caso 2: misma tractora (${a.tractora}), fechas idénticas`);
-          add(b.id, `Caso 2: misma tractora (${b.tractora}), fechas idénticas`);
-        }
-        if (mismosKm) {
-          add(a.id, `Caso 2: misma tractora (${a.tractora}), km idénticos`);
-          add(b.id, `Caso 2: misma tractora (${b.tractora}), km idénticos`);
-        }
-      }
-
-      // Caso 3: conductores distintos, mismas fechas y mismo totalKm — excluir parejas DOBLE
-      if (codA !== codB && !sonParejaDoble(a, b)) {
-        if (a.fechaSalida && a.fechaSalida === b.fechaSalida && a.fechaLlegada === b.fechaLlegada
-            && a.totalKm && a.totalKm === b.totalKm) {
-          add(a.id, `Caso 3: conductores distintos con fechas y km idénticos`);
-          add(b.id, `Caso 3: conductores distintos con fechas y km idénticos`);
-        }
-      }
-    }
-  }
-  return resultado; // Map id -> [motivos]
-}
-
 function renderHistorial() {
   const lista     = document.getElementById('listaHistorial');
   const filtro    = (document.getElementById('filtroHistorial')?.value || '').toLowerCase();
@@ -888,30 +824,16 @@ function renderHistorial() {
     return;
   }
 
-  // Detectar duplicados sobre el conjunto filtrado
-  const dupMap = detectarDuplicadosHistorial(regs);
-
-  // Ordenar: duplicados primero, luego pendientes de validación, luego resto
-  const duplicados = regs.filter(r => dupMap.has(r.id))
+  // Separar pendientes de validación y el resto; dentro de cada grupo, último primero
+  const pendVal = regs.filter(r => r.estadoDietas === 'pendiente_validacion')
     .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
-  const pendVal = regs.filter(r => !dupMap.has(r.id) && r.estadoDietas === 'pendiente_validacion')
+  const resto   = regs.filter(r => r.estadoDietas !== 'pendiente_validacion')
     .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
-  const resto   = regs.filter(r => !dupMap.has(r.id) && r.estadoDietas !== 'pendiente_validacion')
-    .sort((a,b) => b.fechaSalida.localeCompare(a.fechaSalida));
-  const ordenados = [...duplicados, ...pendVal, ...resto];
+  const ordenados = [...pendVal, ...resto];
 
   const fmt2 = v => v != null ? Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : '—';
 
-  // Cabecera de aviso si hay duplicados
-  let html = '';
-  if (duplicados.length) {
-    html += `<div style="margin:8px;padding:10px 12px;background:#fee2e2;border:1.5px solid #fca5a5;
-      border-radius:8px;font-size:12px;font-weight:600;color:#991b1b">
-      ⚠️ ${duplicados.length} registro(s) con posible duplicidad — revisar antes de liquidar
-    </div>`;
-  }
-
-  html += `<table class="hist-tabla">
+  let html = `<table class="hist-tabla">
     <thead><tr>
       <th>Conductor</th>
       <th>Plat.</th>
@@ -932,16 +854,8 @@ function renderHistorial() {
     const edDietas   = r.estadoDietas || 'pendiente';
     const edGastos   = r.estadoGastos || 'pendiente';
     const esPendVal  = edDietas === 'pendiente_validacion';
-    const esDup      = dupMap.has(r.id);
     const origenIcon = r.origenMovil ? '📱' : '🖥️';
-    const rowStyle   = esDup
-      ? 'background:#fee2e2;border-left:3px solid #dc2626;'
-      : (esPendVal ? 'background:#fdf2f8;' : '');
-    const dupBadge   = esDup
-      ? `<span style="display:inline-block;margin-top:3px;font-size:10px;padding:2px 6px;
-           background:#dc2626;color:#fff;border-radius:6px;font-weight:700;letter-spacing:.3px"
-           title="${dupMap.get(r.id).join('&#10;')}">⚠️ DUPLICADO</span>`
-      : '';
+    const rowStyle   = esPendVal ? 'background:#fdf2f8;' : '';
 
     return `<tr style="${rowStyle}">
       <td>
@@ -949,14 +863,13 @@ function renderHistorial() {
         <span style="font-size:10px;margin-left:4px">${origenIcon}</span>
         ${r.equipaje==='DOBLE' ? `<span style="font-size:10px;color:#92400e" title="Conductor DOBLE"> 👥</span>` : ''}
         <br><span style="font-size:11px;color:#888">${r.codigoConductor}</span>
-        <br>${dupBadge}
       </td>
       <td><span class="hist-plat plat-${r.plataforma}-badge">${r.plataforma}</span></td>
       <td style="font-size:12px;white-space:nowrap">${r.fechaSalida}<br>${r.fechaLlegada}</td>
       <td style="font-size:12px;white-space:nowrap;text-align:right">${r.kmSalida ? Number(r.kmSalida).toLocaleString('es-ES') : '—'}<br>${r.kmVuelta ? Number(r.kmVuelta).toLocaleString('es-ES') : '—'}</td>
       <td style="text-align:center">${r.diasTrabajados || '—'}</td>
       <td style="font-size:11px;white-space:nowrap;text-align:right">${r.totalKm ? Number(r.totalKm).toLocaleString('es-ES') + ' km' : '—'}</td>
-      <td style="font-weight:600;white-space:nowrap;color:${esDup?'#991b1b':(esPendVal?'#9d174d':'#4a7c59')}">
+      <td style="font-weight:600;white-space:nowrap;color:${esPendVal?'#9d174d':'#4a7c59'}">
         ${esPendVal ? '⏳ Pendiente' : total}
       </td>
       <td>
