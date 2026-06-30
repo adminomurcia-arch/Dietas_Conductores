@@ -1415,7 +1415,9 @@ async function liqDietasLiquidar() {
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   if (!confirm(`¿Liquidar ${ids.length} registro(s)?`)) return;
 
-  await liquidarRegistros(ids);
+  const numLiq = prompt('Número de liquidación:', generarNumLiquidacion());
+  if (numLiq === null) return; // canceló el prompt
+  await liquidarRegistros(ids, numLiq.trim().toUpperCase());
   showToast(`${ids.length} registros liquidados ✓`, 'success');
   cargarLiqDietas();
 }
