@@ -682,8 +682,8 @@ function generarCuerpoEmail(conductor, registros) {
         [fmtN(r.nFestivos), 'Festivos', null],
         [fmtN(r.restoHoras), 'Resto horas', null],
       ] : []),
-      [fmtN(r.acarreos),        'Acarreos',         null],
-      [fmtN(r.dietaVlissingen), 'Vlissingen',       null],
+      [fmtN(r.acarreos),        'Acarreos Vlissingen',  null],
+      [fmtN(r.dietaVlissingen), 'Dietas Vlissingen',   null],
     ].filter(([v]) => v !== null);
 
     if (opsDef.length) {
