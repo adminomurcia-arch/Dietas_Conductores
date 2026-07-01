@@ -45,6 +45,12 @@ function showTab(tab) {
   el.classList.add('active');
   event.currentTarget.classList.add('active');
   fijarLimiteFechas();
+  // Poblar multi-select de liquidaciones al abrir la pestaña de informes
+  if (tab === 'informes' && typeof msPoblar === 'function') {
+    msPoblar('conductor', '');
+    msPoblar('gestoria', '');
+    msPoblar('rrhh', '');
+  }
 }
 
 // ---- MODO REGISTRO ----
