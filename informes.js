@@ -23,51 +23,114 @@ function filtrarRegistros(desde, hasta, plataforma, conductorCod) {
 
 function fmt2(n) { return parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-// ---- DESPLEGABLES DE NÚM. LIQUIDACIÓN ----
-function poblarNumLiq(plataforma, selectId) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">Todas las liquidaciones</option>';
+// ---- MULTI-SELECT LIQUIDACIONES ----
+// msId: 'conductor' | 'gestoria' | 'rrhh'
+
+function msPoblar(msId, plataforma) {
+  const drop = document.getElementById(`ms-drop-${msId}`);
+  if (!drop) return;
+  // Guardar selección actual
+  const seleccionados = msGetSeleccionados(msId);
+  // Reconstruir items (manteniendo el "Todas")
+  const todas = drop.querySelector('.ms-todas');
+  drop.innerHTML = '';
+  drop.appendChild(todas);
   const nums = [...new Set(
     getRegistros()
-      .filter(r => r.estadoDietas === 'liquidado' && r.numLiquidacion)
+      .filter(r => r.numLiquidacion)
       .filter(r => !plataforma || r.plataforma === plataforma)
       .map(r => r.numLiquidacion)
   )].sort();
   nums.forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n;
-    opt.textContent = n;
-    if (n === prev) opt.selected = true;
-    sel.appendChild(opt);
+    const lbl = document.createElement('label');
+    lbl.className = 'ms-liq-item';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.value = n;
+    chk.checked = seleccionados.length === 0 || seleccionados.includes(n);
+    chk.onchange = () => msActualizarLabel(msId);
+    lbl.appendChild(chk);
+    lbl.appendChild(document.createTextNode(n));
+    drop.appendChild(lbl);
   });
+  msActualizarLabel(msId);
 }
 
+function msToggle(msId) {
+  const drop = document.getElementById(`ms-drop-${msId}`);
+  const trigger = drop?.previousElementSibling;
+  const isOpen = drop?.classList.contains('open');
+  // Cerrar todos los demás
+  document.querySelectorAll('.ms-liq-dropdown.open').forEach(d => {
+    d.classList.remove('open');
+    d.previousElementSibling?.classList.remove('open');
+  });
+  if (!isOpen) {
+    drop?.classList.add('open');
+    trigger?.classList.add('open');
+    // Poblar si está vacío (solo el "Todas")
+    if (drop && drop.querySelectorAll('.ms-liq-item:not(.ms-todas)').length === 0) {
+      const plat = msGetPlat(msId);
+      msPoblar(msId, plat);
+    }
+  }
+}
+
+function msTodas(msId) {
+  const todas = document.getElementById(`ms-todas-${msId}`);
+  const drop  = document.getElementById(`ms-drop-${msId}`);
+  drop.querySelectorAll('.ms-liq-item:not(.ms-todas) input').forEach(c => {
+    c.checked = todas.checked;
+  });
+  msActualizarLabel(msId);
+}
+
+function msActualizarLabel(msId) {
+  const drop   = document.getElementById(`ms-drop-${msId}`);
+  const todas  = document.getElementById(`ms-todas-${msId}`);
+  const items  = Array.from(drop.querySelectorAll('.ms-liq-item:not(.ms-todas) input'));
+  const marcados = items.filter(c => c.checked);
+  todas.checked = marcados.length === items.length;
+  const label = document.getElementById(`ms-label-${msId}`);
+  if (!label) return;
+  if (marcados.length === 0 || marcados.length === items.length) {
+    label.textContent = 'Todas las liquidaciones';
+  } else if (marcados.length === 1) {
+    label.textContent = marcados[0].value;
+  } else {
+    label.textContent = `${marcados.length} liquidaciones`;
+  }
+}
+
+function msGetSeleccionados(msId) {
+  const drop = document.getElementById(`ms-drop-${msId}`);
+  if (!drop) return [];
+  return Array.from(drop.querySelectorAll('.ms-liq-item:not(.ms-todas) input:checked')).map(c => c.value);
+}
+
+function msGetPlat(msId) {
+  if (msId === 'conductor') return document.getElementById('inf-conductor-plataforma')?.value || '';
+  if (msId === 'gestoria')  return document.getElementById('inf-plataforma-gestoria')?.value  || '';
+  if (msId === 'rrhh')      return document.getElementById('inf-rrhh-plataforma')?.value      || '';
+  return '';
+}
+
+// Cerrar dropdown al hacer click fuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-liq-wrap')) {
+    document.querySelectorAll('.ms-liq-dropdown.open').forEach(d => {
+      d.classList.remove('open');
+      d.previousElementSibling?.classList.remove('open');
+    });
+  }
+});
+
+// Poblar al cambiar plataforma (mantener compatibilidad con onchange existentes)
 function toggleConductorNumLiq() {
-  const estado = document.getElementById('inf-conductor-estado')?.value;
-  const plat   = document.getElementById('inf-conductor-plataforma')?.value || '';
-  const field  = document.getElementById('field-conductor-num-liq');
-  if (estado === 'liquidado') {
-    poblarNumLiq(plat, 'inf-conductor-num-liq');
-    field.style.display = '';
-  } else {
-    field.style.display = 'none';
-    document.getElementById('inf-conductor-num-liq').value = '';
-  }
+  msPoblar('conductor', document.getElementById('inf-conductor-plataforma')?.value || '');
 }
-
 function toggleGestoriaNumLiq() {
-  const estado = document.getElementById('inf-gest-estado')?.value;
-  const plat   = document.getElementById('inf-plataforma-gestoria')?.value || '';
-  const field  = document.getElementById('field-gest-num-liq');
-  if (estado === 'liquidado') {
-    poblarNumLiq(plat, 'inf-gest-num-liq');
-    field.style.display = '';
-  } else {
-    field.style.display = 'none';
-    document.getElementById('inf-gest-num-liq').value = '';
-  }
+  msPoblar('gestoria', document.getElementById('inf-plataforma-gestoria')?.value || '');
 }
 
 // ============================================================
@@ -83,11 +146,11 @@ function previsualizarConductor() {
   const plat     = document.getElementById('inf-conductor-plataforma')?.value || '';
   const equipaje = document.getElementById('inf-conductor-equipaje')?.value   || '';
   const estado   = document.getElementById('inf-conductor-estado')?.value     || '';
-  const numLiq   = document.getElementById('inf-conductor-num-liq')?.value    || '';
+  const numLiqs  = msGetSeleccionados('conductor');
   let regsRaw = filtrarRegistros(desde, hasta, plat, cod);
-  if (equipaje) regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
-  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  if (numLiq)   regsRaw = regsRaw.filter(r => r.numLiquidacion === numLiq);
+  if (equipaje)        regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
+  if (estado)          regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
   const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -184,10 +247,10 @@ function previsualizarGestoria() {
   const desde   = document.getElementById('inf-gest-desde').value;
   const hasta   = document.getElementById('inf-gest-hasta').value;
   const estado  = document.getElementById('inf-gest-estado')?.value  || '';
-  const numLiq  = document.getElementById('inf-gest-num-liq')?.value || '';
+  const numLiqs = msGetSeleccionados('gestoria');
   let regsRaw  = filtrarRegistros(desde, hasta, plat, '');
-  if (estado)  regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  if (numLiq)  regsRaw = regsRaw.filter(r => r.numLiquidacion === numLiq);
+  if (estado)         regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiqs.length) regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
   const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -332,9 +395,11 @@ function previsualizarRRHH() {
   const estado   = document.getElementById('inf-rrhh-estado').value;
   const desde    = document.getElementById('inf-rrhh-desde').value;
   const hasta    = document.getElementById('inf-rrhh-hasta').value;
+  const numLiqs  = msGetSeleccionados('rrhh');
   let regsRaw    = filtrarRegistros(desde, hasta, plat, '');
-  if (equipaje) regsRaw = regsRaw.filter(r => r.equipaje === equipaje);
-  if (estado)   regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (equipaje)        regsRaw = regsRaw.filter(r => r.equipaje === equipaje);
+  if (estado)          regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
+  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
   const regs = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
