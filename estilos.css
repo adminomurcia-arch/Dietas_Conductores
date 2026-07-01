@@ -599,3 +599,53 @@ input.calc { background: var(--calc-bg); color: var(--calc-text); font-family: v
   .form-registro { padding: 0; }
   .form-section { box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* ---- MULTI-SELECT LIQUIDACIONES ---- */
+.ms-liq-wrap {
+  position: relative;
+}
+.ms-liq-trigger {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+.ms-liq-trigger:hover { border-color: var(--primary); }
+.ms-liq-trigger .ms-arrow { font-size: 10px; color: var(--soft); transition: transform 0.2s; }
+.ms-liq-trigger.open .ms-arrow { transform: rotate(180deg); }
+.ms-liq-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 200;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.ms-liq-dropdown.open { display: block; }
+.ms-liq-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ms-liq-item:hover { background: var(--surface); }
+.ms-liq-item input[type="checkbox"] { cursor: pointer; accent-color: var(--primary); }
+.ms-liq-item.ms-todas { font-weight: 600; border-bottom: 1px solid var(--border); }
