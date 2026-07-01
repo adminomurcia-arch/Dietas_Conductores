@@ -409,8 +409,10 @@ function escucharRegistros(onReady) {
         primeraCarga = false;
         if (typeof onReady === 'function') onReady();
       }
-      if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
-      if (typeof window.renderHistorial === 'function') window.renderHistorial();
+      if (!window._suprimirListener) {
+        if (typeof _onRegistrosChange === 'function') _onRegistrosChange();
+        if (typeof window.renderHistorial === 'function') window.renderHistorial();
+      }
     },
     err => console.error('Listener error:', err)
   );
