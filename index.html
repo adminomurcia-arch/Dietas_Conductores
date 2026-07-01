@@ -514,11 +514,19 @@
             <input type="date" id="inf-hasta">
           </div>
         </div>
-        <div class="field" id="field-conductor-num-liq" style="display:none">
+        <div class="field" id="field-conductor-num-liq">
           <label>Núm. Liquidación</label>
-          <select id="inf-conductor-num-liq">
-            <option value="">Todas las liquidaciones</option>
-          </select>
+          <div class="ms-liq-wrap" id="ms-wrap-conductor">
+            <button type="button" class="ms-liq-trigger" onclick="msToggle('conductor')">
+              <span id="ms-label-conductor">Todas las liquidaciones</span>
+              <span class="ms-arrow">▼</span>
+            </button>
+            <div class="ms-liq-dropdown" id="ms-drop-conductor">
+              <label class="ms-liq-item ms-todas">
+                <input type="checkbox" id="ms-todas-conductor" checked onchange="msTodas('conductor')"> Todas
+              </label>
+            </div>
+          </div>
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarConductor()">🔍 Previsualizar</button>
       </div>
@@ -559,11 +567,19 @@
             <option value="liquidado">Liquidado</option>
           </select>
         </div>
-        <div class="field" id="field-gest-num-liq" style="display:none">
+        <div class="field" id="field-gest-num-liq">
           <label>Núm. Liquidación</label>
-          <select id="inf-gest-num-liq">
-            <option value="">Todas las liquidaciones</option>
-          </select>
+          <div class="ms-liq-wrap" id="ms-wrap-gestoria">
+            <button type="button" class="ms-liq-trigger" onclick="msToggle('gestoria')">
+              <span id="ms-label-gestoria">Todas las liquidaciones</span>
+              <span class="ms-arrow">▼</span>
+            </button>
+            <div class="ms-liq-dropdown" id="ms-drop-gestoria">
+              <label class="ms-liq-item ms-todas">
+                <input type="checkbox" id="ms-todas-gestoria" checked onchange="msTodas('gestoria')"> Todas
+              </label>
+            </div>
+          </div>
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="previsualizarGestoria()">🔍 Previsualizar</button>
       </div>
@@ -615,7 +631,17 @@
         </div>
         <div class="field">
           <label>Núm. Liquidación</label>
-          <input type="text" id="inf-rrhh-num-liq" placeholder="LIQ-2025-06-001" style="text-transform:uppercase">
+          <div class="ms-liq-wrap" id="ms-wrap-rrhh">
+            <button type="button" class="ms-liq-trigger" onclick="msToggle('rrhh')">
+              <span id="ms-label-rrhh">Todas las liquidaciones</span>
+              <span class="ms-arrow">▼</span>
+            </button>
+            <div class="ms-liq-dropdown" id="ms-drop-rrhh">
+              <label class="ms-liq-item ms-todas">
+                <input type="checkbox" id="ms-todas-rrhh" checked onchange="msTodas('rrhh')"> Todas
+              </label>
+            </div>
+          </div>
         </div>
         <div class="field" id="inf-rrhh-field-conductor" style="display:none">
           <label>Conductor (código)</label>
