@@ -1561,7 +1561,11 @@ async function liqGastosPagar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-g:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   if (!confirm(`¿Marcar como pagados los gastos de ${ids.length} registro(s)?`)) return;
-  await pagarGastosRegistros(ids);
+  const numLiq = prompt('Número de liquidación:', generarNumLiquidacion());
+  if (numLiq === null) return;
+  window._suprimirListener = true;
+  await pagarGastosRegistros(ids, numLiq.trim().toUpperCase());
+  window._suprimirListener = false;
   showToast(`${ids.length} registros marcados como pagados ✓`, 'success');
   cargarLiqGastos();
 }
@@ -1596,23 +1600,54 @@ function generarXMLSEPA() {
   const checks = Array.from(document.querySelectorAll('.chk-liq-g:checked'));
   const fecha  = new Date().toISOString().slice(0,10);
   const msgId  = `MSG${Date.now()}`;
+  const tipo   = document.querySelector('input[name="sepa-tipo"]:checked')?.value || 'detallado';
   let totalSum = 0;
   let txs = '';
+  let nTxs = 0;
 
-  checks.forEach((c, i) => {
-    const importe = parseFloat(c.dataset.total || 0);
-    if (!importe || !c.dataset.iban) return;
-    totalSum += importe;
-    txs += `
+  if (tipo === 'acumulado') {
+    // Agrupar por conductor (dataset.codigo) y sumar importes
+    const mapa = {};
+    checks.forEach(c => {
+      const importe = parseFloat(c.dataset.total || 0);
+      const ibanC   = (c.dataset.iban || '').replace(/\s/g, '');
+      if (!importe || !ibanC) return;
+      const cod = c.dataset.codigo || ibanC;
+      if (!mapa[cod]) mapa[cod] = { nombre: c.dataset.nombre, iban: ibanC, total: 0 };
+      mapa[cod].total += importe;
+    });
+    Object.values(mapa).forEach((m, i) => {
+      totalSum += m.total;
+      nTxs++;
+      txs += `
+    <CdtTrfTxInf>
+      <PmtId><EndToEndId>TX${i+1}-${msgId}</EndToEndId></PmtId>
+      <Amt><InstdAmt Ccy="EUR">${m.total.toFixed(2)}</InstdAmt></Amt>
+      <CdtrAgt><FinInstnId><BICFI>${bic}</BICFI></FinInstnId></CdtrAgt>
+      <Cdtr><Nm>${m.nombre.substring(0,70)}</Nm></Cdtr>
+      <CdtrAcct><Id><IBAN>${m.iban}</IBAN></Id></CdtrAcct>
+      <RmtInf><Ustrd>${concepto.substring(0,140)}</Ustrd></RmtInf>
+    </CdtTrfTxInf>`;
+    });
+  } else {
+    // Detallado: una línea por registro
+    checks.forEach((c, i) => {
+      const importe = parseFloat(c.dataset.total || 0);
+      const ibanC   = (c.dataset.iban || '').replace(/\s/g, '');
+      if (!importe || !ibanC) return;
+      totalSum += importe;
+      nTxs++;
+      txs += `
     <CdtTrfTxInf>
       <PmtId><EndToEndId>TX${i+1}-${msgId}</EndToEndId></PmtId>
       <Amt><InstdAmt Ccy="EUR">${importe.toFixed(2)}</InstdAmt></Amt>
       <CdtrAgt><FinInstnId><BICFI>${bic}</BICFI></FinInstnId></CdtrAgt>
       <Cdtr><Nm>${c.dataset.nombre.substring(0,70)}</Nm></Cdtr>
-      <CdtrAcct><Id><IBAN>${c.dataset.iban}</IBAN></Id></CdtrAcct>
+      <CdtrAcct><Id><IBAN>${ibanC}</IBAN></Id></CdtrAcct>
       <RmtInf><Ustrd>${concepto.substring(0,140)}</Ustrd></RmtInf>
     </CdtTrfTxInf>`;
-  });
+    });
+  }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
@@ -1620,14 +1655,14 @@ function generarXMLSEPA() {
     <GrpHdr>
       <MsgId>${msgId}</MsgId>
       <CreDtTm>${new Date().toISOString().slice(0,19)}</CreDtTm>
-      <NbOfTxs>${checks.length}</NbOfTxs>
+      <NbOfTxs>${nTxs}</NbOfTxs>
       <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
       <InitgPty><Nm>${nombre.substring(0,70)}</Nm></InitgPty>
     </GrpHdr>
     <PmtInf>
       <PmtInfId>PMT${msgId}</PmtInfId>
       <PmtMtd>TRF</PmtMtd>
-      <NbOfTxs>${checks.length}</NbOfTxs>
+      <NbOfTxs>${nTxs}</NbOfTxs>
       <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
       <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
       <ReqdExctnDt>${fecha}</ReqdExctnDt>
