@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -762,19 +762,33 @@
           <span id="liq-g-cont-dup" style="font-size:11px;padding:4px 10px;border-radius:6px;
                 background:#f0fdf4;color:#166534">✅ Sin duplicados</span>
           <span id="liq-g-total" class="liq-total">0,00 €</span>
+          <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+            <button id="btn-g-det" class="btn btn-primary" style="border-radius:0;padding:6px 12px;font-size:12px"
+                    onclick="liqGastosSetVista('detallado')">≡ Detallado</button>
+            <button id="btn-g-acu" class="btn btn-ghost" style="border-radius:0;padding:6px 12px;font-size:12px"
+                    onclick="liqGastosSetVista('acumulado')">∑ Acumulado</button>
+          </div>
           <button class="btn btn-ghost" onclick="liqGastosMarcarTodos()">☑️ Marcar todos</button>
           <button class="btn btn-secondary" onclick="liqGastosPagar()">🧾 Pagar seleccionados</button>
           <button class="btn btn-ghost" onclick="liqGastosXML()">📄 Generar XML SEPA</button>
         </div>
       </div>
       <div class="table-wrap">
-        <table class="data-table">
+        <!-- Vista detallado -->
+        <table class="data-table" id="tbl-g-detallado">
           <thead><tr>
             <th><input type="checkbox" id="chk-g-todos" onchange="liqGastosToggleTodos()"></th>
             <th>Conductor</th><th>IBAN</th><th>Período</th>
             <th>Concepto</th><th>Total Gastos</th><th>Estado</th><th>Acciones</th>
           </tr></thead>
           <tbody id="tbody-liq-gastos"></tbody>
+        </table>
+        <!-- Vista acumulado -->
+        <table class="data-table" id="tbl-g-acumulado" style="display:none">
+          <thead><tr>
+            <th>Código</th><th>Nombre</th><th>Nº Registros</th><th>IBAN</th><th>Total Gastos</th>
+          </tr></thead>
+          <tbody id="tbody-liq-gastos-acu"></tbody>
         </table>
       </div>
     </div>
