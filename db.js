@@ -494,8 +494,15 @@ export function generarNumLiquidacion() {
   return `${prefijo}${String(siguiente).padStart(3, '0')}`;
 }
 
-export async function pagarGastosRegistros(ids) {
-  await Promise.all(ids.map(id => setEstadoGastos(id, 'pagado')));
+export async function pagarGastosRegistros(ids, numLiquidacion) {
+  const fechaPago = new Date().toISOString();
+  await Promise.all(ids.map(id =>
+    updateRegistro(id, {
+      estadoGastos:    'pagado',
+      fechaPagoGastos: fechaPago,
+      numLiquidacion:  numLiquidacion,
+    })
+  ));
 }
 
 // ====================================================
