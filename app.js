@@ -51,6 +51,8 @@ function showTab(tab) {
     msPoblar('gestoria', '');
     msPoblar('rrhh', '');
   }
+  // Inicializar módulo de nóminas
+  if (tab === 'nominas') nomInicializar();
 }
 
 // ---- MODO REGISTRO ----
@@ -1910,3 +1912,258 @@ window.enviarLiquidacionesMasivo = async function({ desde, hasta, plataforma, id
     showToast('Error al enviar: ' + err.message, 'error');
   }
 };
+
+// ============================================================
+// MÓDULO ENVÍO DE NÓMINAS
+// ============================================================
+const _nom = { pdfs: {}, matched: [] };
+
+// Inicializar al abrir la pestaña
+function nomInicializar() {
+  const conductores = getConductores();
+  const el = document.getElementById('nom-db-status');
+  if (!el) return;
+  if (conductores.length > 0) {
+    el.style.cssText = 'padding:10px 12px;border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--soft);background:#f0fdf4;border-color:#86efac';
+    el.textContent = `✅ ${conductores.length} conductores cargados desde Firestore`;
+  } else {
+    el.style.cssText = 'padding:10px 12px;border:1px solid #fca5a5;border-radius:4px;font-size:12px;color:#b91c1c';
+    el.textContent = '⚠️ No se encontraron conductores en Firestore';
+  }
+  // Habilitar botón emparejar si ya hay PDFs
+  if (Object.keys(_nom.pdfs).length > 0 && conductores.length > 0) {
+    document.getElementById('nom-btn-match').disabled = false;
+  }
+}
+
+function nomCargarPDFs(files) {
+  _nom.pdfs = {};
+  Array.from(files).forEach(f => {
+    if (f.name.toLowerCase().endsWith('.pdf')) _nom.pdfs[f.name] = f;
+  });
+  const n = Object.keys(_nom.pdfs).length;
+  const dz    = document.getElementById('nom-dz');
+  const label = document.getElementById('nom-dz-label');
+  if (n > 0) {
+    dz.style.borderColor = 'var(--primary)';
+    dz.style.background  = '#f0fdf4';
+    label.textContent    = `${n} PDF${n !== 1 ? 's' : ''} cargado${n !== 1 ? 's' : ''}`;
+  } else {
+    dz.style.borderColor = '';
+    dz.style.background  = '';
+    label.textContent    = 'Selecciona los PDFs de nóminas';
+  }
+  const conductores = getConductores();
+  document.getElementById('nom-btn-match').disabled = !(n > 0 && conductores.length > 0);
+}
+
+function nomEmparejar() {
+  const conductores = getConductores();
+  // Índice por NIF normalizado
+  const idx = {};
+  conductores.forEach(c => {
+    const nif = String(c.NIF || '').trim().toUpperCase();
+    if (nif) idx[nif] = c;
+  });
+
+  // Agrupar PDFs por NIF+período (puede haber _1 y _2)
+  const grupos = {}; // clave: NIF-AAAA-MM
+  Object.entries(_nom.pdfs).forEach(([name, file]) => {
+    // Patrón: NIF-AAAA-MM_1.pdf o NIF-AAAA-MM_2.pdf o NIF-AAAA-MM.pdf
+    const stem  = name.replace(/\.pdf$/i, '');
+    const match = stem.match(/^([^-]+)-(\d{4})-(\d{2})(?:_(\d+))?$/i);
+    if (!match) {
+      // Archivo con nombre no reconocido — añadir como error
+      const key = name;
+      if (!grupos[key]) grupos[key] = { nif: '?', anio: '?', mes: '?', files: [], names: [] };
+      grupos[key].files.push(file);
+      grupos[key].names.push(name);
+      grupos[key].error = 'Nombre no reconocido';
+      return;
+    }
+    const nif  = match[1].toUpperCase();
+    const anio = match[2];
+    const mes  = match[3];
+    const key  = `${nif}-${anio}-${mes}`;
+    if (!grupos[key]) grupos[key] = { nif, anio, mes, files: [], names: [] };
+    grupos[key].files.push(file);
+    grupos[key].names.push(name);
+  });
+
+  // Construir lista emparejada
+  _nom.matched = [];
+  Object.entries(grupos).forEach(([key, g]) => {
+    const conductor = idx[g.nif];
+    const email  = conductor ? String(conductor.Email || '').trim() : '';
+    const nombre = conductor ? String(conductor.Nombre || '').trim() : '';
+    let estado, motivo;
+    if (g.error)   { estado = 'err'; motivo = g.error; }
+    else if (!conductor) { estado = 'err'; motivo = 'NIF no encontrado'; }
+    else if (!email)     { estado = 'err'; motivo = 'Email vacío'; }
+    else                 { estado = 'ok';  motivo = ''; }
+    _nom.matched.push({ ...g, conductor, email, nombre, estado, motivo });
+  });
+
+  nomRenderTabla();
+  const nOk = _nom.matched.filter(r => r.estado === 'ok').length;
+  document.getElementById('nom-btn-gen').disabled = nOk === 0;
+  showToast(`${nOk} listos · ${_nom.matched.length - nOk} con error`, nOk === _nom.matched.length ? 'success' : 'warning');
+}
+
+function nomRenderTabla() {
+  document.getElementById('nom-empty').style.display   = 'none';
+  document.getElementById('nom-stats').style.display   = 'flex';
+  document.getElementById('nom-tbl-wrap').style.display = 'block';
+  document.getElementById('nom-bottom').style.display  = 'flex';
+
+  const ok  = _nom.matched.filter(r => r.estado === 'ok').length;
+  const err = _nom.matched.filter(r => r.estado === 'err').length;
+  document.getElementById('nom-s-ok').textContent    = ok;
+  document.getElementById('nom-s-err').textContent   = err;
+  document.getElementById('nom-s-total').textContent = _nom.matched.length;
+
+  const tbody = document.getElementById('nom-tbody');
+  tbody.innerHTML = _nom.matched.map((r, i) => {
+    const archivos = r.names.map(n => `<div style="font-size:10px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="${n}">${n}</div>`).join('');
+    const sufijos  = r.names.map(n => {
+      const m = n.match(/_(\d+)\.pdf$/i);
+      return m ? `<span style="background:var(--primary);color:white;padding:1px 5px;border-radius:3px;font-size:10px">_${m[1]}</span>` : '';
+    }).filter(Boolean).join(' ');
+    const badge = r.estado === 'ok'
+      ? `<span class="badge badge-green">Listo</span>`
+      : `<span class="badge badge-red">Error</span><div style="font-size:10px;color:#c0392b;margin-top:2px">${r.motivo}</div>`;
+    return `<tr id="nom-row-${i}" style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px;font-size:12px;font-family:var(--font-mono)">${r.nif}</td>
+      <td style="padding:8px 12px;font-size:12px">${r.nombre || '—'}</td>
+      <td style="padding:8px 12px;font-size:11px;font-family:var(--font-mono);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.email}">${r.email || '—'}</td>
+      <td style="padding:8px 12px;font-size:12px;font-family:var(--font-mono)">${r.mes || '?'}/${r.anio || '?'} ${sufijos}</td>
+      <td style="padding:8px 12px">${archivos}</td>
+      <td style="padding:8px 12px" id="nom-st-${i}">${badge}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--soft)">Sin registros</td></tr>';
+}
+
+function nomConfirmar() {
+  const n = _nom.matched.filter(r => r.estado === 'ok').length;
+  if (!n) { showToast('No hay correos listos para generar', 'error'); return; }
+  document.getElementById('nom-modal-n').textContent = n;
+  document.getElementById('nom-modal').style.display = 'flex';
+}
+
+async function nomGenerarZip() {
+  document.getElementById('nom-modal').style.display = 'none';
+  const queue = _nom.matched.filter(r => r.estado === 'ok');
+  if (!queue.length) return;
+
+  const from    = document.getElementById('nom-from').value.trim() || 'rrhh@empresa.es';
+  const asunto  = document.getElementById('nom-asunto').value;
+  const cuerpo  = document.getElementById('nom-cuerpo').value;
+
+  document.getElementById('nom-btn-gen').disabled   = true;
+  document.getElementById('nom-btn-match').disabled = true;
+  document.getElementById('nom-progress').style.display = 'block';
+
+  // Cargar JSZip dinámicamente si no está disponible
+  if (typeof JSZip === 'undefined') {
+    await nomCargarJSZip();
+  }
+  const zip = new JSZip();
+  let done = 0;
+
+  for (const r of queue) {
+    // Un .eml por cada PDF (puede haber _1 y _2)
+    for (let fi = 0; fi < r.files.length; fi++) {
+      const file      = r.files[fi];
+      const fileName  = r.names[fi];
+      const pdfBuffer = await nomLeerArchivo(file);
+      const pdfB64    = nomArrayBufferToBase64(pdfBuffer);
+      const vars      = { nombre: r.nombre || r.nif, nif: r.nif, mes: r.mes, anio: r.anio };
+      const asuntoR   = nomResolveTemplate(asunto, vars);
+      const cuerpoR   = nomResolveTemplate(cuerpo, vars);
+      const eml = nomBuildEml({ from, to: r.email, subject: asuntoR, body: cuerpoR, filename: fileName, pdfB64 });
+      zip.file(fileName.replace(/\.pdf$/i, '.eml'), eml);
+    }
+    done++;
+    const pct = Math.round((done / queue.length) * 100);
+    document.getElementById('nom-prog-fill').style.width = pct + '%';
+    document.getElementById('nom-prog-pct').textContent  = pct + '%';
+    document.getElementById('nom-prog-txt').textContent  = `Generando ${done} de ${queue.length}…`;
+    const idx = _nom.matched.indexOf(r);
+    const el  = document.getElementById(`nom-st-${idx}`);
+    if (el) el.innerHTML = '<span class="badge badge-blue">Generado</span>';
+    await new Promise(res => setTimeout(res, 20));
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `nominas_${new Date().toISOString().slice(0, 7)}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  document.getElementById('nom-prog-txt').textContent = `✅ ZIP generado con ${done} conductores`;
+  document.getElementById('nom-btn-match').disabled = false;
+  showToast(`ZIP descargado con ${done} ficheros .eml ✓`, 'success');
+}
+
+function nomCargarJSZip() {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+function nomBuildEml({ from, to, subject, body, filename, pdfB64 }) {
+  const boundary = `----=_Part_${Math.random().toString(36).slice(2)}`;
+  const subjectEncoded = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+  const bodyB64 = btoa(unescape(encodeURIComponent(body)));
+  return [
+    `MIME-Version: 1.0`,
+    `Date: ${new Date().toUTCString()}`,
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subjectEncoded}`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    bodyB64,
+    ``,
+    `--${boundary}`,
+    `Content-Type: application/pdf; name="${filename}"`,
+    `Content-Transfer-Encoding: base64`,
+    `Content-Disposition: attachment; filename="${filename}"`,
+    ``,
+    pdfB64,
+    ``,
+    `--${boundary}--`,
+  ].join('\r\n');
+}
+
+function nomResolveTemplate(tpl, vars) {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] || '');
+}
+
+function nomLeerArchivo(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function nomArrayBufferToBase64(buffer) {
+  let bin = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
