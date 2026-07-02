@@ -26,6 +26,7 @@ const COL_TARIFAS      = 'tarifas';
 const COL_REGISTROS    = 'registros';
 const COL_TRACTORAS    = 'tractoras';
 const COL_CONCEPTOS    = 'conceptos_gasto'; // conceptos de gastos de viaje
+const COL_GASTOS_IND   = 'gastosIndependientes';
 
 // ---- SCHEMA VERSION (para seed inicial) ----
 
@@ -474,9 +475,9 @@ export async function liquidarRegistros(ids, numLiquidacion) {
   const fechaLiq = new Date().toISOString();
   await Promise.all(ids.map(id =>
     updateRegistro(id, {
-      estadoDietas:     'liquidado',
-      fechaLiquidacion: fechaLiq,
-      numLiquidacion:   numLiquidacion,
+      estadoDietas:          'liquidado',
+      fechaLiquidacion:      fechaLiq,
+      numLiquidacionDietas:  numLiquidacion,
     })
   ));
 }
@@ -487,7 +488,7 @@ export function generarNumLiquidacion() {
   const mm    = String(ahora.getMonth() + 1).padStart(2, '0');
   const prefijo = `LIQ-${aaaa}-${mm}-`;
   const usados = (_registros || [])
-    .map(r => r.numLiquidacion || '')
+    .map(r => r.numLiquidacionDietas || r.numLiquidacionGastos || r.numLiquidacion || '')
     .filter(n => n.startsWith(prefijo))
     .map(n => parseInt(n.replace(prefijo, '')) || 0);
   const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
@@ -498,11 +499,54 @@ export async function pagarGastosRegistros(ids, numLiquidacion) {
   const fechaPago = new Date().toISOString();
   await Promise.all(ids.map(id =>
     updateRegistro(id, {
-      estadoGastos:    'pagado',
-      fechaPagoGastos: fechaPago,
-      numLiquidacion:  numLiquidacion,
+      estadoGastos:         'pagado',
+      fechaPagoGastos:      fechaPago,
+      numLiquidacionGastos: numLiquidacion,
     })
   ));
+}
+
+// ====================================================
+// GASTOS INDEPENDIENTES
+// ====================================================
+let _gastosInd = [];
+
+export async function cargarGastosInd() {
+  const snap = await getDocs(query(collection(db, COL_GASTOS_IND), orderBy('fecha', 'desc')));
+  _gastosInd = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return _gastosInd;
+}
+
+export function getGastosInd() { return _gastosInd; }
+
+export async function addGastoInd(datos) {
+  const ref = await addDoc(collection(db, COL_GASTOS_IND), {
+    ...datos,
+    estadoGastos:  'pendiente',
+    fechaCreacion: new Date().toISOString(),
+  });
+  _gastosInd.unshift({ id: ref.id, ...datos, estadoGastos: 'pendiente', fechaCreacion: new Date().toISOString() });
+  return ref.id;
+}
+
+export async function deleteGastoInd(id) {
+  await deleteDoc(doc(db, COL_GASTOS_IND, id));
+  _gastosInd = _gastosInd.filter(g => g.id !== id);
+}
+
+export async function pagarGastosInd(ids, numLiquidacion) {
+  const fechaPago = new Date().toISOString();
+  await Promise.all(ids.map(id =>
+    setDoc(doc(db, COL_GASTOS_IND, id), {
+      estadoGastos:         'pagado',
+      fechaPagoGastos:      fechaPago,
+      numLiquidacionGastos: numLiquidacion,
+    }, { merge: true })
+  ));
+  ids.forEach(id => {
+    const g = _gastosInd.find(x => x.id === id);
+    if (g) { g.estadoGastos = 'pagado'; g.fechaPagoGastos = fechaPago; g.numLiquidacionGastos = numLiquidacion; }
+  });
 }
 
 // ====================================================
