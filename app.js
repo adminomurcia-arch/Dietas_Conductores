@@ -22,6 +22,7 @@ window._appReady = function() {
   poblarSelectTractoras();
   setModo('detallado');
   fijarLimiteFechas();
+  if (typeof cargarGastosInd === 'function') cargarGastosInd();
 };
 
 // ---- FECHAS: máximo = hoy, pre-rellenar al hacer foco ----
@@ -1553,6 +1554,7 @@ function cargarLiqGastos() {
   }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
 
   actualizarTotalLiqGastos();
+  if (typeof renderGastosInd === 'function') renderGastosInd();
 
   // ---- VISTA ACUMULADO ----
   const tbodyAcu = document.getElementById('tbody-liq-gastos-acu');
@@ -1582,8 +1584,10 @@ function cargarLiqGastos() {
 }
 
 function actualizarTotalLiqGastos() {
-  const total = Array.from(document.querySelectorAll('.chk-liq-g:checked'))
-    .reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
+  const total = [
+    ...Array.from(document.querySelectorAll('.chk-liq-g:checked')),
+    ...Array.from(document.querySelectorAll('.chk-gi:checked'))
+  ].reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
   document.getElementById('liq-g-total').textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
 }
 
@@ -1600,15 +1604,19 @@ function liqGastosMarcarTodos() {
 }
 
 async function liqGastosPagar() {
-  const ids = Array.from(document.querySelectorAll('.chk-liq-g:checked')).map(c => c.dataset.id);
-  if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
-  if (!confirm(`¿Marcar como pagados los gastos de ${ids.length} registro(s)?`)) return;
+  const idsViaje = Array.from(document.querySelectorAll('.chk-liq-g:checked')).map(c => c.dataset.id);
+  const idsInd   = Array.from(document.querySelectorAll('.chk-gi:checked')).map(c => c.dataset.id);
+  const total    = idsViaje.length + idsInd.length;
+  if (!total) { showToast('Selecciona al menos un registro', 'error'); return; }
+  if (!confirm(`¿Marcar como pagados los gastos de ${total} registro(s)?`)) return;
   const numLiq = prompt('Número de liquidación:', generarNumLiquidacion());
   if (numLiq === null) return;
+  const num = numLiq.trim().toUpperCase();
   window._suprimirListener = true;
-  await pagarGastosRegistros(ids, numLiq.trim().toUpperCase());
+  if (idsViaje.length) await pagarGastosRegistros(idsViaje, num);
+  if (idsInd.length)   await pagarGastosInd(idsInd, num);
   window._suprimirListener = false;
-  showToast(`${ids.length} registros marcados como pagados ✓`, 'success');
+  showToast(`${total} registros marcados como pagados ✓`, 'success');
   cargarLiqGastos();
 }
 
@@ -1639,7 +1647,7 @@ function generarXMLSEPA() {
   // Memorizar config
   localStorage.setItem('sepa_config', JSON.stringify({ nombre, iban, bic, concepto }));
 
-  const checks = Array.from(document.querySelectorAll('.chk-liq-g:checked'));
+  const checks = [...Array.from(document.querySelectorAll('.chk-liq-g:checked')), ...Array.from(document.querySelectorAll('.chk-gi:checked'))];
   const fecha  = new Date().toISOString().slice(0,10);
   const msgId  = `MSG${Date.now()}`;
   const tipo   = document.querySelector('input[name="sepa-tipo"]:checked')?.value || 'detallado';
@@ -2243,4 +2251,139 @@ function nomArrayBufferToBase64(buffer) {
     bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
   return btoa(bin);
+}
+
+// ============================================================
+// MÓDULO GASTOS INDEPENDIENTES
+// ============================================================
+
+async function renderGastosInd() {
+  await cargarGastosInd();
+  const estado  = document.getElementById('liq-g-estado')?.value || 'pendiente';
+  const desde   = document.getElementById('liq-g-desde')?.value  || '';
+  const hasta   = document.getElementById('liq-g-hasta')?.value  || '';
+  const rawCod  = document.getElementById('liq-g-conductor')?.value.trim() || '';
+  const match   = rawCod.match(/^(\d{5,6})/);
+  const cod     = match ? match[1] : rawCod.toLowerCase();
+
+  let gastos = getGastosInd().filter(g => (g.estadoGastos || 'pendiente') === estado);
+  if (desde) gastos = gastos.filter(g => g.fecha >= desde);
+  if (hasta) gastos = gastos.filter(g => g.fecha <= hasta);
+  if (cod)   gastos = gastos.filter(g =>
+    String(g.conductorCodigo || '').includes(cod) ||
+    String(g.conductorNombre || '').toLowerCase().includes(cod)
+  );
+
+  const tbody = document.getElementById('tbody-gastos-ind');
+  if (!tbody) return;
+
+  const totalInd = gastos.reduce((s, g) => s + parseFloat(g.importe || 0), 0);
+  const badge = document.getElementById('gi-total-badge');
+  if (badge) badge.textContent = gastos.length
+    ? `${gastos.length} registro(s) · ${totalInd.toLocaleString('es-ES',{minimumFractionDigits:2})} €`
+    : 'Sin registros';
+
+  tbody.innerHTML = gastos.map(g => `
+    <tr style="background:#f0f9ff">
+      <td><input type="checkbox" class="chk-gi" data-id="${g.id}"
+          data-total="${g.importe}" data-iban="${g.conductorIban||''}"
+          data-nombre="${g.conductorNombre||''}" data-codigo="${g.conductorCodigo||''}"
+          onchange="actualizarTotalLiqGastos()"></td>
+      <td>
+        <span style="font-size:10px;padding:1px 5px;background:#0ea5e9;color:white;border-radius:3px;margin-right:4px">IND</span>
+        ${g.conductorNombre||'—'}<br><small>${g.conductorCodigo||''}</small>
+      </td>
+      <td>${g.fecha||'—'}</td>
+      <td>${g.concepto||'—'}${g.notas ? `<br><small style="color:var(--soft)">${g.notas}</small>` : ''}</td>
+      <td><span class="estado-badge estado-${g.estadoGastos||'pendiente'}">${g.estadoGastos||'pendiente'}</span></td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">
+        ${parseFloat(g.importe||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €
+      </td>
+      <td>
+        <button class="btn-icon" onclick="eliminarGastoInd('${g.id}')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`).join('')
+    || '<tr><td colspan="7" style="text-align:center;padding:12px;color:var(--soft)">Sin gastos independientes</td></tr>';
+}
+
+function giToggleTodos() {
+  const todos = document.getElementById('chk-gi-todos').checked;
+  document.querySelectorAll('.chk-gi').forEach(c => c.checked = todos);
+  actualizarTotalLiqGastos();
+}
+
+function abrirModalGastoInd() {
+  // Popular datalist
+  const dl = document.getElementById('gi-conductores-list');
+  if (dl) dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo} — ${c.Nombre}" data-codigo="${c.Codigo}" data-nombre="${c.Nombre}" data-iban="${c.IBAN||''}">`)
+    .join('');
+  // Fecha por defecto hoy
+  document.getElementById('gi-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('gi-conductor').value = '';
+  document.getElementById('gi-conductor-id').value = '';
+  document.getElementById('gi-conductor-nombre').value = '';
+  document.getElementById('gi-conductor-iban').value = '';
+  document.getElementById('gi-importe').value = '';
+  document.getElementById('gi-concepto').value = '';
+  document.getElementById('gi-notas').value = '';
+  document.getElementById('modal-gasto-ind').style.display = 'flex';
+}
+
+function cerrarModalGastoInd() {
+  document.getElementById('modal-gasto-ind').style.display = 'none';
+}
+
+function giBuscarConductor() {
+  const val = document.getElementById('gi-conductor').value;
+  const match = val.match(/^(\d{5,6})/);
+  if (match) {
+    const cod = match[1].padStart(6,'0');
+    const c = getConductores().find(x => String(x.Codigo).padStart(6,'0') === cod);
+    if (c) {
+      document.getElementById('gi-conductor-id').value     = c.Codigo;
+      document.getElementById('gi-conductor-nombre').value = c.Nombre;
+      document.getElementById('gi-conductor-iban').value   = c.IBAN || '';
+    }
+  }
+}
+
+async function guardarGastoInd() {
+  const conductor = document.getElementById('gi-conductor').value.trim();
+  const fecha     = document.getElementById('gi-fecha').value;
+  const importe   = parseFloat(document.getElementById('gi-importe').value);
+  const concepto  = document.getElementById('gi-concepto').value.trim();
+  const notas     = document.getElementById('gi-notas').value.trim();
+
+  if (!conductor || !fecha || !importe || !concepto) {
+    showToast('Rellena todos los campos obligatorios', 'error'); return;
+  }
+
+  // Intentar extraer código y nombre del valor del input
+  const matchVal = conductor.match(/^(\d{5,6})\s*[—-]\s*(.+)/);
+  let conductorCodigo = document.getElementById('gi-conductor-id').value || '';
+  let conductorNombre = document.getElementById('gi-conductor-nombre').value || '';
+  let conductorIban   = document.getElementById('gi-conductor-iban').value  || '';
+
+  if (matchVal && !conductorCodigo) {
+    conductorCodigo = matchVal[1];
+    conductorNombre = matchVal[2].trim();
+    const c = getConductores().find(x => String(x.Codigo).padStart(6,'0') === conductorCodigo.padStart(6,'0'));
+    if (c) conductorIban = c.IBAN || '';
+  }
+
+  if (!conductorCodigo) { showToast('Selecciona un conductor válido', 'error'); return; }
+
+  await addGastoInd({ conductorCodigo, conductorNombre, conductorIban, fecha, importe, concepto, notas });
+  cerrarModalGastoInd();
+  showToast('Gasto independiente guardado ✓', 'success');
+  renderGastosInd();
+}
+
+async function eliminarGastoInd(id) {
+  if (!confirm('¿Eliminar este gasto independiente?')) return;
+  await deleteGastoInd(id);
+  showToast('Gasto eliminado', 'success');
+  renderGastosInd();
 }
