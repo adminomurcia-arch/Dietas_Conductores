@@ -1459,6 +1459,22 @@ function filtrarDuplicadosGastos() {
   cargarLiqGastos();
 }
 
+// ---- VISTA GASTOS: DETALLADO / ACUMULADO ----
+let _vistaGastos = 'detallado';
+
+function liqGastosSetVista(vista) {
+  _vistaGastos = vista;
+  document.getElementById('tbl-g-detallado').style.display = vista === 'detallado' ? '' : 'none';
+  document.getElementById('tbl-g-acumulado').style.display = vista === 'acumulado'  ? '' : 'none';
+  document.getElementById('btn-g-det').className = vista === 'detallado'
+    ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('btn-g-acu').className = vista === 'acumulado'
+    ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('btn-g-det').style.cssText = 'border-radius:0;padding:6px 12px;font-size:12px';
+  document.getElementById('btn-g-acu').style.cssText = 'border-radius:0;padding:6px 12px;font-size:12px';
+  cargarLiqGastos();
+}
+
 function cargarLiqGastos() {
   // Popular datalist
   const dl = document.getElementById('liq-g-conductores-list');
@@ -1537,6 +1553,32 @@ function cargarLiqGastos() {
   }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">Sin registros con gastos</td></tr>';
 
   actualizarTotalLiqGastos();
+
+  // ---- VISTA ACUMULADO ----
+  const tbodyAcu = document.getElementById('tbody-liq-gastos-acu');
+  if (tbodyAcu) {
+    const mapa = {};
+    regs.forEach(r => {
+      const cod = String(r.codigoConductor);
+      const c   = conductores.find(x => String(x.Codigo) === cod);
+      const total = r.gastosDetalle?.reduce((s,g) => s + g.importe, 0) || r.gastosViaje || 0;
+      if (!mapa[cod]) mapa[cod] = { cod, nombre: r.nombreConductor, iban: c?.IBAN || '—', nRegs: 0, total: 0 };
+      mapa[cod].nRegs++;
+      mapa[cod].total += total;
+    });
+    const filas = Object.values(mapa).sort((a,b) => a.cod.localeCompare(b.cod));
+    tbodyAcu.innerHTML = filas.map(m => `
+      <tr>
+        <td style="font-family:var(--font-mono)">${m.cod}</td>
+        <td>${m.nombre}</td>
+        <td style="text-align:center">${m.nRegs}</td>
+        <td style="font-size:11px;font-family:monospace">${m.iban}</td>
+        <td style="font-family:var(--font-mono);text-align:right;font-weight:600">
+          ${m.total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €
+        </td>
+      </tr>`).join('')
+      || '<tr><td colspan="5" style="text-align:center;padding:20px;color:#888">Sin registros</td></tr>';
+  }
 }
 
 function actualizarTotalLiqGastos() {
