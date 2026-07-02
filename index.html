@@ -182,6 +182,7 @@
   <button class="tab-btn" onclick="showTab('informes')">📊 Informes</button>
   <button class="tab-btn" onclick="showTab('liquidaciones')">💳 Liquidaciones</button>
   <button class="tab-btn" onclick="showTab('basedatos')">🗄️ Base de Datos</button>
+  <button class="tab-btn" onclick="showTab('nominas')">📬 Nóminas</button>
 </nav>
 
 <!-- ===== TAB REGISTRO ===== -->
@@ -923,6 +924,154 @@
     </div>
   </div>
 </main>
+
+<!-- ===== TAB NÓMINAS ===== -->
+<main id="tab-nominas" class="tab-content" style="display:none">
+  <div class="section-header" style="padding:20px 24px 0">
+    <h2 class="section-title">📬 Envío de Nóminas</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:320px 1fr;min-height:500px;gap:0">
+
+    <!-- SIDEBAR -->
+    <div style="border-right:1px solid var(--border);padding:24px 20px;display:flex;flex-direction:column;gap:20px;background:var(--surface)">
+
+      <!-- Conductores desde Firestore -->
+      <div>
+        <div class="field-label" style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft);margin-bottom:8px">Base de datos</div>
+        <div id="nom-db-status" style="padding:10px 12px;border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--soft)">
+          ⏳ Cargando conductores…
+        </div>
+      </div>
+
+      <!-- Carga PDFs -->
+      <div>
+        <div class="field-label" style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft);margin-bottom:8px">Nóminas (PDFs)</div>
+        <label id="nom-dz" style="display:block;border:1.5px dashed var(--border);padding:16px;cursor:pointer;text-align:center;background:var(--bg);border-radius:4px;transition:border-color .2s">
+          <input type="file" id="nom-inp-pdfs" accept=".pdf" multiple style="display:none" onchange="nomCargarPDFs(this.files)">
+          <div style="font-size:24px;margin-bottom:4px">📂</div>
+          <div id="nom-dz-label" style="font-size:12px;color:var(--soft)">Selecciona los PDFs de nóminas</div>
+          <div style="font-size:10px;color:var(--soft);margin-top:2px">Formato: NIF-AAAA-MM_1.pdf</div>
+        </label>
+      </div>
+
+      <!-- Plantilla correo -->
+      <div>
+        <div class="field-label" style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft);margin-bottom:8px">Plantilla del correo</div>
+        <div class="field">
+          <label>Remitente</label>
+          <input type="email" id="nom-from" placeholder="rrhh@olanogroupe.com" style="width:100%">
+        </div>
+        <div class="field">
+          <label>Asunto</label>
+          <input type="text" id="nom-asunto" value="Nómina {mes}/{anio} — {nombre}" style="width:100%">
+          <div style="font-size:10px;color:var(--soft);margin-top:2px">Variables: {nombre} {nif} {mes} {anio}</div>
+        </div>
+        <div class="field">
+          <label>Cuerpo</label>
+          <textarea id="nom-cuerpo" rows="5" style="width:100%;resize:vertical;font-size:12px">Estimado/a {nombre},
+
+Adjunto encontrarás tu recibo de salario del mes {mes}/{anio}.
+
+Un cordial saludo,
+Dpto. de Administración</textarea>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-secondary" id="nom-btn-match" onclick="nomEmparejar()" disabled>🔗 Emparejar y previsualizar</button>
+        <button class="btn btn-primary" id="nom-btn-gen" onclick="nomConfirmar()" disabled>📦 Generar ZIP de .eml</button>
+      </div>
+    </div>
+
+    <!-- PANEL DERECHO -->
+    <div style="display:flex;flex-direction:column">
+
+      <!-- Estado vacío -->
+      <div id="nom-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--soft);padding:48px;text-align:center">
+        <div style="font-size:48px;opacity:.25">✉️</div>
+        <div style="font-size:18px;font-style:italic">Listo para empezar</div>
+        <div style="font-size:12px;max-width:280px;line-height:1.7">Selecciona los PDFs de nóminas y pulsa <em>Emparejar</em> para ver la lista antes de generar.</div>
+      </div>
+
+      <!-- Stats -->
+      <div id="nom-stats" style="display:none;border-bottom:1px solid var(--border)">
+        <div style="display:flex">
+          <div style="flex:1;padding:14px 20px;border-right:1px solid var(--border);text-align:center">
+            <div id="nom-s-ok" style="font-size:32px;font-style:italic;color:var(--success, #2a7a4b);line-height:1">0</div>
+            <div style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft)">Listos</div>
+          </div>
+          <div style="flex:1;padding:14px 20px;border-right:1px solid var(--border);text-align:center">
+            <div id="nom-s-err" style="font-size:32px;font-style:italic;color:#c0392b;line-height:1">0</div>
+            <div style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft)">Sin email</div>
+          </div>
+          <div style="flex:1;padding:14px 20px;text-align:center">
+            <div id="nom-s-total" style="font-size:32px;font-style:italic;color:var(--primary);line-height:1">0</div>
+            <div style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--soft)">PDFs totales</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div id="nom-tbl-wrap" style="display:none;flex:1;overflow:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">NIF</th>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">Nombre</th>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">Email</th>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">Período</th>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">Archivos</th>
+              <th style="background:var(--primary);color:white;padding:8px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:left;position:sticky;top:0">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="nom-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Barra inferior -->
+      <div id="nom-bottom" style="display:none;border-top:1px solid var(--border);padding:12px 20px;background:var(--surface);display:none;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--soft);flex:1;line-height:1.5">
+          Se generará un fichero <strong>.eml</strong> por conductor con el PDF adjunto.<br>
+          Descarga el ZIP, extrae y abre con Outlook para enviar.
+        </div>
+        <button class="btn btn-primary" onclick="nomConfirmar()">Generar ZIP →</button>
+      </div>
+
+      <!-- Progreso -->
+      <div id="nom-progress" style="display:none;padding:12px 20px;border-top:1px solid var(--border);background:var(--surface)">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--soft);margin-bottom:6px">
+          <span id="nom-prog-txt">Generando…</span>
+          <span id="nom-prog-pct">0%</span>
+        </div>
+        <div style="height:3px;background:var(--border);border-radius:2px">
+          <div id="nom-prog-fill" style="height:100%;background:var(--primary);width:0%;transition:width .3s;border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL NÓMINAS -->
+<div id="nom-modal" class="modal" style="display:none">
+  <div class="modal-box" style="width:400px">
+    <div class="modal-header">
+      <h3>¿Generar los .eml?</h3>
+      <button onclick="document.getElementById('nom-modal').style.display='none'" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--soft);line-height:1.7">
+        Se crearán <strong id="nom-modal-n">0</strong> ficheros .eml con el PDF adjunto,
+        listos para abrir con Outlook y enviar.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('nom-modal').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="nomGenerarZip()">Sí, generar ZIP</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL CONCEPTO -->
 <div id="modal-concepto" class="modal" style="display:none">
