@@ -971,9 +971,8 @@
           <label>Cuerpo</label>
           <textarea id="nom-cuerpo" rows="5" style="width:100%;resize:vertical;font-size:12px">Estimado/a {nombre},
 
-Adjunto encontrarás copia de tu nómina del mes {mes}/{anio}.
-Para el registro de tus viajes, utiliza por favor el enlace: 
-            https://adminomurcia-arch.github.io/Dietas_Conductores/movil.html 
+Adjunto encontrarás tu recibo de salario del mes {mes}/{anio}.
+
 Un cordial saludo,
 Dpto. de Administración</textarea>
         </div>
@@ -1260,6 +1259,19 @@ Dpto. de Administración</textarea>
         <div class="field" style="grid-column:1/-1">
           <label>Concepto de transferencia</label>
           <input type="text" id="sepa-concepto" placeholder="Gastos viaje MM/AAAA">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Tipo de XML</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400">
+              <input type="radio" name="sepa-tipo" id="sepa-tipo-detallado" value="detallado" checked>
+              <span><strong>Detallado</strong> — una línea por registro</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400">
+              <input type="radio" name="sepa-tipo" id="sepa-tipo-acumulado" value="acumulado">
+              <span><strong>Acumulado</strong> — una línea por conductor</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
