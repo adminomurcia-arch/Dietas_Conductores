@@ -2207,8 +2207,8 @@ function nomBuildEml({ from, to, subject, body, filename, pdfB64 }) {
   const bodyB64 = btoa(unescape(encodeURIComponent(body)));
   return [
     `MIME-Version: 1.0`,
+    `X-Unsent: 1`,
     `Date: ${new Date().toUTCString()}`,
-    `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subjectEncoded}`,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
