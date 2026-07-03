@@ -432,9 +432,9 @@ async function guardarRegistro() {
 
   // Validar solapamiento de fechas con otros registros del mismo conductor
   // [1] Permitir mismo día: solapamiento real excluye el caso fs=fl con registro anterior de fl=fs
-  const codCond = document.getElementById('codConductor').value.trim();
+  const codCond = normCod(document.getElementById('codConductor').value);
   const registrosCond = getRegistros().filter(r =>
-    r.codigoConductor === codCond && r.id !== editId
+    normCod(r.codigoConductor) === codCond && r.id !== editId
   );
   const solapado = registrosCond.find(r => fs < r.fechaLlegada && fl > r.fechaSalida);
   if (solapado && !sinKmVal) {
@@ -472,7 +472,7 @@ async function guardarRegistro() {
   if (coefNac)  localStorage.setItem(`coef_${cod}`, coefNac);
 
   const datosRegistro = {
-    codigoConductor: document.getElementById('codConductor').value.trim(),
+    codigoConductor: normCod(document.getElementById('codConductor').value),
     nombreConductor: document.getElementById('nombreConductor').value,
     tractora,
     equipaje:        document.getElementById('equipaje').value,
@@ -821,7 +821,7 @@ function renderHistorial() {
   let regs = getRegistros().slice().reverse();
   if (filtro)    regs = regs.filter(r =>
     (r.nombreConductor||'').toLowerCase().includes(filtro) ||
-    String(r.codigoConductor).includes(filtro));
+    normCod(r.codigoConductor).includes(filtro));
   if (fPlat)     regs = regs.filter(r => r.plataforma   === fPlat);
   if (fEstado)   regs = regs.filter(r => (r.estadoDietas || 'pendiente') === fEstado);
   if (fEquipaje) regs = regs.filter(r => (r.equipaje||'').toUpperCase() === fEquipaje);
@@ -904,10 +904,11 @@ function renderHistorial() {
 }
 
 async function validarDesdeHistorial(id) {
-  if (!confirm('¿Aprobar este registro del móvil?')) return;
-  await setEstadoDietas(id, 'pendiente');
-  showToast('Registro aprobado ✓', 'success');
-  renderHistorial();
+  // C7: no se aprueba directamente. Se abre en modo edición para que el admin
+  // revise y el registro se recalcule con las tarifas actuales al guardar.
+  // (El resultado que trae del móvil usa lógica y tarifas del momento del registro.)
+  showToast('Revisa y guarda el registro para validarlo', '');
+  editarRegistro(id);
 }
 
 // ---- TABLAS BASE DE DATOS ----
@@ -1378,7 +1379,7 @@ function cargarLiqDietas() {
     r.estadoDietas !== 'pendiente_validacion'
   );
   if (plat)  regs = regs.filter(r => r.plataforma === plat);
-  if (cod)   regs = regs.filter(r => String(r.codigoConductor) === cod);
+  if (cod)   regs = regs.filter(r => normCod(r.codigoConductor) === normCod(cod));
   if (desde) regs = regs.filter(r => r.fechaSalida >= desde);
   if (hasta) regs = regs.filter(r => r.fechaSalida <= hasta);
 
@@ -1420,6 +1421,65 @@ function liqDietasMarcarTodos() {
   actualizarTotalLiqDietas();
 }
 
+// ---- MODAL DE FALLOS EN LIQUIDACIÓN/PAGO (C1/C8) ----
+// Se inyecta dinámicamente; no necesita HTML fijo en index.html.
+function mostrarModalFallidos(titulo, resultado) {
+  const { ok, total, fallidos } = resultado;
+  // Eliminar uno previo si existiera
+  document.getElementById('modal-fallidos')?.remove();
+
+  const filas = fallidos.map(f => `
+    <tr>
+      <td style="font-family:var(--font-mono,monospace);white-space:nowrap">${f.codigo}</td>
+      <td>${f.nombre}</td>
+      <td style="font-size:11px;color:#b91c1c">${(f.error || '').substring(0,80)}</td>
+    </tr>`).join('');
+
+  const wrap = document.createElement('div');
+  wrap.id = 'modal-fallidos';
+  wrap.className = 'modal';
+  wrap.style.display = 'flex';
+  wrap.innerHTML = `
+    <div class="modal-box" style="width:560px;max-width:92vw">
+      <div class="modal-header">
+        <h3>⚠️ ${titulo} — registros con error</h3>
+        <button onclick="document.getElementById('modal-fallidos').remove()" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;margin:0 0 12px">
+          Se completaron <strong style="color:#166534">${ok}</strong> de <strong>${total}</strong>.
+          Los siguientes <strong style="color:#b91c1c">${fallidos.length}</strong> NO se guardaron y siguen
+          <strong>sin número de liquidación</strong> — vuelve a intentarlo con ellos:
+        </p>
+        <div style="max-height:340px;overflow:auto;border:1px solid var(--border,#ddd);border-radius:8px">
+          <table class="data-table" style="width:100%">
+            <thead><tr>
+              <th style="text-align:left">Código</th>
+              <th style="text-align:left">Conductor</th>
+              <th style="text-align:left">Error</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="copiarFallidosPortapapeles(${JSON.stringify(JSON.stringify(fallidos.map(f=>`${f.codigo} ${f.nombre}`)))})">📋 Copiar lista</button>
+        <button class="btn btn-primary" onclick="document.getElementById('modal-fallidos').remove()">Entendido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+}
+
+function copiarFallidosPortapapeles(jsonLista) {
+  try {
+    const lista = JSON.parse(jsonLista);
+    navigator.clipboard.writeText(lista.join('\n'));
+    showToast('Lista copiada al portapapeles ✓', 'success');
+  } catch(e) {
+    showToast('No se pudo copiar', 'error');
+  }
+}
+
 async function liqDietasLiquidar() {
   const ids = Array.from(document.querySelectorAll('.chk-liq-d:checked')).map(c => c.dataset.id);
   if (!ids.length) { showToast('Selecciona al menos un registro', 'error'); return; }
@@ -1427,10 +1487,21 @@ async function liqDietasLiquidar() {
 
   const numLiq = prompt('Número de liquidación:', generarNumLiquidacion());
   if (numLiq === null) return; // canceló el prompt
+
+  let resultado;
   window._suprimirListener = true;
-  await liquidarRegistros(ids, numLiq.trim().toUpperCase());
-  window._suprimirListener = false;
-  showToast(`${ids.length} registros liquidados ✓`, 'success');
+  try {
+    resultado = await liquidarRegistros(ids, numLiq.trim().toUpperCase());
+  } finally {
+    window._suprimirListener = false;
+  }
+
+  if (resultado.fallidos.length) {
+    showToast(`${resultado.ok}/${resultado.total} liquidados — ${resultado.fallidos.length} con error`, 'error');
+    mostrarModalFallidos('Liquidación de dietas', resultado);
+  } else {
+    showToast(`${resultado.ok} registros liquidados ✓`, 'success');
+  }
   cargarLiqDietas();
 }
 
@@ -1498,7 +1569,7 @@ function cargarLiqGastos() {
     (r.estadoGastos || 'pendiente') === estado &&
     ((r.gastosDetalle?.length > 0) || (r.gastosViaje > 0))
   );
-  if (cod)   regs = regs.filter(r => String(r.codigoConductor) === cod);
+  if (cod)   regs = regs.filter(r => normCod(r.codigoConductor) === normCod(cod));
   if (desde) regs = regs.filter(r => r.fechaSalida >= desde);
   if (hasta) regs = regs.filter(r => r.fechaSalida <= hasta);
 
@@ -1523,15 +1594,13 @@ function cargarLiqGastos() {
   const conductores = getConductores();
   const tbody = document.getElementById('tbody-liq-gastos');
   tbody.innerHTML = regs.map(r => {
-    const c     = conductores.find(x => String(x.Codigo) === String(r.codigoConductor));
+    const c     = conductores.find(x => normCod(x.Codigo) === normCod(r.codigoConductor));
     const total = r.gastosDetalle?.reduce((s,g) => s + g.importe, 0) || r.gastosViaje || 0;
     const esDup = idsDup.has(r.id);
     // Concepto: lista de conceptos únicos del detalle
     const conceptos = r.gastosDetalle?.length
       ? [...new Set(r.gastosDetalle.map(g => g.concepto || g.tipo || ''))].filter(Boolean).join(', ')
-      : (r.detalleGastos?.length
-        ? [...new Set(r.detalleGastos.map(g => g.tipo || ''))].filter(Boolean).join(', ')
-        : '—');
+      : '—';
     const dupBadge = esDup
       ? `<span title="Posible duplicado detectado" style="font-size:10px;padding:2px 6px;background:#fef3c7;color:#b45309;border-radius:8px;font-weight:600;margin-left:4px">⚠️ DUP</span>`
       : '';
@@ -1613,11 +1682,25 @@ async function liqGastosPagar() {
   const numLiq = prompt('Número de liquidación:', generarNumLiquidacion());
   if (numLiq === null) return;
   const num = numLiq.trim().toUpperCase();
+
+  let rViaje = { total: 0, ok: 0, fallidos: [] };
+  let rInd   = { total: 0, ok: 0, fallidos: [] };
   window._suprimirListener = true;
-  if (idsViaje.length) await pagarGastosRegistros(idsViaje, num);
-  if (idsInd.length)   await pagarGastosInd(idsInd, num);
-  window._suprimirListener = false;
-  showToast(`${total} registros marcados como pagados ✓`, 'success');
+  try {
+    if (idsViaje.length) rViaje = await pagarGastosRegistros(idsViaje, num);
+    if (idsInd.length)   rInd   = await pagarGastosInd(idsInd, num);
+  } finally {
+    window._suprimirListener = false;
+  }
+
+  const okTotal = rViaje.ok + rInd.ok;
+  const fallidos = [...rViaje.fallidos, ...rInd.fallidos];
+  if (fallidos.length) {
+    showToast(`${okTotal}/${total} pagados — ${fallidos.length} con error`, 'error');
+    mostrarModalFallidos('Pago de gastos', { total, ok: okTotal, fallidos });
+  } else {
+    showToast(`${okTotal} registros marcados como pagados ✓`, 'success');
+  }
   cargarLiqGastos();
 }
 
@@ -1739,7 +1822,7 @@ function generarXMLSEPA() {
 function cargarLiqValidacion() {
   const cod  = document.getElementById('liq-v-conductor').value.trim();
   let regs = getRegistros().filter(r => r.estadoDietas === 'pendiente_validacion');
-  if (cod) regs = regs.filter(r => String(r.codigoConductor) === cod);
+  if (cod) regs = regs.filter(r => normCod(r.codigoConductor) === normCod(cod));
 
   const tbody = document.getElementById('tbody-liq-validacion');
   tbody.innerHTML = regs.map(r => {
@@ -1776,14 +1859,10 @@ async function rechazarRegistro(id) {
 }
 
 async function liqValidarTodos() {
-  const ids = getRegistros()
-    .filter(r => r.estadoDietas === 'pendiente_validacion')
-    .map(r => r.id);
-  if (!ids.length) { showToast('No hay registros pendientes', 'error'); return; }
-  if (!confirm(`¿Aprobar todos los ${ids.length} registros pendientes?`)) return;
-  await Promise.all(ids.map(id => setEstadoDietas(id, 'pendiente')));
-  showToast(`${ids.length} registros aprobados ✓`, 'success');
-  cargarLiqValidacion();
+  // C7: la aprobación en bloque se elimina. Cada registro del móvil debe
+  // validarse y editarse individualmente para que se recalcule con las tarifas
+  // actuales antes de aprobarse. Este handler solo informa.
+  showToast('Valida cada registro individualmente con "✅ Validar y editar"', 'error');
 }
 
 // ---- HISTORIAL DE LIQUIDACIONES ----
@@ -1805,7 +1884,7 @@ function cargarHistorialLiq() {
     );
   }
   if (plat)  regs = regs.filter(r => r.plataforma === plat);
-  if (cod)   regs = regs.filter(r => String(r.codigoConductor).includes(cod));
+  if (cod)   regs = regs.filter(r => normCod(r.codigoConductor).includes(cod.trim()));
   if (desde) regs = regs.filter(r => r.fechaSalida  >= desde);
   if (hasta) regs = regs.filter(r => r.fechaLlegada <= hasta);
 
