@@ -609,7 +609,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
-         addDoc, orderBy, query, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+         addDoc, setDoc, orderBy, query, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -1181,7 +1181,7 @@ window.mGuardar = async function() {
   if (tractora) localStorage.setItem(`tractora_${_conductor.Codigo}`, tractora);
 
   const reg = {
-    codigoConductor: _conductor.Codigo,
+    codigoConductor: normCod(_conductor.Codigo),
     nombreConductor: _conductor.Nombre,
     tractora,
     equipaje:        _conductor.EQUIPAJE || '',
@@ -1252,6 +1252,11 @@ window.mGuardar = async function() {
     reg.estadoGastos = 'pendiente';
     reg.creadoPor    = 'movil';
     reg.creadoEn     = new Date().toISOString();
+    // C6: ID generado en cliente para escritura idempotente (evita duplicados
+    // si un registro offline se sube pero no llega a borrarse de localStorage).
+    if (!reg.idLocal) {
+      reg.idLocal = (crypto?.randomUUID?.() || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+    }
 
     if (!navigator.onLine) {
       const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
@@ -1266,8 +1271,9 @@ window.mGuardar = async function() {
       return;
     }
 
-    const ref = await addDoc(collection(_db, 'registros'), reg);
-    const regId = ref.id;
+    // setDoc con ID de cliente = idempotente (reintento sobrescribe, no duplica)
+    const regId = reg.idLocal;
+    await setDoc(doc(_db, 'registros', regId), reg);
 
     // Guardar fotos como Base64 en Firestore
     if (_fotosData.length) {
@@ -1459,10 +1465,25 @@ async function sincronizarOffline() {
   const pendientes = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
   if (!pendientes.length) return;
   let sincronizados = 0;
+  let descartados = 0;
   const restantes = [];
   for (const reg of pendientes) {
+    // Garantizar idLocal (registros guardados antes de esta versión pueden no tenerlo)
+    if (!reg.idLocal) {
+      reg.idLocal = (crypto?.randomUUID?.() || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+    }
+    // Validar tamaño: si excede el límite de Firestore, descartar y avisar en vez
+    // de reintentar eternamente (bloquearía la cola para siempre).
+    const bytes = new TextEncoder().encode(JSON.stringify(reg)).length;
+    if (bytes > 900_000) {
+      descartados++;
+      console.error('Registro offline descartado por tamaño:', reg.idLocal, Math.round(bytes/1024)+' KB');
+      continue; // no se re-encola
+    }
     try {
-      await addDoc(collection(_db, 'registros'), reg);
+      // setDoc con idLocal = idempotente: si ya se subió en un intento previo,
+      // se sobrescribe el mismo documento en vez de crear un duplicado.
+      await setDoc(doc(_db, 'registros', reg.idLocal), reg);
       sincronizados++;
     } catch(e) {
       restantes.push(reg);
@@ -1470,6 +1491,7 @@ async function sincronizarOffline() {
   }
   localStorage.setItem(OFFLINE_KEY, JSON.stringify(restantes));
   if (sincronizados > 0) mToast(`${sincronizados} registro(s) sincronizado(s) ✓`);
+  if (descartados > 0)   mToast(`${descartados} registro(s) no se pudieron enviar (demasiado grandes). Contacta con administración.`, 'error');
 }
 </script>
 </body>
