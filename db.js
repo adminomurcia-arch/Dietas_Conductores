@@ -449,6 +449,14 @@ export async function addRegistro(reg) {
 }
 
 export async function updateRegistro(id, datos) {
+  // C10: validar tamaño cuando la actualización incluye fotos (o es un
+  // reemplazo grande del registro). Evita superar el límite de 900 KB de
+  // Firestore al editar y añadir fotos. Se valida contra la versión
+  // resultante (registro actual fusionado con los datos nuevos).
+  if (datos && (datos.fotosBase64 !== undefined || Object.keys(datos).length > 5)) {
+    const actual = _registros.find(r => r.id === id) || {};
+    checkDocSize({ ...actual, ...datos });
+  }
   await setDoc(doc(db, COL_REGISTROS, id), datos, { merge: true });
   const idx = _registros.findIndex(r => r.id === id);
   if (idx >= 0) _registros[idx] = { ..._registros[idx], ...datos };
@@ -487,13 +495,28 @@ export async function marcarEmailEnviado(id) {
 
 export async function liquidarRegistros(ids, numLiquidacion) {
   const fechaLiq = new Date().toISOString();
-  await Promise.all(ids.map(id =>
+  // Promise.allSettled: si una escritura falla, las demás continúan y se reporta
+  // exactamente cuáles fallaron (evita el fallo parcial silencioso).
+  const results = await Promise.allSettled(ids.map(id =>
     updateRegistro(id, {
       estadoDietas:          'liquidado',
       fechaLiquidacion:      fechaLiq,
       numLiquidacionDietas:  numLiquidacion,
     })
   ));
+  const fallidos = ids
+    .map((id, i) => ({ id, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => {
+      const reg = _registros.find(r => r.id === x.id);
+      return {
+        id: x.id,
+        codigo: reg?.codigoConductor || '?',
+        nombre: reg?.nombreConductor || '(desconocido)',
+        error:  x.res.reason?.message || String(x.res.reason || 'error'),
+      };
+    });
+  return { total: ids.length, ok: ids.length - fallidos.length, fallidos };
 }
 
 export function generarNumLiquidacion() {
@@ -511,13 +534,26 @@ export function generarNumLiquidacion() {
 
 export async function pagarGastosRegistros(ids, numLiquidacion) {
   const fechaPago = new Date().toISOString();
-  await Promise.all(ids.map(id =>
+  const results = await Promise.allSettled(ids.map(id =>
     updateRegistro(id, {
       estadoGastos:         'pagado',
       fechaPagoGastos:      fechaPago,
       numLiquidacionGastos: numLiquidacion,
     })
   ));
+  const fallidos = ids
+    .map((id, i) => ({ id, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => {
+      const reg = _registros.find(r => r.id === x.id);
+      return {
+        id: x.id,
+        codigo: reg?.codigoConductor || '?',
+        nombre: reg?.nombreConductor || '(desconocido)',
+        error:  x.res.reason?.message || String(x.res.reason || 'error'),
+      };
+    });
+  return { total: ids.length, ok: ids.length - fallidos.length, fallidos };
 }
 
 // ====================================================
@@ -550,17 +586,32 @@ export async function deleteGastoInd(id) {
 
 export async function pagarGastosInd(ids, numLiquidacion) {
   const fechaPago = new Date().toISOString();
-  await Promise.all(ids.map(id =>
+  const results = await Promise.allSettled(ids.map(id =>
     setDoc(doc(db, COL_GASTOS_IND, id), {
       estadoGastos:         'pagado',
       fechaPagoGastos:      fechaPago,
       numLiquidacionGastos: numLiquidacion,
     }, { merge: true })
   ));
-  ids.forEach(id => {
+  // Actualizar el caché local solo de los que se escribieron correctamente
+  ids.forEach((id, i) => {
+    if (results[i].status !== 'fulfilled') return;
     const g = _gastosInd.find(x => x.id === id);
     if (g) { g.estadoGastos = 'pagado'; g.fechaPagoGastos = fechaPago; g.numLiquidacionGastos = numLiquidacion; }
   });
+  const fallidos = ids
+    .map((id, i) => ({ id, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => {
+      const g = _gastosInd.find(y => y.id === x.id);
+      return {
+        id: x.id,
+        codigo: g?.conductorCodigo || '?',
+        nombre: g?.conductorNombre || '(gasto independiente)',
+        error:  x.res.reason?.message || String(x.res.reason || 'error'),
+      };
+    });
+  return { total: ids.length, ok: ids.length - fallidos.length, fallidos };
 }
 
 // ====================================================
