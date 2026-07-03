@@ -35,11 +35,16 @@ function msPoblar(msId, plataforma) {
   const todas = drop.querySelector('.ms-todas');
   drop.innerHTML = '';
   drop.appendChild(todas);
+
+  // 'gastos' usa un campo y una fuente de datos distintos al resto (que son de dietas)
+  const campo  = msId === 'gastos' ? 'numLiquidacionGastos' : 'numLiquidacionDietas';
+  const fuente = msId === 'gastos' ? getFuenteGastos() : getRegistros();
+
   const nums = [...new Set(
-    getRegistros()
-      .filter(r => r.numLiquidacionDietas)
+    fuente
+      .filter(r => r[campo])
       .filter(r => !plataforma || r.plataforma === plataforma)
-      .map(r => r.numLiquidacionDietas)
+      .map(r => r[campo])
   )].sort();
   nums.forEach(n => {
     const lbl = document.createElement('label');
@@ -131,6 +136,51 @@ function toggleConductorNumLiq() {
 }
 function toggleGestoriaNumLiq() {
   msPoblar('gestoria', document.getElementById('inf-plataforma-gestoria')?.value || '');
+}
+function toggleGastosNumLiq() {
+  msPoblar('gastos', '');
+}
+
+// ---- FUENTE COMBINADA PARA EL INFORME DE GASTOS ----
+// Une gastos de viaje (registros de dietas con gasto > 0) + gastos independientes,
+// normalizando ambos a los mismos nombres de campo (codigoConductor/nombreConductor)
+// para poder filtrarlos y agruparlos de forma uniforme.
+function getFuenteGastos() {
+  const viajes = getRegistros()
+    .filter(r => r.estadoDietas !== 'pendiente_validacion')
+    .filter(r => (r.gastosDetalle?.length > 0) || (r.gastosViaje > 0))
+    .map(r => ({
+      origen:          'Viaje',
+      codigoConductor: r.codigoConductor,
+      nombreConductor: r.nombreConductor,
+      plataforma:      r.plataforma || '',
+      fecha:           r.fechaSalida,
+      periodo:         `${r.fechaSalida} → ${r.fechaLlegada}`,
+      concepto: r.gastosDetalle?.length
+        ? [...new Set(r.gastosDetalle.map(g => g.concepto || g.tipo || ''))].filter(Boolean).join(', ')
+        : 'Gastos viaje',
+      importe: r.gastosDetalle?.length
+        ? r.gastosDetalle.reduce((s, g) => s + (parseFloat(g.importe) || 0), 0)
+        : parseFloat(r.gastosViaje || 0),
+      estadoGastos:         r.estadoGastos || 'pendiente',
+      numLiquidacionGastos: r.numLiquidacionGastos || '',
+    }));
+
+  const independientes = (typeof getGastosInd === 'function' ? getGastosInd() : [])
+    .map(g => ({
+      origen:          'Independiente',
+      codigoConductor: g.conductorCodigo,
+      nombreConductor: g.conductorNombre,
+      plataforma:      '',
+      fecha:           g.fecha,
+      periodo:         g.fecha,
+      concepto:        g.concepto || '—',
+      importe:         parseFloat(g.importe || 0),
+      estadoGastos:         g.estadoGastos || 'pendiente',
+      numLiquidacionGastos: g.numLiquidacionGastos || '',
+    }));
+
+  return [...viajes, ...independientes];
 }
 
 // ============================================================
@@ -501,13 +551,86 @@ function previsualizarRRHH() {
 }
 
 // ============================================================
+// PREVISUALIZACIÓN — Gastos (viaje + independientes)
+// ============================================================
+function previsualizarGastos() {
+  try {
+  const rawCod = document.getElementById('inf-gastos-cod-conductor')?.value.trim() || '';
+  const match  = rawCod.match(/^(\d+)/);
+  const cod    = match ? match[1] : rawCod;
+  const desde   = document.getElementById('inf-gastos-desde').value;
+  const hasta   = document.getElementById('inf-gastos-hasta').value;
+  const estado  = document.getElementById('inf-gastos-estado')?.value  || '';
+  const formato = document.getElementById('inf-gastos-formato')?.value || 'detallado';
+  const numLiqs = msGetSeleccionados('gastos');
+
+  let regs = getFuenteGastos();
+
+  if (cod) regs = regs.filter(r => {
+    const a = String(r.codigoConductor || '').replace(/^0+/, '');
+    const b = String(cod).replace(/^0+/, '');
+    return a === b;
+  });
+  if (desde)  regs = regs.filter(r => r.fecha >= desde);
+  if (hasta)  regs = regs.filter(r => r.fecha <= hasta);
+  if (estado) regs = regs.filter(r => r.estadoGastos === estado);
+  if (numLiqs.length) regs = regs.filter(r => numLiqs.includes(r.numLiquidacionGastos));
+
+  regs.sort((a, b) =>
+    String(a.codigoConductor).localeCompare(String(b.codigoConductor)) ||
+    String(a.fecha || '').localeCompare(String(b.fecha || ''))
+  );
+
+  if (!regs.length) { showToast('No hay gastos para ese filtro', 'error'); return; }
+
+  const ESTADO_G_LABEL = { pendiente: 'Pendiente', pagado: 'Pagado' };
+  let headers, filas;
+
+  if (formato === 'resumido') {
+    const mapa = {};
+    regs.forEach(r => {
+      const cod = String(r.codigoConductor || '—');
+      if (!mapa[cod]) mapa[cod] = { cod, nombre: r.nombreConductor || '—', nReg: 0, total: 0 };
+      mapa[cod].nReg++;
+      mapa[cod].total += r.importe;
+    });
+    const filasArr = Object.values(mapa).sort((a, b) => a.cod.localeCompare(b.cod));
+    headers = ['COD', 'NOMBRE', 'Nº GASTOS', 'TOTAL'];
+    filas = filasArr.map(m => ({
+      'COD':        m.cod,
+      'NOMBRE':     m.nombre,
+      'Nº GASTOS':  m.nReg,
+      'TOTAL':      fmt2(m.total) + ' €',
+    }));
+  } else {
+    headers = ['COD', 'NOMBRE', 'ORIGEN', 'PLATAFORMA', 'FECHA/PERÍODO', 'CONCEPTO', 'IMPORTE', 'ESTADO', 'NÚM.LIQ.GASTOS'];
+    filas = regs.map(r => ({
+      'COD':             r.codigoConductor || '—',
+      'NOMBRE':          r.nombreConductor || '—',
+      'ORIGEN':          r.origen,
+      'PLATAFORMA':      r.plataforma || '—',
+      'FECHA/PERÍODO':   r.periodo || r.fecha || '—',
+      'CONCEPTO':        r.concepto || '—',
+      'IMPORTE':         fmt2(r.importe) + ' €',
+      'ESTADO':          ESTADO_G_LABEL[r.estadoGastos] || r.estadoGastos || 'Pendiente',
+      'NÚM.LIQ.GASTOS':  r.numLiquidacionGastos || '—',
+    }));
+  }
+
+  const titulo = `Gastos_${formato}`;
+  _informe = { tipo: 'gastos', datos: regs, headers, filas, titulo };
+  mostrarPreview(headers, filas, `Gastos (${formato === 'resumido' ? 'Resumido' : 'Detallado'})`);
+  } catch (err) { showToast('Error: ' + err.message, 'error'); console.error(err); }
+}
+
+// ============================================================
 // MOSTRAR PREVIEW EN PANTALLA
 // ============================================================
 const NUM_COLS = new Set(['Días','Total Km','Km Salida','Km Vuelta','24H/PAUSA','Cargas/Desc.','Mov. Palets','Rebote','KM','DÍAS','TOTAL',
   'H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','MEJORA','ANTICIPOS',
   'SUM_DIETAS','PLUS_EFIC','DISPONIB','DIETAS_CAU','EXTRAS','COEF_NAC','DOM_FEST',
   'CARGA','PALET','REBOTE','24H','PAUSA','UK','NDLF','ACARREOS','VLISSINGEN',
-  'PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS']);
+  'PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','IMPORTE','Nº GASTOS']);
 
 function mostrarPreview(headers, filas, titulo) {
   document.getElementById('inf-preview-empty').style.display   = 'none';
