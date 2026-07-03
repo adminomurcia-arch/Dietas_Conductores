@@ -460,11 +460,25 @@ export async function deleteRegistro(id) {
 }
 
 export async function setEstadoDietas(id, estado) {
-  await updateRegistro(id, { estadoDietas: estado, fechaLiquidacion: estado === 'liquidado' ? new Date().toISOString() : null });
+  const datos = {
+    estadoDietas:     estado,
+    fechaLiquidacion: estado === 'liquidado' ? new Date().toISOString() : null,
+  };
+  // Al revertir a pendiente/bloqueado, el registro deja de pertenecer a su lote de liquidación.
+  // Si vuelve a 'liquidado' no tocamos el campo aquí: lo pone liquidarRegistros().
+  if (estado !== 'liquidado') datos.numLiquidacionDietas = null;
+  await updateRegistro(id, datos);
 }
 
 export async function setEstadoGastos(id, estado) {
-  await updateRegistro(id, { estadoGastos: estado, fechaPagoGastos: estado === 'pagado' ? new Date().toISOString() : null });
+  const datos = {
+    estadoGastos:    estado,
+    fechaPagoGastos: estado === 'pagado' ? new Date().toISOString() : null,
+  };
+  // Al revertir a pendiente/bloqueado, el registro deja de pertenecer a su lote de pago de gastos.
+  // Si vuelve a 'pagado' no tocamos el campo aquí: lo pone pagarGastosRegistros().
+  if (estado !== 'pagado') datos.numLiquidacionGastos = null;
+  await updateRegistro(id, datos);
 }
 
 export async function marcarEmailEnviado(id) {
