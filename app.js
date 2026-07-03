@@ -2153,21 +2153,31 @@ async function nomGenerarZip() {
     await nomCargarJSZip();
   }
   const zip = new JSZip();
+  const datos = []; // datos.json para la macro VBA
   let done = 0;
 
   for (const r of queue) {
-    // Un .eml por cada PDF (puede haber _1 y _2)
+    const vars = { nombre: r.nombre || r.nif, nif: r.nif, mes: r.mes, anio: r.anio };
+    const asuntoR = nomResolveTemplate(asunto, vars);
+    const cuerpoR = nomResolveTemplate(cuerpo, vars);
+
     for (let fi = 0; fi < r.files.length; fi++) {
-      const file      = r.files[fi];
-      const fileName  = r.names[fi];
+      const file     = r.files[fi];
+      const fileName = r.names[fi];
       const pdfBuffer = await nomLeerArchivo(file);
-      const pdfB64    = nomArrayBufferToBase64(pdfBuffer);
-      const vars      = { nombre: r.nombre || r.nif, nif: r.nif, mes: r.mes, anio: r.anio };
-      const asuntoR   = nomResolveTemplate(asunto, vars);
-      const cuerpoR   = nomResolveTemplate(cuerpo, vars);
-      const eml = nomBuildEml({ from, to: r.email, subject: asuntoR, body: cuerpoR, filename: fileName, pdfB64 });
-      zip.file(fileName.replace(/\.pdf$/i, '.eml'), eml);
+      // Añadir PDF al ZIP
+      zip.file(fileName, pdfBuffer);
+      // Añadir entrada al JSON
+      datos.push({
+        pdf:     fileName,
+        to:      r.email,
+        subject: asuntoR,
+        body:    cuerpoR,
+        from:    from,
+        nombre:  r.nombre || r.nif,
+      });
     }
+
     done++;
     const pct = Math.round((done / queue.length) * 100);
     document.getElementById('nom-prog-fill').style.width = pct + '%';
@@ -2179,6 +2189,9 @@ async function nomGenerarZip() {
     await new Promise(res => setTimeout(res, 20));
   }
 
+  // Añadir datos.json al ZIP
+  zip.file('datos.json', JSON.stringify(datos, null, 2));
+
   const blob = await zip.generateAsync({ type: 'blob' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -2189,7 +2202,7 @@ async function nomGenerarZip() {
 
   document.getElementById('nom-prog-txt').textContent = `✅ ZIP generado con ${done} conductores`;
   document.getElementById('nom-btn-match').disabled = false;
-  showToast(`ZIP descargado con ${done} ficheros .eml ✓`, 'success');
+  showToast(`ZIP descargado con ${done} PDFs + datos.json ✓`, 'success');
 }
 
 function nomCargarJSZip() {
