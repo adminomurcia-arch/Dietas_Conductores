@@ -51,6 +51,7 @@ function showTab(tab) {
     msPoblar('conductor', '');
     msPoblar('gestoria', '');
     msPoblar('rrhh', '');
+    msPoblar('gastos', '');
   }
   // Inicializar módulo de nóminas
   if (tab === 'nominas') nomInicializar();
