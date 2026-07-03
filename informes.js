@@ -37,9 +37,9 @@ function msPoblar(msId, plataforma) {
   drop.appendChild(todas);
   const nums = [...new Set(
     getRegistros()
-      .filter(r => r.numLiquidacion)
+      .filter(r => r.numLiquidacionDietas)
       .filter(r => !plataforma || r.plataforma === plataforma)
-      .map(r => r.numLiquidacion)
+      .map(r => r.numLiquidacionDietas)
   )].sort();
   nums.forEach(n => {
     const lbl = document.createElement('label');
@@ -150,7 +150,7 @@ function previsualizarConductor() {
   let regsRaw = filtrarRegistros(desde, hasta, plat, cod);
   if (equipaje)        regsRaw = regsRaw.filter(r => (r.equipaje || '').toUpperCase() === equipaje);
   if (estado)          regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
+  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacionDietas));
   const regs    = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -250,7 +250,7 @@ function previsualizarGestoria() {
   const numLiqs = msGetSeleccionados('gestoria');
   let regsRaw  = filtrarRegistros(desde, hasta, plat, '');
   if (estado)         regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  if (numLiqs.length) regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
+  if (numLiqs.length) regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacionDietas));
   const regs     = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -399,7 +399,7 @@ function previsualizarRRHH() {
   let regsRaw    = filtrarRegistros(desde, hasta, plat, '');
   if (equipaje)        regsRaw = regsRaw.filter(r => r.equipaje === equipaje);
   if (estado)          regsRaw = regsRaw.filter(r => (r.estadoDietas || 'pendiente') === estado);
-  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacion));
+  if (numLiqs.length)  regsRaw = regsRaw.filter(r => numLiqs.includes(r.numLiquidacionDietas));
   const regs = regsRaw.slice().sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)));
   if (!regs.length) { showToast('No hay registros para ese filtro', 'error'); return; }
 
@@ -963,7 +963,7 @@ function previsualizarIntegridad() {
   });
 
   // 5. Registros liquidados sin número de liquidación
-  regs.filter(r => r.estadoDietas === 'liquidado' && !r.numLiquidacion).forEach(r => {
+  regs.filter(r => r.estadoDietas === 'liquidado' && !r.numLiquidacionDietas).forEach(r => {
     problemas.push({
       tipo: '📋 Registro', severidad: 'media',
       descripcion: `Liquidado sin número`,
