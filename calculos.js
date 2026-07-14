@@ -65,14 +65,15 @@ function calcularDietas() {
   return res;
 }
 
-// ---- PESCADO ----
-function calcPESCADO({ totalKm, coefNac }) {
+// ---- PESCADO / COMODÍN ----
+function calcPESCADO({ totalKm }) {
   const precioKm  = buscarConductorActual()?.PrecioKmt || 0;
   const sumDietas = totalKm * precioKm;  // siempre 12.000 × PrecioKmt
   const H_EXTRA   = 0.02926 * 0.4 * totalKm;
   const H_PRESEN  = 0.02926 * 0.5 * totalKm;
   const NOCTURNO  = 0.02926 * 0.1 * totalKm;
-  const DIET_NAC  = coefNac * 45.19;
+  // DIET_NAC = diferencia entre el total y las horas (H_EXTRA + H_PRESEN + NOCTURNO), para que siempre cuadre
+  const DIET_NAC  = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO;
   const DIET_INTER = 0;
   return { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER };
 }
@@ -352,7 +353,8 @@ function calcularDietasParaConductor(conductor, datos) {
     const H_EXTRA   = 0.02926 * 0.4 * f.totalKm;
     const H_PRESEN  = 0.02926 * 0.5 * f.totalKm;
     const NOCTURNO  = 0.02926 * 0.1 * f.totalKm;
-    const DIET_NAC  = f.coefNac * 45.19;
+    // DIET_NAC = diferencia entre el total y las horas, para que siempre cuadre
+    const DIET_NAC  = sumDietas - H_EXTRA - H_PRESEN - NOCTURNO;
     res = { sumDietas, H_EXTRA, H_PRESEN, NOCTURNO, DIET_NAC, DIET_INTER: 0 };
   } else if (f.plataforma === 'TJG') {
     // EQUIPAJE DOBLE: cargas y palets al 50%
