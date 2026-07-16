@@ -702,6 +702,46 @@
       </div>
 
       <div class="informe-card">
+        <div class="informe-icon">⚖️</div>
+        <h3>Embargos</h3>
+        <p>Seguimiento de pagos a terceros</p>
+        <div class="field">
+          <label>Código o nombre (vacío = todos)</label>
+          <input type="text" id="inf-emb-cod-conductor" placeholder="Ej: 10001 o García…"
+                 list="inf-conductores-list" oninput="infFiltrarConductor(this)"
+                 autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Organismo</label>
+          <input type="text" id="inf-emb-organismo" placeholder="Ej: Hacienda, Juzgado…">
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="inf-emb-estado">
+            <option value="">Todos</option>
+            <option value="activo">Activo</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Formato</label>
+          <select id="inf-emb-formato">
+            <option value="detallado">Detallado — pagos mes a mes</option>
+            <option value="resumen">Resumen por embargo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Período de pago</label>
+          <div class="date-range">
+            <input type="date" id="inf-emb-desde">
+            <span>—</span>
+            <input type="date" id="inf-emb-hasta">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="previsualizarEmbargos()">🔍 Previsualizar</button>
+      </div>
+
+      <div class="informe-card">
         <div class="informe-icon">🔍</div>
         <h3>Integridad</h3>
         <p>Detecta datos incompletos, anomalías y posibles errores de pago</p>
@@ -748,6 +788,8 @@
       <button class="liq-tab-btn active" onclick="showLiqTab('dietas')">💰 Dietas</button>
       <button class="liq-tab-btn" onclick="showLiqTab('gastos')">🧾 Gastos</button>
       <button class="liq-tab-btn" onclick="showLiqTab('validacion')">✅ Validación Móvil</button>
+      <button class="liq-tab-btn" onclick="showLiqTab('anticipos')">💵 Anticipos</button>
+      <button class="liq-tab-btn" onclick="showLiqTab('embargos')">⚖️ Embargos</button>
       <button class="liq-tab-btn" onclick="showLiqTab('historial-liq')">📋 Historial</button>
     </div>
 
@@ -772,6 +814,7 @@
           <span id="liq-d-total" class="liq-total">0,00 €</span>
           <button class="btn btn-ghost" onclick="liqDietasMarcarTodos()">☑️ Marcar todos</button>
           <button class="btn btn-secondary" onclick="liqDietasLiquidar()">💰 Liquidar seleccionados</button>
+          <button class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed" onclick="liqDietasMarcarFiniquito()">🏁 Marcar como Finiquito</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -878,6 +921,83 @@
             <th>Días</th><th>Total</th><th>Origen</th><th>Acciones</th>
           </tr></thead>
           <tbody id="tbody-liq-validacion"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ANTICIPOS -->
+    <div id="liq-anticipos" class="liq-content" style="display:none">
+      <div class="liq-toolbar">
+        <div class="liq-filtros">
+          <input type="text" id="ant-conductor" placeholder="Código o nombre…"
+                 list="ant-conductores-list" autocomplete="off">
+          <datalist id="ant-conductores-list"></datalist>
+          <select id="ant-estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente de descontar</option>
+            <option value="descontado">Descontado (finiquito)</option>
+          </select>
+          <select id="ant-estado-pago">
+            <option value="">Todos los pagos</option>
+            <option value="pendiente">Sin pagar</option>
+            <option value="pagado">Pagado</option>
+          </select>
+          <input type="date" id="ant-desde"><span>—</span><input type="date" id="ant-hasta">
+          <button class="btn btn-ghost" onclick="cargarLiqAnticipos()">🔍 Filtrar</button>
+        </div>
+        <div class="liq-acciones">
+          <span id="ant-total" class="liq-total">0,00 €</span>
+          <button class="btn btn-ghost" onclick="antMarcarTodos()">☑️ Marcar todos</button>
+          <button class="btn btn-primary" onclick="abrirModalAnticipo()">➕ Nuevo Anticipo</button>
+          <button class="btn btn-secondary" onclick="liqAnticiposPagar()">🧾 Pagar seleccionados</button>
+          <button class="btn btn-secondary" onclick="liqAnticiposXML()">📄 Generar XML SEPA</button>
+          <button class="btn btn-ghost" onclick="liqAnticiposExcel()">📊 Exportar Excel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th><input type="checkbox" id="chk-ant-todos" onchange="antToggleTodos()"></th>
+            <th>Conductor</th><th>IBAN</th><th>Fecha</th><th>Concepto</th>
+            <th style="text-align:right">Importe</th><th>Estado</th><th>Pago</th><th>Finiquito</th><th>Acciones</th>
+          </tr></thead>
+          <tbody id="tbody-liq-anticipos"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EMBARGOS -->
+    <div id="liq-embargos" class="liq-content" style="display:none">
+      <div class="liq-toolbar">
+        <div class="liq-filtros">
+          <input type="text" id="emb-conductor" placeholder="Código o nombre…"
+                 list="ant-conductores-list" autocomplete="off">
+          <input type="text" id="emb-organismo" placeholder="Organismo…">
+          <select id="emb-estado">
+            <option value="">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+          <button class="btn btn-ghost" onclick="cargarLiqEmbargos()">🔍 Filtrar</button>
+        </div>
+        <div class="liq-acciones">
+          <span id="emb-total" class="liq-total">0,00 €</span>
+          <button class="btn btn-ghost" onclick="embMarcarTodos()">☑️ Marcar todos</button>
+          <button class="btn btn-primary" onclick="abrirModalEmbargo()">➕ Nuevo Embargo</button>
+          <button class="btn btn-secondary" onclick="abrirModalPagoEmbargo()">💳 Registrar pago mensual</button>
+          <button class="btn btn-ghost" onclick="liqEmbargosExcel()">📊 Exportar Excel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th><input type="checkbox" id="chk-emb-todos" onchange="embToggleTodos()"></th>
+            <th>Conductor</th><th>Organismo</th><th>Nº Expediente</th><th>IBAN Tercero</th>
+            <th style="text-align:right">Importe Total</th><th style="text-align:right">Mensual</th>
+            <th style="text-align:right">Pagado</th><th style="text-align:right">Pendiente</th>
+            <th>Estado</th><th>Acciones</th>
+          </tr></thead>
+          <tbody id="tbody-liq-embargos"></tbody>
         </table>
       </div>
     </div>
@@ -1433,6 +1553,176 @@ Dpto. de Administracion</textarea>
   </div>
 </div>
 
+<!-- MODAL ALTA/EDICIÓN ANTICIPO -->
+<div id="modal-anticipo" class="modal" style="display:none">
+  <div class="modal-box" style="width:420px">
+    <div class="modal-header">
+      <h3 id="anticipo-titulo">💵 Nuevo Anticipo</h3>
+      <button onclick="cerrarModalAnticipo()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="anticipo-id">
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1;position:relative">
+          <label>Conductor * (código o nombre)</label>
+          <input type="text" id="anticipo-conductor" placeholder="Escribe código o nombre…"
+                 list="ant-conductores-list" autocomplete="off">
+          <input type="hidden" id="anticipo-cod-conductor">
+        </div>
+        <div class="field">
+          <label>Fecha *</label>
+          <input type="date" id="anticipo-fecha">
+        </div>
+        <div class="field">
+          <label>Importe (€) *</label>
+          <input type="number" id="anticipo-importe" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Concepto</label>
+          <input type="text" id="anticipo-concepto" placeholder="Anticipo gastos de viaje">
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text-soft);margin-top:8px">
+        Es un registro informativo — no se descuenta de las dietas salvo que se marque un finiquito para este conductor.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModalAnticipo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarAnticipo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MARCAR FINIQUITO -->
+<div id="modal-finiquito" class="modal" style="display:none">
+  <div class="modal-box" style="width:460px">
+    <div class="modal-header">
+      <h3>🏁 Marcar como Finiquito</h3>
+      <button onclick="cerrarModalFiniquito()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg-alt);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:6px" id="fin-conductor-nombre"></div>
+        <div style="font-size:12px;color:var(--text-soft)" id="fin-registros-resumen"></div>
+        <div style="font-size:13px;margin-top:8px">Total dietas: <strong id="fin-total-dietas"></strong></div>
+      </div>
+      <div id="fin-anticipos-aviso" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;
+           padding:12px;margin-bottom:14px;display:none">
+        <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:4px">⚠️ Anticipos pendientes de este conductor</div>
+        <div style="font-size:13px;color:#92400e">Importe: <strong id="fin-anticipos-importe"></strong></div>
+        <div style="font-size:11px;color:#92400e;margin-top:4px">
+          No se resta del cálculo — quedarán marcados como <strong>descontados</strong> al confirmar. Gestiona el descuento real aparte.
+        </div>
+      </div>
+      <div class="field">
+        <label>Número de Finiquito</label>
+        <input type="text" id="fin-numero" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModalFiniquito()">Cancelar</button>
+      <button class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed" onclick="confirmarFiniquito()">Confirmar Finiquito</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ALTA/EDICIÓN EMBARGO -->
+<div id="modal-embargo" class="modal" style="display:none">
+  <div class="modal-box" style="width:480px">
+    <div class="modal-header">
+      <h3 id="embargo-titulo">⚖️ Nuevo Embargo</h3>
+      <button onclick="cerrarModalEmbargo()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="embargo-id">
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1;position:relative">
+          <label>Conductor * (código o nombre)</label>
+          <input type="text" id="embargo-conductor" placeholder="Escribe código o nombre…"
+                 list="ant-conductores-list" autocomplete="off">
+          <input type="hidden" id="embargo-cod-conductor">
+        </div>
+        <div class="field">
+          <label>Organismo / Entidad *</label>
+          <input type="text" id="embargo-organismo" placeholder="Hacienda, Seguridad Social, Juzgado…">
+        </div>
+        <div class="field">
+          <label>Nº Expediente *</label>
+          <input type="text" id="embargo-num-expediente" placeholder="Ej: EXP-2026-0123">
+        </div>
+        <div class="field">
+          <label>Importe Total (€) *</label>
+          <input type="number" id="embargo-importe-total" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div class="field">
+          <label>Importe Mensual (€) *</label>
+          <input type="number" id="embargo-importe-mensual" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div class="field">
+          <label>Fecha Inicio *</label>
+          <input type="date" id="embargo-fecha-inicio">
+        </div>
+        <div class="field">
+          <label>Fecha Fin (estimada)</label>
+          <input type="date" id="embargo-fecha-fin">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Nombre del Beneficiario (tercero) *</label>
+          <input type="text" id="embargo-nombre-tercero" placeholder="Ej: Agencia Tributaria">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>IBAN del Beneficiario *</label>
+          <input type="text" id="embargo-iban-tercero" placeholder="ES00 0000 0000 0000 0000 0000">
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text-soft);margin-top:8px">
+        El importe mensual se calcula fuera de la app — aquí solo se registra e informa. El estado pasa a
+        "Finalizado" automáticamente al alcanzar el importe total (editable a mano si hace falta).
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModalEmbargo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEmbargo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR PAGO MENSUAL DE EMBARGOS (REMESA) -->
+<div id="modal-pago-embargo" class="modal" style="display:none">
+  <div class="modal-box" style="width:560px">
+    <div class="modal-header">
+      <h3>💳 Registrar pago mensual — Embargos</h3>
+      <button onclick="cerrarModalPagoEmbargo()" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-soft);margin-bottom:10px">
+        Se registrará este pago sobre los embargos seleccionados. Puedes ajustar el importe de cada uno antes de confirmar.
+      </p>
+      <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+        <table class="data-table">
+          <thead><tr><th>Conductor</th><th>Organismo</th><th>Nº Exp.</th><th style="text-align:right">Importe</th></tr></thead>
+          <tbody id="tbody-pago-embargo"></tbody>
+        </table>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="field">
+          <label>Fecha de pago</label>
+          <input type="date" id="pago-emb-fecha">
+        </div>
+        <div class="field">
+          <label>Nº Remesa</label>
+          <input type="text" id="pago-emb-numero" style="text-transform:uppercase">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModalPagoEmbargo()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="pagoEmbargoXML()">📄 Generar XML SEPA</button>
+      <button class="btn btn-primary" onclick="confirmarPagoEmbargos()">✓ Registrar pago</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
@@ -1448,7 +1738,13 @@ Dpto. de Administracion</textarea>
            getTractoras, upsertTractora, eliminarTractora, upsertTarifa,
            getConceptos, upsertConcepto, eliminarConcepto,
            updateTractoraConductor, setOnRegistrosChange,
-           cargarGastosInd, getGastosInd, addGastoInd, deleteGastoInd, pagarGastosInd } from './db.js';
+           cargarGastosInd, getGastosInd, addGastoInd, deleteGastoInd, pagarGastosInd,
+           generarNumFiniquito, marcarRegistrosFiniquito,
+           cargarAnticipos, getAnticipos, getAnticiposPendientesConductor,
+           addAnticipo, updateAnticipo, deleteAnticipo, pagarAnticipos, descontarAnticiposConductor,
+           generarNumRemesaAnticipos,
+           cargarEmbargos, getEmbargos, addEmbargo, updateEmbargo, deleteEmbargo,
+           registrarPagosEmbargos, setEstadoEmbargo, generarNumRemesaEmbargos } from './db.js';
 
   window.initDB               = initDB;
   window.getConductores       = getConductores;
@@ -1479,6 +1775,31 @@ Dpto. de Administracion</textarea>
   window.addGastoInd          = addGastoInd;
   window.deleteGastoInd       = deleteGastoInd;
   window.pagarGastosInd       = pagarGastosInd;
+
+  // Finiquitos
+  window.generarNumFiniquito     = generarNumFiniquito;
+  window.marcarRegistrosFiniquito = marcarRegistrosFiniquito;
+
+  // Anticipos
+  window.cargarAnticipos               = cargarAnticipos;
+  window.getAnticipos                  = getAnticipos;
+  window.getAnticiposPendientesConductor = getAnticiposPendientesConductor;
+  window.addAnticipo                   = addAnticipo;
+  window.updateAnticipo                = updateAnticipo;
+  window.deleteAnticipo                = deleteAnticipo;
+  window.pagarAnticipos                = pagarAnticipos;
+  window.descontarAnticiposConductor   = descontarAnticiposConductor;
+  window.generarNumRemesaAnticipos     = generarNumRemesaAnticipos;
+
+  // Embargos
+  window.cargarEmbargos          = cargarEmbargos;
+  window.getEmbargos             = getEmbargos;
+  window.addEmbargo              = addEmbargo;
+  window.updateEmbargo           = updateEmbargo;
+  window.deleteEmbargo           = deleteEmbargo;
+  window.registrarPagosEmbargos  = registrarPagosEmbargos;
+  window.setEstadoEmbargo        = setEstadoEmbargo;
+  window.generarNumRemesaEmbargos = generarNumRemesaEmbargos;
 
   // Exponer renderHistorial para el listener onSnapshot de db.js
   setTimeout(() => {
