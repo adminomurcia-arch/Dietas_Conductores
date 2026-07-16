@@ -3,6 +3,9 @@
 // =============================================
 
 let modoActual = 'detallado';
+let _finiquitoIds = [];
+let _finiquitoConductor = '';
+let _pagoEmbargoRows = [];
 
 // ---- AVISO AL SALIR CON EDICIÓN ACTIVA ----
 window.addEventListener('beforeunload', e => {
@@ -23,6 +26,8 @@ window._appReady = function() {
   setModo('detallado');
   fijarLimiteFechas();
   if (typeof cargarGastosInd === 'function') cargarGastosInd();
+  if (typeof cargarAnticipos === 'function') cargarAnticipos();
+  if (typeof cargarEmbargos === 'function') cargarEmbargos();
 };
 
 // ---- FECHAS: máximo = hoy, pre-rellenar al hacer foco ----
@@ -1364,6 +1369,8 @@ function showLiqTab(tab) {
   if (tab === 'dietas')     cargarLiqDietas();
   if (tab === 'gastos')     cargarLiqGastos();
   if (tab === 'validacion')   cargarLiqValidacion();
+  if (tab === 'anticipos')  cargarLiqAnticipos();
+  if (tab === 'embargos')   cargarLiqEmbargos();
   if (tab === 'historial-liq') cargarHistorialLiq();
 }
 
@@ -2479,4 +2486,636 @@ async function eliminarGastoInd(id) {
   await deleteGastoInd(id);
   showToast('Gasto eliminado', 'success');
   renderGastosInd();
+}
+
+// ============================================================
+// HELPERS SEPA COMPARTIDOS (Anticipos y Embargos)
+// No modifican generarXMLSEPA() ni el modal-sepa de Gastos —
+// usan los mismos datos de empresa guardados en localStorage('sepa_config').
+// ============================================================
+function _getConfigSEPA() {
+  const cfg = JSON.parse(localStorage.getItem('sepa_config') || '{}');
+  if (!cfg.nombre || !cfg.iban || !cfg.bic) {
+    showToast('Configura antes los datos de tu empresa en Liquidaciones → Gastos → Generar XML SEPA', 'error');
+    return null;
+  }
+  return { ...cfg, iban: (cfg.iban || '').replace(/\s/g, '') };
+}
+
+function _construirXMLSEPA(cfg, transacciones, filenamePrefix) {
+  const fecha  = new Date().toISOString().slice(0, 10);
+  const msgId  = `MSG${Date.now()}`;
+  let totalSum = 0, txs = '', nTxs = 0;
+
+  transacciones.forEach((t, i) => {
+    if (!t.importe || !t.iban) return;
+    totalSum += t.importe;
+    nTxs++;
+    txs += `
+    <CdtTrfTxInf>
+      <PmtId><EndToEndId>TX${i + 1}-${msgId}</EndToEndId></PmtId>
+      <Amt><InstdAmt Ccy="EUR">${t.importe.toFixed(2)}</InstdAmt></Amt>
+      <CdtrAgt><FinInstnId><BICFI>${cfg.bic}</BICFI></FinInstnId></CdtrAgt>
+      <Cdtr><Nm>${(t.nombre || '').substring(0,70)}</Nm></Cdtr>
+      <CdtrAcct><Id><IBAN>${t.iban}</IBAN></Id></CdtrAcct>
+      <RmtInf><Ustrd>${(t.concepto || '').substring(0,140)}</Ustrd></RmtInf>
+    </CdtTrfTxInf>`;
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${new Date().toISOString().slice(0,19)}</CreDtTm>
+      <NbOfTxs>${nTxs}</NbOfTxs>
+      <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
+      <InitgPty><Nm>${cfg.nombre.substring(0,70)}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>PMT${msgId}</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <NbOfTxs>${nTxs}</NbOfTxs>
+      <CtrlSum>${totalSum.toFixed(2)}</CtrlSum>
+      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
+      <ReqdExctnDt>${fecha}</ReqdExctnDt>
+      <Dbtr><Nm>${cfg.nombre.substring(0,70)}</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${cfg.iban}</IBAN></Id></DbtrAcct>
+      <DbtrAgt><FinInstnId><BICFI>${cfg.bic}</BICFI></FinInstnId></DbtrAgt>
+      ${txs}
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>`;
+
+  const blob = new Blob([xml], { type: 'application/xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `${filenamePrefix}_${fecha}.xml`;
+  a.click();
+  URL.revokeObjectURL(url);
+  return { nTxs, totalSum };
+}
+
+// ============================================================
+// MÓDULO ANTICIPOS
+// ============================================================
+async function cargarLiqAnticipos() {
+  if (typeof cargarAnticipos === 'function') await cargarAnticipos();
+
+  const cod        = document.getElementById('ant-conductor')?.value.trim().toLowerCase() || '';
+  const estado      = document.getElementById('ant-estado')?.value || '';
+  const estadoPago  = document.getElementById('ant-estado-pago')?.value || '';
+  const desde       = document.getElementById('ant-desde')?.value || '';
+  const hasta       = document.getElementById('ant-hasta')?.value || '';
+
+  let lista = getAnticipos();
+  if (cod) lista = lista.filter(a =>
+    String(a.codigoConductor || '').toLowerCase().includes(cod) ||
+    String(a.nombreConductor || '').toLowerCase().includes(cod));
+  if (estado)     lista = lista.filter(a => a.estado === estado);
+  if (estadoPago) lista = lista.filter(a => a.estadoPago === estadoPago);
+  if (desde)       lista = lista.filter(a => a.fecha >= desde);
+  if (hasta)       lista = lista.filter(a => a.fecha <= hasta);
+
+  const conductores = getConductores();
+  const tbody = document.getElementById('tbody-liq-anticipos');
+  if (!tbody) return;
+
+  tbody.innerHTML = lista.map(a => {
+    const c = conductores.find(x => String(x.Codigo).padStart(6,'0') === String(a.codigoConductor).padStart(6,'0'));
+    return `<tr>
+      <td><input type="checkbox" class="chk-liq-ant" data-id="${a.id}" data-codigo="${a.codigoConductor}"
+          data-nombre="${a.nombreConductor}" data-importe="${a.importe}" onchange="actualizarTotalLiqAnticipos()"></td>
+      <td>${a.nombreConductor}<br><small>${a.codigoConductor}</small></td>
+      <td class="td-iban">${c?.IBAN || '—'}</td>
+      <td>${a.fecha || '—'}</td>
+      <td>${a.concepto || '—'}</td>
+      <td style="text-align:right;font-family:var(--font-mono)">
+        ${parseFloat(a.importe||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €
+      </td>
+      <td><span class="estado-badge estado-${a.estado === 'descontado' ? 'liquidado' : 'pendiente'}">${a.estado}</span></td>
+      <td><span class="estado-badge estado-${a.estadoPago === 'pagado' ? 'pagado' : 'pendiente'}">${a.estadoPago}</span></td>
+      <td>${a.numFiniquito || '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="editarAnticipo('${a.id}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="eliminarAnticipo('${a.id}')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:#888">Sin anticipos</td></tr>';
+
+  actualizarTotalLiqAnticipos();
+}
+
+function actualizarTotalLiqAnticipos() {
+  const total = Array.from(document.querySelectorAll('.chk-liq-ant:checked'))
+    .reduce((s, c) => s + parseFloat(c.dataset.importe || 0), 0);
+  const el = document.getElementById('ant-total');
+  if (el) el.textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+}
+
+function antToggleTodos() {
+  const todos = document.getElementById('chk-ant-todos').checked;
+  document.querySelectorAll('.chk-liq-ant').forEach(c => c.checked = todos);
+  actualizarTotalLiqAnticipos();
+}
+
+function antMarcarTodos() {
+  document.querySelectorAll('.chk-liq-ant').forEach(c => c.checked = true);
+  document.getElementById('chk-ant-todos').checked = true;
+  actualizarTotalLiqAnticipos();
+}
+
+function abrirModalAnticipo(id = null) {
+  const dl = document.getElementById('ant-conductores-list');
+  if (dl) dl.innerHTML = getConductores()
+    .sort((a,b) => String(a.Codigo).localeCompare(String(b.Codigo)))
+    .map(c => `<option value="${c.Codigo} — ${c.Nombre}" data-codigo="${c.Codigo}" data-nombre="${c.Nombre}">`)
+    .join('');
+
+  document.getElementById('anticipo-id').value = '';
+  document.getElementById('anticipo-conductor').value = '';
+  document.getElementById('anticipo-cod-conductor').value = '';
+  document.getElementById('anticipo-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('anticipo-importe').value = '';
+  document.getElementById('anticipo-concepto').value = '';
+  document.getElementById('anticipo-titulo').textContent = '💵 Nuevo Anticipo';
+
+  if (id) {
+    const a = getAnticipos().find(x => x.id === id);
+    if (a) {
+      document.getElementById('anticipo-id').value = a.id;
+      document.getElementById('anticipo-conductor').value = `${a.codigoConductor} — ${a.nombreConductor}`;
+      document.getElementById('anticipo-cod-conductor').value = a.codigoConductor;
+      document.getElementById('anticipo-fecha').value = a.fecha || '';
+      document.getElementById('anticipo-importe').value = a.importe || '';
+      document.getElementById('anticipo-concepto').value = a.concepto || '';
+      document.getElementById('anticipo-titulo').textContent = '✏️ Editar Anticipo';
+    }
+  }
+  document.getElementById('modal-anticipo').style.display = 'flex';
+}
+
+function cerrarModalAnticipo() {
+  document.getElementById('modal-anticipo').style.display = 'none';
+}
+
+function editarAnticipo(id) { abrirModalAnticipo(id); }
+
+async function guardarAnticipo() {
+  const conductorVal = document.getElementById('anticipo-conductor').value.trim();
+  const fecha    = document.getElementById('anticipo-fecha').value;
+  const importe  = parseFloat(document.getElementById('anticipo-importe').value);
+  const concepto = document.getElementById('anticipo-concepto').value.trim() || 'Anticipo gastos de viaje';
+  const id       = document.getElementById('anticipo-id').value;
+
+  const match = conductorVal.match(/^(\d{5,6})\s*[—-]\s*(.+)/);
+  let cod = document.getElementById('anticipo-cod-conductor').value;
+  if (match) cod = match[1];
+  const c = getConductores().find(x => String(x.Codigo).padStart(6,'0') === String(cod).padStart(6,'0'));
+
+  if (!c) { showToast('Selecciona un conductor válido', 'error'); return; }
+  if (!fecha || !importe) { showToast('Rellena fecha e importe', 'error'); return; }
+
+  if (id) {
+    await updateAnticipo(id, { codigoConductor: c.Codigo, nombreConductor: c.Nombre, fecha, importe, concepto });
+    showToast('Anticipo actualizado ✓', 'success');
+  } else {
+    await addAnticipo({ codigoConductor: c.Codigo, nombreConductor: c.Nombre, fecha, importe, concepto });
+    showToast('Anticipo guardado ✓', 'success');
+  }
+  cerrarModalAnticipo();
+  cargarLiqAnticipos();
+}
+
+async function eliminarAnticipo(id) {
+  if (!confirm('¿Eliminar este anticipo?')) return;
+  await deleteAnticipo(id);
+  showToast('Anticipo eliminado', 'success');
+  cargarLiqAnticipos();
+}
+
+function liqAnticiposXML() {
+  const checks = document.querySelectorAll('.chk-liq-ant:checked');
+  if (!checks.length) { showToast('Selecciona al menos un anticipo', 'error'); return; }
+  const cfg = _getConfigSEPA();
+  if (!cfg) return;
+
+  const conductores = getConductores();
+  const transacciones = Array.from(checks).map(c => {
+    const cond = conductores.find(x => String(x.Codigo).padStart(6,'0') === String(c.dataset.codigo).padStart(6,'0'));
+    return {
+      nombre:   c.dataset.nombre,
+      iban:     (cond?.IBAN || '').replace(/\s/g, ''),
+      importe:  parseFloat(c.dataset.importe || 0),
+      concepto: 'ANTICIPO GASTOS DE VIAJE',
+    };
+  }).filter(t => t.iban && t.importe);
+
+  if (!transacciones.length) { showToast('Ningún anticipo seleccionado tiene IBAN válido en la ficha del conductor', 'error'); return; }
+
+  const { nTxs } = _construirXMLSEPA(cfg, transacciones, 'sepa_anticipos');
+  showToast(`XML SEPA generado (${nTxs} transacciones) ✓`, 'success');
+}
+
+async function liqAnticiposPagar() {
+  const ids = Array.from(document.querySelectorAll('.chk-liq-ant:checked')).map(c => c.dataset.id);
+  if (!ids.length) { showToast('Selecciona al menos un anticipo', 'error'); return; }
+  if (!confirm(`¿Marcar ${ids.length} anticipo(s) como pagados?`)) return;
+
+  const numRemesa = generarNumRemesaAnticipos();
+  const resultado = await pagarAnticipos(ids, numRemesa);
+  if (resultado.fallidos.length) {
+    showToast(`${resultado.ok}/${resultado.total} pagados — ${resultado.fallidos.length} con error`, 'error');
+    mostrarModalFallidos('Pago de anticipos', resultado);
+  } else {
+    showToast(`${resultado.ok} anticipo(s) marcados como pagados ✓`, 'success');
+  }
+  cargarLiqAnticipos();
+}
+
+function liqAnticiposExcel() {
+  const lista = getAnticipos();
+  if (!lista.length) { showToast('No hay anticipos para exportar', 'error'); return; }
+  const conductores = getConductores();
+  const headers = ['Código','Nombre','IBAN','Fecha','Concepto','Importe','Estado','Pago','Finiquito'];
+  const filas = lista.map(a => {
+    const c = conductores.find(x => String(x.Codigo).padStart(6,'0') === String(a.codigoConductor).padStart(6,'0'));
+    return {
+      'Código': a.codigoConductor, 'Nombre': a.nombreConductor, 'IBAN': c?.IBAN || '',
+      'Fecha': a.fecha, 'Concepto': a.concepto,
+      'Importe': parseFloat(a.importe||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}),
+      'Estado': a.estado, 'Pago': a.estadoPago, 'Finiquito': a.numFiniquito || '',
+    };
+  });
+  descargarXLSX(headers, filas, `anticipos_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ============================================================
+// MÓDULO EMBARGOS
+// ============================================================
+async function cargarLiqEmbargos() {
+  if (typeof cargarEmbargos === 'function') await cargarEmbargos();
+
+  const cod       = document.getElementById('emb-conductor')?.value.trim().toLowerCase() || '';
+  const organismo = document.getElementById('emb-organismo')?.value.trim().toLowerCase() || '';
+  const estado    = document.getElementById('emb-estado')?.value || '';
+
+  let lista = getEmbargos();
+  if (cod) lista = lista.filter(e =>
+    String(e.codigoConductor || '').toLowerCase().includes(cod) ||
+    String(e.nombreConductor || '').toLowerCase().includes(cod));
+  if (organismo) lista = lista.filter(e => String(e.organismo || '').toLowerCase().includes(organismo));
+  if (estado)    lista = lista.filter(e => e.estado === estado);
+
+  const tbody = document.getElementById('tbody-liq-embargos');
+  if (!tbody) return;
+  const fmt = n => parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  tbody.innerHTML = lista.map(e => {
+    const pendiente = parseFloat(e.importeTotal || 0) - parseFloat(e.totalPagado || 0);
+    return `<tr>
+      <td><input type="checkbox" class="chk-liq-emb" data-id="${e.id}" data-codigo="${e.codigoConductor}"
+          data-nombre="${e.nombreConductor}" data-organismo="${e.organismo}" data-expediente="${e.numExpediente}"
+          data-iban="${e.ibanTercero}" data-nombretercero="${e.nombreTercero}" data-mensual="${e.importeMensual}"
+          onchange="actualizarTotalLiqEmbargos()"></td>
+      <td>${e.nombreConductor}<br><small>${e.codigoConductor}</small></td>
+      <td>${e.organismo || '—'}</td>
+      <td>${e.numExpediente || '—'}</td>
+      <td class="td-iban">${e.ibanTercero || '—'}</td>
+      <td style="text-align:right;font-family:var(--font-mono)">${fmt(e.importeTotal)} €</td>
+      <td style="text-align:right;font-family:var(--font-mono)">${fmt(e.importeMensual)} €</td>
+      <td style="text-align:right;font-family:var(--font-mono)">${fmt(e.totalPagado)} €</td>
+      <td style="text-align:right;font-family:var(--font-mono);font-weight:600">${fmt(pendiente)} €</td>
+      <td><span class="estado-badge estado-${e.estado === 'finalizado' ? 'liquidado' : 'pendiente'}" style="cursor:pointer"
+          onclick="cambiarEstadoEmbargo('${e.id}','${e.estado}')" title="Clic para cambiar estado manualmente">${e.estado}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="editarEmbargo('${e.id}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="verPagosEmbargo('${e.id}')" title="Histórico de pagos">📋</button>
+        <button class="btn-icon" onclick="eliminarEmbargo('${e.id}')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:#888">Sin embargos</td></tr>';
+
+  actualizarTotalLiqEmbargos();
+}
+
+function actualizarTotalLiqEmbargos() {
+  const total = Array.from(document.querySelectorAll('.chk-liq-emb:checked'))
+    .reduce((s, c) => s + parseFloat(c.dataset.mensual || 0), 0);
+  const el = document.getElementById('emb-total');
+  if (el) el.textContent = `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+}
+
+function embToggleTodos() {
+  const todos = document.getElementById('chk-emb-todos').checked;
+  document.querySelectorAll('.chk-liq-emb').forEach(c => c.checked = todos);
+  actualizarTotalLiqEmbargos();
+}
+
+function embMarcarTodos() {
+  document.querySelectorAll('.chk-liq-emb').forEach(c => c.checked = true);
+  document.getElementById('chk-emb-todos').checked = true;
+  actualizarTotalLiqEmbargos();
+}
+
+async function cambiarEstadoEmbargo(id, actual) {
+  const nuevo = actual === 'activo' ? 'finalizado' : 'activo';
+  if (!confirm(`¿Cambiar el estado de este embargo a "${nuevo}"?`)) return;
+  await setEstadoEmbargo(id, nuevo);
+  showToast('Estado actualizado ✓', 'success');
+  cargarLiqEmbargos();
+}
+
+function abrirModalEmbargo(id = null) {
+  document.getElementById('embargo-id').value = '';
+  document.getElementById('embargo-conductor').value = '';
+  document.getElementById('embargo-cod-conductor').value = '';
+  document.getElementById('embargo-organismo').value = '';
+  document.getElementById('embargo-num-expediente').value = '';
+  document.getElementById('embargo-importe-total').value = '';
+  document.getElementById('embargo-importe-mensual').value = '';
+  document.getElementById('embargo-fecha-inicio').value = new Date().toISOString().slice(0,10);
+  document.getElementById('embargo-fecha-fin').value = '';
+  document.getElementById('embargo-nombre-tercero').value = '';
+  document.getElementById('embargo-iban-tercero').value = '';
+  document.getElementById('embargo-titulo').textContent = '⚖️ Nuevo Embargo';
+
+  if (id) {
+    const e = getEmbargos().find(x => x.id === id);
+    if (e) {
+      document.getElementById('embargo-id').value = e.id;
+      document.getElementById('embargo-conductor').value = `${e.codigoConductor} — ${e.nombreConductor}`;
+      document.getElementById('embargo-cod-conductor').value = e.codigoConductor;
+      document.getElementById('embargo-organismo').value = e.organismo || '';
+      document.getElementById('embargo-num-expediente').value = e.numExpediente || '';
+      document.getElementById('embargo-importe-total').value = e.importeTotal || '';
+      document.getElementById('embargo-importe-mensual').value = e.importeMensual || '';
+      document.getElementById('embargo-fecha-inicio').value = e.fechaInicio || '';
+      document.getElementById('embargo-fecha-fin').value = e.fechaFin || '';
+      document.getElementById('embargo-nombre-tercero').value = e.nombreTercero || '';
+      document.getElementById('embargo-iban-tercero').value = e.ibanTercero || '';
+      document.getElementById('embargo-titulo').textContent = '✏️ Editar Embargo';
+    }
+  }
+  document.getElementById('modal-embargo').style.display = 'flex';
+}
+
+function cerrarModalEmbargo() {
+  document.getElementById('modal-embargo').style.display = 'none';
+}
+
+function editarEmbargo(id) { abrirModalEmbargo(id); }
+
+async function guardarEmbargo() {
+  const conductorVal   = document.getElementById('embargo-conductor').value.trim();
+  const organismo      = document.getElementById('embargo-organismo').value.trim();
+  const numExpediente  = document.getElementById('embargo-num-expediente').value.trim();
+  const importeTotal   = parseFloat(document.getElementById('embargo-importe-total').value);
+  const importeMensual = parseFloat(document.getElementById('embargo-importe-mensual').value);
+  const fechaInicio    = document.getElementById('embargo-fecha-inicio').value;
+  const fechaFin       = document.getElementById('embargo-fecha-fin').value;
+  const nombreTercero  = document.getElementById('embargo-nombre-tercero').value.trim();
+  const ibanTercero    = document.getElementById('embargo-iban-tercero').value.trim().replace(/\s/g,'');
+  const id             = document.getElementById('embargo-id').value;
+
+  const match = conductorVal.match(/^(\d{5,6})\s*[—-]\s*(.+)/);
+  let cod = document.getElementById('embargo-cod-conductor').value;
+  if (match) cod = match[1];
+  const c = getConductores().find(x => String(x.Codigo).padStart(6,'0') === String(cod).padStart(6,'0'));
+
+  if (!c) { showToast('Selecciona un conductor válido', 'error'); return; }
+  if (!organismo || !numExpediente || !importeTotal || !importeMensual || !fechaInicio) {
+    showToast('Rellena todos los campos obligatorios', 'error'); return;
+  }
+  if (!nombreTercero || !ibanTercero) { showToast('Indica el beneficiario y su IBAN', 'error'); return; }
+
+  const datos = {
+    codigoConductor: c.Codigo, nombreConductor: c.Nombre,
+    organismo, numExpediente, importeTotal, importeMensual,
+    fechaInicio, fechaFin, nombreTercero, ibanTercero,
+  };
+
+  if (id) {
+    await updateEmbargo(id, datos);
+    showToast('Embargo actualizado ✓', 'success');
+  } else {
+    await addEmbargo(datos);
+    showToast('Embargo guardado ✓', 'success');
+  }
+  cerrarModalEmbargo();
+  cargarLiqEmbargos();
+}
+
+async function eliminarEmbargo(id) {
+  if (!confirm('¿Eliminar este embargo? Se perderá el histórico de pagos registrado.')) return;
+  await deleteEmbargo(id);
+  showToast('Embargo eliminado', 'success');
+  cargarLiqEmbargos();
+}
+
+function verPagosEmbargo(id) {
+  const e = getEmbargos().find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('modal-historico-embargo')?.remove();
+
+  const filas = (e.pagos || []).slice()
+    .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''))
+    .map(p => `<tr>
+        <td>${(p.fecha||'').slice(0,10)}</td>
+        <td>${p.numRemesa||'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">
+          ${parseFloat(p.importe||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €
+        </td>
+      </tr>`).join('')
+    || '<tr><td colspan="3" style="text-align:center;padding:12px;color:var(--soft)">Sin pagos registrados</td></tr>';
+
+  const pendiente = parseFloat(e.importeTotal||0) - parseFloat(e.totalPagado||0);
+  const wrap = document.createElement('div');
+  wrap.id = 'modal-historico-embargo';
+  wrap.className = 'modal';
+  wrap.style.display = 'flex';
+  wrap.innerHTML = `
+    <div class="modal-box" style="width:420px">
+      <div class="modal-header">
+        <h3>📋 ${e.nombreConductor} — ${e.numExpediente}</h3>
+        <button onclick="document.getElementById('modal-historico-embargo').remove()" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--text-soft);margin-bottom:10px">
+          Total: ${parseFloat(e.importeTotal||0).toLocaleString('es-ES',{minimumFractionDigits:2})} € ·
+          Pagado: ${parseFloat(e.totalPagado||0).toLocaleString('es-ES',{minimumFractionDigits:2})} € ·
+          Pendiente: ${pendiente.toLocaleString('es-ES',{minimumFractionDigits:2})} €
+        </p>
+        <table class="data-table" style="width:100%">
+          <thead><tr><th>Fecha</th><th>Remesa</th><th style="text-align:right">Importe</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="document.getElementById('modal-historico-embargo').remove()">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+}
+
+function abrirModalPagoEmbargo() {
+  const checks = document.querySelectorAll('.chk-liq-emb:checked');
+  if (!checks.length) { showToast('Selecciona al menos un embargo', 'error'); return; }
+
+  _pagoEmbargoRows = Array.from(checks).map(c => ({
+    id:             c.dataset.id,
+    nombreConductor: c.dataset.nombre,
+    organismo:      c.dataset.organismo,
+    numExpediente:  c.dataset.expediente,
+    ibanTercero:    (c.dataset.iban || '').replace(/\s/g,''),
+    nombreTercero:  c.dataset.nombretercero,
+    importe:        parseFloat(c.dataset.mensual || 0),
+  }));
+
+  renderPagoEmbargoTabla();
+  document.getElementById('pago-emb-fecha').value  = new Date().toISOString().slice(0,10);
+  document.getElementById('pago-emb-numero').value = generarNumRemesaEmbargos();
+  document.getElementById('modal-pago-embargo').style.display = 'flex';
+}
+
+function renderPagoEmbargoTabla() {
+  const tbody = document.getElementById('tbody-pago-embargo');
+  if (!tbody) return;
+  tbody.innerHTML = _pagoEmbargoRows.map((r, i) => `
+    <tr>
+      <td>${r.nombreConductor}</td>
+      <td>${r.organismo}</td>
+      <td>${r.numExpediente}</td>
+      <td style="text-align:right">
+        <input type="number" value="${r.importe}" min="0" step="0.01" style="width:90px;text-align:right"
+          onchange="_pagoEmbargoRows[${i}].importe = parseFloat(this.value)||0">
+      </td>
+    </tr>`).join('');
+}
+
+function cerrarModalPagoEmbargo() {
+  document.getElementById('modal-pago-embargo').style.display = 'none';
+}
+
+function pagoEmbargoXML() {
+  if (!_pagoEmbargoRows.length) { showToast('No hay embargos seleccionados', 'error'); return; }
+  const cfg = _getConfigSEPA();
+  if (!cfg) return;
+
+  const transacciones = _pagoEmbargoRows
+    .filter(r => r.importe > 0 && r.ibanTercero)
+    .map(r => ({ nombre: r.nombreTercero || r.nombreConductor, iban: r.ibanTercero, importe: r.importe, concepto: r.numExpediente }));
+
+  if (!transacciones.length) { showToast('Ningún embargo tiene IBAN o importe válido', 'error'); return; }
+
+  const { nTxs } = _construirXMLSEPA(cfg, transacciones, 'sepa_embargos');
+  showToast(`XML SEPA generado (${nTxs} transacciones) ✓`, 'success');
+}
+
+async function confirmarPagoEmbargos() {
+  if (!_pagoEmbargoRows.length) { showToast('No hay embargos seleccionados', 'error'); return; }
+  const fecha     = document.getElementById('pago-emb-fecha').value || new Date().toISOString().slice(0,10);
+  const numRemesa = (document.getElementById('pago-emb-numero').value || generarNumRemesaEmbargos()).trim().toUpperCase();
+  const pagos = _pagoEmbargoRows.filter(r => r.importe > 0).map(r => ({ id: r.id, importe: r.importe, fecha }));
+
+  if (!pagos.length) { showToast('Ningún importe válido para registrar', 'error'); return; }
+
+  const resultado = await registrarPagosEmbargos(pagos, numRemesa);
+  if (resultado.fallidos.length) {
+    showToast(`${resultado.ok}/${resultado.total} pagos registrados — ${resultado.fallidos.length} con error`, 'error');
+    mostrarModalFallidos('Pago de embargos', resultado);
+  } else {
+    showToast(`${resultado.ok} pago(s) de embargo registrados ✓`, 'success');
+  }
+  cerrarModalPagoEmbargo();
+  cargarLiqEmbargos();
+}
+
+function liqEmbargosExcel() {
+  const lista = getEmbargos();
+  if (!lista.length) { showToast('No hay embargos para exportar', 'error'); return; }
+  const headers = ['Código','Nombre','Organismo','Nº Expediente','IBAN Tercero','Importe Total','Importe Mensual','Total Pagado','Pendiente','Estado'];
+  const filas = lista.map(e => ({
+    'Código': e.codigoConductor, 'Nombre': e.nombreConductor, 'Organismo': e.organismo,
+    'Nº Expediente': e.numExpediente, 'IBAN Tercero': e.ibanTercero,
+    'Importe Total':   parseFloat(e.importeTotal||0).toLocaleString('es-ES',{minimumFractionDigits:2}),
+    'Importe Mensual': parseFloat(e.importeMensual||0).toLocaleString('es-ES',{minimumFractionDigits:2}),
+    'Total Pagado':    parseFloat(e.totalPagado||0).toLocaleString('es-ES',{minimumFractionDigits:2}),
+    'Pendiente':       (parseFloat(e.importeTotal||0) - parseFloat(e.totalPagado||0)).toLocaleString('es-ES',{minimumFractionDigits:2}),
+    'Estado': e.estado,
+  }));
+  descargarXLSX(headers, filas, `embargos_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ============================================================
+// MÓDULO FINIQUITOS (marcado sobre registros de dietas + descuento de anticipos)
+// ============================================================
+function liqDietasMarcarFiniquito() {
+  const checks = Array.from(document.querySelectorAll('.chk-liq-d:checked'));
+  if (!checks.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+
+  const ids = checks.map(c => c.dataset.id);
+  const seleccionados = getRegistros().filter(r => ids.includes(r.id));
+  const codigos = [...new Set(seleccionados.map(r => normCod(r.codigoConductor)))];
+  if (codigos.length > 1) {
+    showToast('Selecciona registros de un único conductor para marcar el finiquito', 'error');
+    return;
+  }
+
+  const total   = checks.reduce((s, c) => s + parseFloat(c.dataset.total || 0), 0);
+  const primero = seleccionados[0];
+  _finiquitoIds = ids;
+  _finiquitoConductor = primero.codigoConductor;
+
+  document.getElementById('fin-conductor-nombre').textContent = `${primero.nombreConductor} — ${primero.codigoConductor}`;
+  document.getElementById('fin-registros-resumen').textContent = `${seleccionados.length} registro(s) seleccionado(s)`;
+  document.getElementById('fin-total-dietas').textContent =
+    `${total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €`;
+
+  const pendientes = typeof getAnticiposPendientesConductor === 'function'
+    ? getAnticiposPendientesConductor(primero.codigoConductor) : [];
+  const avisoEl = document.getElementById('fin-anticipos-aviso');
+  if (pendientes.length) {
+    const importeAnt = pendientes.reduce((s, a) => s + parseFloat(a.importe || 0), 0);
+    document.getElementById('fin-anticipos-importe').textContent =
+      `${importeAnt.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} € (${pendientes.length} anticipo(s))`;
+    avisoEl.style.display = 'block';
+  } else {
+    avisoEl.style.display = 'none';
+  }
+
+  document.getElementById('fin-numero').value = generarNumFiniquito();
+  document.getElementById('modal-finiquito').style.display = 'flex';
+}
+
+function cerrarModalFiniquito() {
+  document.getElementById('modal-finiquito').style.display = 'none';
+}
+
+async function confirmarFiniquito() {
+  const numFiniquito = document.getElementById('fin-numero').value.trim().toUpperCase();
+  if (!numFiniquito) { showToast('Indica un número de finiquito', 'error'); return; }
+  if (!_finiquitoIds?.length) { showToast('No hay registros seleccionados', 'error'); return; }
+
+  let resultado, resultadoAnt;
+  window._suprimirListener = true;
+  try {
+    resultado    = await marcarRegistrosFiniquito(_finiquitoIds, numFiniquito);
+    resultadoAnt = await descontarAnticiposConductor(_finiquitoConductor, numFiniquito);
+  } finally {
+    window._suprimirListener = false;
+  }
+
+  if (resultado.fallidos.length) {
+    showToast(`${resultado.ok}/${resultado.total} registros marcados — ${resultado.fallidos.length} con error`, 'error');
+    mostrarModalFallidos('Marcar Finiquito', resultado);
+  } else {
+    const msgAnt = resultadoAnt?.ok ? ` · ${resultadoAnt.ok} anticipo(s) marcados como descontados` : '';
+    showToast(`Finiquito ${numFiniquito} registrado ✓${msgAnt}`, 'success');
+  }
+
+  cerrarModalFiniquito();
+  cargarLiqDietas();
+  if (document.getElementById('liq-anticipos')?.style.display !== 'none') cargarLiqAnticipos();
 }
