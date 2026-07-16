@@ -27,6 +27,8 @@ const COL_REGISTROS    = 'registros';
 const COL_TRACTORAS    = 'tractoras';
 const COL_CONCEPTOS    = 'conceptos_gasto'; // conceptos de gastos de viaje
 const COL_GASTOS_IND   = 'gastosIndependientes';
+const COL_ANTICIPOS    = 'anticipos';
+const COL_EMBARGOS     = 'embargos';
 
 // ---- SCHEMA VERSION (para seed inicial) ----
 
@@ -532,6 +534,68 @@ export function generarNumLiquidacion() {
   return `${prefijo}${String(siguiente).padStart(3, '0')}`;
 }
 
+// ---- Helper genérico de numeración secuencial (mismo patrón que generarNumLiquidacion) ----
+function _generarNumSecuencial(prefijo, items, campo) {
+  const usados = (items || [])
+    .map(it => it[campo] || '')
+    .filter(n => n.startsWith(prefijo))
+    .map(n => parseInt(n.replace(prefijo, '')) || 0);
+  const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
+  return `${prefijo}${String(siguiente).padStart(3, '0')}`;
+}
+
+export function generarNumFiniquito() {
+  const ahora = new Date();
+  const prefijo = `FIN-${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-`;
+  return _generarNumSecuencial(prefijo, _registros, 'numFiniquito');
+}
+
+export function generarNumRemesaAnticipos() {
+  const ahora = new Date();
+  const prefijo = `ANT-${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-`;
+  return _generarNumSecuencial(prefijo, _anticipos, 'numRemesaPago');
+}
+
+export function generarNumRemesaEmbargos() {
+  const ahora = new Date();
+  const prefijo = `EMB-${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-`;
+  const usados = [];
+  (_embargos || []).forEach(e => (e.pagos || []).forEach(p => {
+    if (p.numRemesa && p.numRemesa.startsWith(prefijo)) usados.push(parseInt(p.numRemesa.replace(prefijo, '')) || 0);
+  }));
+  const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
+  return `${prefijo}${String(siguiente).padStart(3, '0')}`;
+}
+
+// ====================================================
+// FINIQUITOS (marcado especial sobre registros de dietas existentes)
+// ====================================================
+export async function marcarRegistrosFiniquito(ids, numFiniquito) {
+  const fecha = new Date().toISOString();
+  const results = await Promise.allSettled(ids.map(id =>
+    updateRegistro(id, {
+      estadoDietas:         'liquidado',
+      fechaLiquidacion:     fecha,
+      numLiquidacionDietas: numFiniquito,
+      esFiniquito:          true,
+      numFiniquito,
+    })
+  ));
+  const fallidos = ids
+    .map((id, i) => ({ id, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => {
+      const reg = _registros.find(r => r.id === x.id);
+      return {
+        id: x.id,
+        codigo: reg?.codigoConductor || '?',
+        nombre: reg?.nombreConductor || '(desconocido)',
+        error:  x.res.reason?.message || String(x.res.reason || 'error'),
+      };
+    });
+  return { total: ids.length, ok: ids.length - fallidos.length, fallidos };
+}
+
 export async function pagarGastosRegistros(ids, numLiquidacion) {
   const fechaPago = new Date().toISOString();
   const results = await Promise.allSettled(ids.map(id =>
@@ -663,4 +727,179 @@ export async function upsertConcepto(concepto) {
 export async function eliminarConcepto(id) {
   await deleteDoc(doc(db, COL_CONCEPTOS, id));
   _conceptos = _conceptos.filter(c => c.id !== id);
+}
+
+// ====================================================
+// ANTICIPOS
+// ====================================================
+let _anticipos = [];
+
+export async function cargarAnticipos() {
+  try {
+    const snap = await getDocs(query(collection(db, COL_ANTICIPOS), orderBy('fecha', 'desc')));
+    _anticipos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('Error cargando anticipos:', e);
+    _anticipos = [];
+  }
+  return _anticipos;
+}
+
+export function getAnticipos() { return _anticipos; }
+
+export function getAnticiposPendientesConductor(codigoConductor) {
+  const cod = String(codigoConductor);
+  return _anticipos.filter(a => String(a.codigoConductor) === cod && a.estado === 'pendiente');
+}
+
+export async function addAnticipo(datos) {
+  const data = {
+    codigoConductor: datos.codigoConductor,
+    nombreConductor: datos.nombreConductor,
+    fecha:           datos.fecha,
+    importe:         parseFloat(datos.importe) || 0,
+    concepto:        datos.concepto || '',
+    estado:          'pendiente',   // pendiente | descontado (por finiquito)
+    estadoPago:      'pendiente',   // pendiente | pagado (remesa SEPA)
+    numFiniquito:    null,
+    numRemesaPago:   null,
+    fechaCreacion:   new Date().toISOString(),
+  };
+  const ref = await addDoc(collection(db, COL_ANTICIPOS), data);
+  _anticipos.unshift({ id: ref.id, ...data });
+  return ref.id;
+}
+
+export async function updateAnticipo(id, datos) {
+  await setDoc(doc(db, COL_ANTICIPOS, id), datos, { merge: true });
+  const idx = _anticipos.findIndex(a => a.id === id);
+  if (idx >= 0) _anticipos[idx] = { ..._anticipos[idx], ...datos };
+}
+
+export async function deleteAnticipo(id) {
+  await deleteDoc(doc(db, COL_ANTICIPOS, id));
+  _anticipos = _anticipos.filter(a => a.id !== id);
+}
+
+// Marca anticipos como pagados tras generar remesa SEPA/Excel — NO afecta al estado de descuento
+export async function pagarAnticipos(ids, numRemesa) {
+  const fechaPago = new Date().toISOString();
+  const results = await Promise.allSettled(ids.map(id =>
+    updateAnticipo(id, { estadoPago: 'pagado', fechaPago, numRemesaPago: numRemesa })
+  ));
+  const fallidos = ids
+    .map((id, i) => ({ id, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => {
+      const a = _anticipos.find(y => y.id === x.id);
+      return {
+        id: x.id,
+        codigo: a?.codigoConductor || '?',
+        nombre: a?.nombreConductor || '(desconocido)',
+        error:  x.res.reason?.message || String(x.res.reason || 'error'),
+      };
+    });
+  return { total: ids.length, ok: ids.length - fallidos.length, fallidos };
+}
+
+// Marca los anticipos PENDIENTES de un conductor como DESCONTADOS al generar un finiquito
+// (no resta importe de ningún cálculo — solo cambia el estado para trazabilidad)
+export async function descontarAnticiposConductor(codigoConductor, numFiniquito) {
+  const pendientes = getAnticiposPendientesConductor(codigoConductor);
+  const fechaDescuento = new Date().toISOString();
+  const results = await Promise.allSettled(pendientes.map(a =>
+    updateAnticipo(a.id, { estado: 'descontado', numFiniquito, fechaDescuento })
+  ));
+  const fallidos = pendientes
+    .map((a, i) => ({ a, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => ({ id: x.a.id, error: x.res.reason?.message || String(x.res.reason || 'error') }));
+  return {
+    total: pendientes.length,
+    ok: pendientes.length - fallidos.length,
+    fallidos,
+    importeTotal: pendientes.reduce((s, a) => s + parseFloat(a.importe || 0), 0),
+  };
+}
+
+// ====================================================
+// EMBARGOS
+// ====================================================
+let _embargos = [];
+
+export async function cargarEmbargos() {
+  try {
+    const snap = await getDocs(query(collection(db, COL_EMBARGOS), orderBy('fechaInicio', 'desc')));
+    _embargos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('Error cargando embargos:', e);
+    _embargos = [];
+  }
+  return _embargos;
+}
+
+export function getEmbargos() { return _embargos; }
+
+export async function addEmbargo(datos) {
+  const data = {
+    codigoConductor: datos.codigoConductor,
+    nombreConductor: datos.nombreConductor,
+    organismo:       datos.organismo || '',
+    numExpediente:   datos.numExpediente || '',
+    importeTotal:    parseFloat(datos.importeTotal) || 0,
+    importeMensual:  parseFloat(datos.importeMensual) || 0,
+    fechaInicio:     datos.fechaInicio || '',
+    fechaFin:        datos.fechaFin || '',
+    ibanTercero:     datos.ibanTercero || '',
+    nombreTercero:   datos.nombreTercero || '',
+    estado:          'activo',      // activo | finalizado (automático, editable)
+    estadoManual:    false,
+    totalPagado:     0,
+    pagos:           [],            // [{ fecha, importe, numRemesa }]
+    fechaCreacion:   new Date().toISOString(),
+  };
+  const ref = await addDoc(collection(db, COL_EMBARGOS), data);
+  _embargos.unshift({ id: ref.id, ...data });
+  return ref.id;
+}
+
+export async function updateEmbargo(id, datos) {
+  await setDoc(doc(db, COL_EMBARGOS, id), datos, { merge: true });
+  const idx = _embargos.findIndex(e => e.id === id);
+  if (idx >= 0) _embargos[idx] = { ..._embargos[idx], ...datos };
+}
+
+export async function deleteEmbargo(id) {
+  await deleteDoc(doc(db, COL_EMBARGOS, id));
+  _embargos = _embargos.filter(e => e.id !== id);
+}
+
+// Registra el pago mensual (remesa) sobre uno o varios embargos.
+// pagos: [{ id, importe, fecha }]
+// Recalcula totalPagado y pasa a 'finalizado' automáticamente si se alcanza el importe total
+// (salvo que el embargo tenga estadoManual=true, en cuyo caso se respeta el estado fijado a mano).
+export async function registrarPagosEmbargos(pagos, numRemesa) {
+  const fechaDefault = new Date().toISOString();
+  const results = await Promise.allSettled(pagos.map(p => {
+    const emb = _embargos.find(e => e.id === p.id);
+    if (!emb) return Promise.reject(new Error('Embargo no encontrado'));
+    const nuevoPago = { fecha: p.fecha || fechaDefault, importe: parseFloat(p.importe) || 0, numRemesa };
+    const pagosActualizados = [...(emb.pagos || []), nuevoPago];
+    const totalPagado = pagosActualizados.reduce((s, x) => s + parseFloat(x.importe || 0), 0);
+    const datos = { pagos: pagosActualizados, totalPagado };
+    if (!emb.estadoManual) {
+      datos.estado = totalPagado >= parseFloat(emb.importeTotal || 0) ? 'finalizado' : 'activo';
+    }
+    return updateEmbargo(p.id, datos);
+  }));
+  const fallidos = pagos
+    .map((p, i) => ({ p, res: results[i] }))
+    .filter(x => x.res.status === 'rejected')
+    .map(x => ({ id: x.p.id, error: x.res.reason?.message || String(x.res.reason || 'error') }));
+  return { total: pagos.length, ok: pagos.length - fallidos.length, fallidos };
+}
+
+// Permite fijar el estado manualmente (ej. cerrar un embargo con ajuste, o reabrirlo)
+export async function setEstadoEmbargo(id, estado) {
+  await updateEmbargo(id, { estado, estadoManual: true });
 }
