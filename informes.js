@@ -216,7 +216,7 @@ function previsualizarConductor() {
 
   const headers = [
     'Código', 'Nombre', 'Plataforma', 'Equipaje', 'Pareja', 'Tractora',
-    'Salida', 'Llegada', 'Días', 'Estado',
+    'Salida', 'Llegada', 'Días', 'Estado', 'Finiquito',
     // Kilómetros
     'Km Salida', 'Km Vuelta', 'Total Km',
     // Operaciones
@@ -243,6 +243,7 @@ function previsualizarConductor() {
       'Llegada':      r.fechaLlegada,
       'Días':         r.diasTrabajados,
       'Estado':       ESTADO_LABEL[r.estadoDietas || 'pendiente'] || r.estadoDietas || 'Pendiente',
+      'Finiquito':    r.esFiniquito ? `🏁 ${r.numFiniquito || ''}` : '—',
       // Kilómetros
       'Km Salida':    fmtKm(r.kmSalida),
       'Km Vuelta':    fmtKm(r.kmVuelta),
@@ -382,7 +383,7 @@ function previsualizarGestoria() {
   } else {
     // Detallado — una fila por registro
     if (plat === 'CAUDETE') {
-      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS'];
+      headers = ['COD','NOMBRE','PERÍODO','PLUS_EFICIENCIA','DISPONIBILIDAD','DIETAS','DIET_NAC','DIET_INTER','TOTAL','ANTICIPOS','FINIQUITO'];
       filas = regs.map(r => {
         const dietas   = parseFloat(r.resultado?.DIETAS      || 0);
         const diasTrab = parseFloat(r.diasTrabajados          || 0);
@@ -404,10 +405,11 @@ function previsualizarGestoria() {
           'DIET_INTER':      fmt2(dietInter),
           'TOTAL':           fmt2(r.resultado?.TOTAL),
           'ANTICIPOS':       fmt2(r.anticipos),
+          'FINIQUITO':       r.esFiniquito ? `🏁 ${r.numFiniquito || ''}` : '—',
         };
       });
     } else {
-      headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA'];
+      headers = ['COD','NOMBRE','PERÍODO','H_EXTRA','H_PRESEN','NOCTURNO','DIET_NAC','DIET_INTER','ANTICIPOS','MEJORA','FINIQUITO'];
       filas = regs.map(r => ({
         'COD':        r.codigoConductor,
         'NOMBRE':     r.nombreConductor,
@@ -419,6 +421,7 @@ function previsualizarGestoria() {
         'DIET_INTER': fmt2(r.resultado?.DIET_INTER),
         'ANTICIPOS':  fmt2(r.anticipos),
         'MEJORA':     fmt2(r.resultado?.MEJORA),
+        'FINIQUITO':  r.esFiniquito ? `🏁 ${r.numFiniquito || ''}` : '—',
       }));
     }
   }
@@ -462,7 +465,7 @@ function previsualizarRRHH() {
                'ACARREOS','VLISSINGEN','EXTRAS','GASTOS_VIAJE','ANTICIPOS',
                'SUM_DIETAS','H_EXTRA','H_PRESEN','NOCTURNO',
                'DIET_NAC','DIET_INTER','MEJORA',
-               'PLUS_EFIC','DISPONIB','DIETAS_CAU'];
+               'PLUS_EFIC','DISPONIB','DIETAS_CAU','FINIQUITO'];
     const condsR = getConductores();
     const getCondR = cod => condsR.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
     filas = regs.map(r => {
@@ -487,9 +490,10 @@ function previsualizarRRHH() {
       'PLUS_EFIC': fmt2(r.resultado?.PLUS_EFICIENCIA),
       'DISPONIB': fmt2(r.resultado?.DISPONIBILIDAD),
       'DIETAS_CAU': fmt2(r.resultado?.DIETAS),
+      'FINIQUITO': r.esFiniquito ? `🏁 ${r.numFiniquito || ''}` : '—',
     };});
   } else {
-    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL'];
+    headers = ['COD','NOMBRE','PLATAFORMA','EQUIPAJE','PAREJA','TRACTORA','SALIDA','LLEGADA','DÍAS','KM_SALIDA','KM_VUELTA','KM_TOTAL','GASTOS_VIAJE','TOTAL','FINIQUITO'];
     const condsRs = getConductores();
     const getCondRs = cod => condsRs.find(c => c.Codigo === String(cod).padStart(6,'0')) || {};
     filas = regs.map(r => {
@@ -504,6 +508,7 @@ function previsualizarRRHH() {
         'KM_SALIDA': r.kmSalida || 0, 'KM_VUELTA': r.kmVuelta || 0, 'KM_TOTAL': r.totalKm || 0,
         'GASTOS_VIAJE': fmt2(r.gastosViaje),
         'TOTAL': fmt2(r.resultado?.sumDietas || r.resultado?.TOTAL),
+        'FINIQUITO': r.esFiniquito ? `🏁 ${r.numFiniquito || ''}` : '—',
       };
     });
   }
@@ -624,6 +629,87 @@ function previsualizarGastos() {
 }
 
 // ============================================================
+// PREVISUALIZACIÓN — Embargos
+// ============================================================
+function previsualizarEmbargos() {
+  try {
+  const rawCod    = document.getElementById('inf-emb-cod-conductor')?.value.trim() || '';
+  const match     = rawCod.match(/^(\d+)/);
+  const cod       = match ? match[1] : rawCod;
+  const organismo = document.getElementById('inf-emb-organismo')?.value.trim().toLowerCase() || '';
+  const estado    = document.getElementById('inf-emb-estado')?.value || '';
+  const formato   = document.getElementById('inf-emb-formato')?.value || 'detallado';
+  const desde     = document.getElementById('inf-emb-desde')?.value || '';
+  const hasta     = document.getElementById('inf-emb-hasta')?.value || '';
+
+  let embargos = typeof getEmbargos === 'function' ? getEmbargos() : [];
+  if (cod) embargos = embargos.filter(e => {
+    const a = String(e.codigoConductor || '').replace(/^0+/, '');
+    const b = String(cod).replace(/^0+/, '');
+    return a === b;
+  });
+  if (organismo) embargos = embargos.filter(e => String(e.organismo || '').toLowerCase().includes(organismo));
+  if (estado)    embargos = embargos.filter(e => e.estado === estado);
+
+  if (!embargos.length) { showToast('No hay embargos para ese filtro', 'error'); return; }
+
+  let headers, filas;
+
+  if (formato === 'resumen') {
+    headers = ['COD','NOMBRE','ORGANISMO','Nº EXPEDIENTE','IMPORTE TOTAL','TOTAL PAGADO','PENDIENTE','FECHA INICIO','ÚLTIMO PAGO','ESTADO'];
+    filas = embargos
+      .slice()
+      .sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)))
+      .map(e => {
+        const pagos = (e.pagos || []).slice().sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+        const ultimoPago = pagos.length ? pagos[pagos.length - 1].fecha?.slice(0,10) : '—';
+        return {
+          'COD': e.codigoConductor,
+          'NOMBRE': e.nombreConductor,
+          'ORGANISMO': e.organismo || '—',
+          'Nº EXPEDIENTE': e.numExpediente || '—',
+          'IMPORTE TOTAL': fmt2(e.importeTotal) + ' €',
+          'TOTAL PAGADO':  fmt2(e.totalPagado)  + ' €',
+          'PENDIENTE':     fmt2(parseFloat(e.importeTotal||0) - parseFloat(e.totalPagado||0)) + ' €',
+          'FECHA INICIO':  e.fechaInicio || '—',
+          'ÚLTIMO PAGO':   ultimoPago,
+          'ESTADO':        e.estado === 'finalizado' ? 'Finalizado' : 'Activo',
+        };
+      });
+  } else {
+    // Detallado — una fila por pago mensual registrado
+    headers = ['COD','NOMBRE','ORGANISMO','Nº EXPEDIENTE','FECHA PAGO','REMESA','IMPORTE','ESTADO'];
+    filas = [];
+    embargos
+      .slice()
+      .sort((a,b) => String(a.codigoConductor).localeCompare(String(b.codigoConductor)))
+      .forEach(e => {
+        let pagos = (e.pagos || []).slice().sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+        if (desde) pagos = pagos.filter(p => (p.fecha || '') >= desde);
+        if (hasta) pagos = pagos.filter(p => (p.fecha || '') <= hasta);
+        pagos.forEach(p => {
+          filas.push({
+            'COD': e.codigoConductor,
+            'NOMBRE': e.nombreConductor,
+            'ORGANISMO': e.organismo || '—',
+            'Nº EXPEDIENTE': e.numExpediente || '—',
+            'FECHA PAGO': (p.fecha || '').slice(0,10),
+            'REMESA': p.numRemesa || '—',
+            'IMPORTE': fmt2(p.importe) + ' €',
+            'ESTADO': e.estado === 'finalizado' ? 'Finalizado' : 'Activo',
+          });
+        });
+      });
+    if (!filas.length) { showToast('Ninguno de los embargos filtrados tiene pagos registrados en ese período', 'error'); return; }
+  }
+
+  const titulo = `Embargos_${formato}`;
+  _informe = { tipo: 'embargos', datos: embargos, headers, filas, titulo };
+  mostrarPreview(headers, filas, `Embargos (${formato === 'resumen' ? 'Resumen' : 'Detallado'})`);
+  } catch (err) { showToast('Error: ' + err.message, 'error'); console.error(err); }
+}
+
+// ============================================================
 // MOSTRAR PREVIEW EN PANTALLA
 // ============================================================
 const NUM_COLS = new Set(['Días','Total Km','Km Salida','Km Vuelta','24H/PAUSA','Cargas/Desc.','Mov. Palets','Rebote','KM','DÍAS','TOTAL',
@@ -637,7 +723,25 @@ function mostrarPreview(headers, filas, titulo) {
   document.getElementById('inf-preview-content').style.display = 'block';
   document.getElementById('inf-preview-titulo').textContent     = `${titulo} — ${filas.length} registros`;
 
-  let html = `<table><thead><tr>`;
+  // Aviso informativo si el informe incluye registros marcados como Finiquito.
+  // No afecta a informes normales (sin finiquitos, banner queda vacío).
+  let banner = '';
+  const finiquitos = [...new Set((_informe.datos || [])
+    .filter(r => r && r.esFiniquito && r.numFiniquito)
+    .map(r => r.numFiniquito))];
+  if (finiquitos.length) {
+    const anticipos  = typeof getAnticipos === 'function' ? getAnticipos() : [];
+    const importeAnt = anticipos
+      .filter(a => finiquitos.includes(a.numFiniquito))
+      .reduce((s, a) => s + parseFloat(a.importe || 0), 0);
+    banner = `<div style="margin-bottom:14px;padding:10px 14px;background:#f5f3ff;border:1.5px solid #a78bfa;
+      border-radius:8px;font-size:13px;font-weight:500;color:#5b21b6">
+      🏁 Incluye ${finiquitos.length} finiquito(s): ${finiquitos.join(', ')}
+      ${importeAnt > 0 ? ` · Anticipos asociados: ${fmt2(importeAnt)} € (informativo — no descontado del total)` : ''}
+    </div>`;
+  }
+
+  let html = banner + `<table><thead><tr>`;
   headers.forEach(h => html += `<th>${h}</th>`);
   html += `</tr></thead><tbody>`;
   filas.forEach(f => {
