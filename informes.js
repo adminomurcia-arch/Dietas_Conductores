@@ -861,7 +861,8 @@ function descargarCSV(csv, nombre) {
 }
 
 function descargarXLSX(headers, filas, nombre) {
-  const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA']);
+  const TEXT_COLS = new Set(['COD', 'Código', 'PAREJA', 'Fecha']);
+  const NUM_RE = /^-?\d+([.,]\d+)?$/;
 
   function esc(v) {
     return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -870,11 +871,11 @@ function descargarXLSX(headers, filas, nombre) {
   function celda(h, val) {
     const v = esc(val);
     if (TEXT_COLS.has(h)) {
-      return `<Cell ss:StyleID="text" ss:Formula="=TEXTO(&quot;${v}&quot;,&quot;@&quot;)"><Data ss:Type="String">${v}</Data></Cell>`;
+      return `<Cell ss:StyleID="text" ss:Formula="=TEXT(&quot;${v}&quot;,&quot;@&quot;)"><Data ss:Type="String">${v}</Data></Cell>`;
     }
     const s = String(val ?? '').trim();
-    const num = parseFloat(s.replace(',', '.'));
-    if (s !== '' && !isNaN(num) && !s.includes('→') && !s.includes(' ')) {
+    if (s !== '' && NUM_RE.test(s)) {
+      const num = parseFloat(s.replace(',', '.'));
       return `<Cell><Data ss:Type="Number">${num}</Data></Cell>`;
     }
     return `<Cell><Data ss:Type="String">${v}</Data></Cell>`;
