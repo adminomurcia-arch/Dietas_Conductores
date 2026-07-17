@@ -1787,7 +1787,7 @@ function generarXMLSEPA() {
       <CdtrAgt><FinInstnId><BICFI>${bic}</BICFI></FinInstnId></CdtrAgt>
       <Cdtr><Nm>${c.dataset.nombre.substring(0,70)}</Nm></Cdtr>
       <CdtrAcct><Id><IBAN>${ibanC}</IBAN></Id></CdtrAcct>
-      <RmtInf><Ustrd>${concepto.substring(0,140)}</Ustrd></RmtInf>
+      <RmtInf><Ustrd>${(c.dataset.concepto || concepto).substring(0,140)}</Ustrd></RmtInf>
     </CdtTrfTxInf>`;
     });
   }
