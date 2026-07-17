@@ -1615,7 +1615,9 @@ function cargarLiqGastos() {
     return `<tr style="${rowStyle}">
       <td><input type="checkbox" class="chk-liq-g" data-id="${r.id}"
           data-total="${total}" data-iban="${c?.IBAN||''}"
-          data-nombre="${r.nombreConductor}"
+          data-nombre="${r.nombreConductor}" data-codigo="${r.codigoConductor||''}"
+          data-fecha="${r.fechaSalida||''}" data-concepto="${conceptos}"
+          data-estado="${r.estadoGastos||'pendiente'}"
           onchange="actualizarTotalLiqGastos()"></td>
       <td>${r.nombreConductor}${dupBadge}<br><small>${r.codigoConductor}</small></td>
       <td style="font-size:11px;font-family:monospace">${c?.IBAN||'—'}</td>
@@ -1712,7 +1714,7 @@ async function liqGastosPagar() {
 }
 
 function liqGastosXML() {
-  const checks = document.querySelectorAll('.chk-liq-g:checked');
+  const checks = [...document.querySelectorAll('.chk-liq-g:checked'), ...document.querySelectorAll('.chk-gi:checked')];
   if (!checks.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   // Pre-rellenar modal SEPA con datos memorizados
   const mem = JSON.parse(localStorage.getItem('sepa_config') || '{}');
@@ -1824,6 +1826,24 @@ function generarXMLSEPA() {
   URL.revokeObjectURL(url);
   cerrarModalSEPA();
   showToast('XML SEPA generado ✓', 'success');
+}
+
+function liqGastosExcel() {
+  const checks = [...document.querySelectorAll('.chk-liq-g:checked'), ...document.querySelectorAll('.chk-gi:checked')];
+  if (!checks.length) { showToast('Selecciona al menos un registro', 'error'); return; }
+
+  const headers = ['Código','Nombre','IBAN','Fecha','Concepto','Importe','Estado'];
+  const filas = checks.map(c => ({
+    'Código':  c.dataset.codigo || '',
+    'Nombre':  c.dataset.nombre || '',
+    'IBAN':    c.dataset.iban   || '',
+    'Fecha':   c.dataset.fecha  || '',
+    'Concepto':c.dataset.concepto || '',
+    'Importe': parseFloat(c.dataset.total||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}),
+    'Estado':  c.dataset.estado || 'pendiente',
+  }));
+
+  descargarXLSX(headers, filas, `gastos_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function cargarLiqValidacion() {
@@ -2388,6 +2408,8 @@ async function renderGastosInd() {
       <td><input type="checkbox" class="chk-gi" data-id="${g.id}"
           data-total="${g.importe}" data-iban="${g.conductorIban||''}"
           data-nombre="${g.conductorNombre||''}" data-codigo="${g.conductorCodigo||''}"
+          data-fecha="${g.fecha||''}" data-concepto="${g.concepto||''}"
+          data-estado="${g.estadoGastos||'pendiente'}"
           onchange="actualizarTotalLiqGastos()"></td>
       <td>
         <span style="font-size:10px;padding:1px 5px;background:#0ea5e9;color:white;border-radius:3px;margin-right:4px">IND</span>
