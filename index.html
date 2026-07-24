@@ -148,6 +148,13 @@
     </div>
   </div>
   <div class="header-right">
+    <select id="selectRangoHistorial" class="btn btn-ghost" style="cursor:pointer"
+            onchange="onCambioRangoHistorial()" title="Periodo de registros cargados">
+      <option value="3m">📅 Últimos 3 meses</option>
+      <option value="6m">📅 Últimos 6 meses</option>
+      <option value="ano">📅 Este año</option>
+      <option value="todo">📅 Todo el histórico</option>
+    </select>
     <button class="btn btn-ghost" onclick="toggleSidebar()">📋 Historial</button>
     <button class="btn btn-ghost" onclick="importarExcel()">📂 Importar</button>
     <button class="btn btn-primary" onclick="exportarExcel()">💾 Exportar</button>
@@ -864,7 +871,6 @@
           <button class="btn btn-ghost" onclick="liqGastosMarcarTodos()">☑️ Marcar todos</button>
           <button class="btn btn-secondary" onclick="liqGastosPagar()">🧾 Pagar seleccionados</button>
           <button class="btn btn-ghost" onclick="liqGastosXML()">📄 Generar XML SEPA</button>
-          <button class="btn btn-ghost" onclick="liqGastosExcel()">📊 Generar Excel</button>
           <button class="btn btn-primary" onclick="abrirModalGastoInd()">➕ Gasto independiente</button>
         </div>
       </div>
@@ -1745,12 +1751,15 @@ Dpto. de Administracion</textarea>
            addAnticipo, updateAnticipo, deleteAnticipo, pagarAnticipos, descontarAnticiposConductor,
            generarNumRemesaAnticipos,
            cargarEmbargos, getEmbargos, addEmbargo, updateEmbargo, deleteEmbargo,
-           registrarPagosEmbargos, setEstadoEmbargo, generarNumRemesaEmbargos } from './db.js';
+           registrarPagosEmbargos, setEstadoEmbargo, generarNumRemesaEmbargos,
+           cambiarRangoRegistros, getRangoActual } from './db.js';
 
   window.initDB               = initDB;
   window.getConductores       = getConductores;
   window.getTarifas           = getTarifas;
   window.getRegistros         = getRegistros;
+  window.cambiarRangoRegistros = cambiarRangoRegistros;
+  window.getRangoActual        = getRangoActual;
   window.getTarifa            = getTarifa;
   window.buscarConductor      = buscarConductor;
   window.upsertConductor      = upsertConductor;
@@ -1812,6 +1821,8 @@ Dpto. de Administracion</textarea>
     document.getElementById('loading-overlay').style.display = 'flex';
     await initDB();
     document.getElementById('loading-overlay').style.display = 'none';
+    const selRango = document.getElementById('selectRangoHistorial');
+    if (selRango) selRango.value = getRangoActual();
     if (typeof window._appReady === 'function') window._appReady();
     // Registrar callback para actualizar historial en tiempo real
     setTimeout(() => {
