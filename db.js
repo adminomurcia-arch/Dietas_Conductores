@@ -6,7 +6,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs,
          setDoc, deleteDoc, addDoc, onSnapshot,
-         query, orderBy, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+         query, orderBy, where, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAhwzL1twKyV_umfRYEw1FUzPyDI_5y7vI",
@@ -212,6 +212,7 @@ let _registros      = [];
 let _tractoras      = [];
 let _conceptos      = [];
 let _unsubRegistros = null;
+let _rangoActual     = '3m'; // '3m' | '6m' | 'ano' | 'todo'
 
 // ====================================================
 // INIT — carga datos y arranca listener de registros
@@ -221,7 +222,7 @@ export async function initDB() {
   await Promise.all([cargarConductores(), cargarTarifas(), cargarTractoras(), cargarConceptos()]);
   // NO llamar cargarRegistros() — onSnapshot ya hace la carga inicial
   // y llamar ambos causaba que _registros tuviese el mismo ID dos veces
-  await new Promise(resolve => escucharRegistros(resolve));
+  await new Promise(resolve => escucharRegistros(_rangoActual, resolve));
 }
 
 // ====================================================
@@ -401,13 +402,39 @@ async function cargarRegistros() {
 let _onRegistrosChange = null;
 export function setOnRegistrosChange(cb) { _onRegistrosChange = cb; }
 
-function escucharRegistros(onReady) {
+// ---- FASE 6: rango de fechas para limitar el listener de registros ----
+// Calcula la fecha límite (YYYY-MM-DD) según el rango elegido, filtrando por fechaSalida.
+// Devuelve null para 'todo' (sin filtro de fecha).
+function calcularFechaLimiteRango(rango) {
+  const hoy = new Date();
+  if (rango === 'ano') {
+    return `${hoy.getFullYear()}-01-01`;
+  }
+  if (rango === 'todo') return null;
+  const meses = rango === '6m' ? 6 : 3; // '3m' por defecto
+  const limite = new Date(hoy.getFullYear(), hoy.getMonth() - meses, hoy.getDate());
+  return limite.toISOString().slice(0, 10);
+}
+
+function escucharRegistros(rango, onReady) {
   if (_unsubRegistros) _unsubRegistros();
+  _rangoActual = rango || '3m';
   let primeraCarga = true;
+
+  const fechaLimite = calcularFechaLimiteRango(_rangoActual);
+  // Con filtro where('fechaSalida', >=): NO se combina con orderBy('fechaCreacion') en la
+  // query (Firestore exigiría índice compuesto) — se ordena en JS tras recibir los datos.
+  const q = fechaLimite
+    ? query(collection(db, COL_REGISTROS), where('fechaSalida', '>=', fechaLimite))
+    : query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc'));
+
   _unsubRegistros = onSnapshot(
-    query(collection(db, COL_REGISTROS), orderBy('fechaCreacion', 'desc')),
+    q,
     snap => {
       _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (fechaLimite) {
+        _registros.sort((a, b) => String(b.fechaCreacion || '').localeCompare(String(a.fechaCreacion || '')));
+      }
       if (primeraCarga) {
         primeraCarga = false;
         if (typeof onReady === 'function') onReady();
@@ -419,6 +446,16 @@ function escucharRegistros(onReady) {
     },
     err => console.error('Listener error:', err)
   );
+}
+
+// Cambia el rango del listener de registros (selector de periodo en el header).
+// Cierra el listener actual y abre uno nuevo con el rango pedido.
+export function cambiarRangoRegistros(rango) {
+  return new Promise(resolve => escucharRegistros(rango, resolve));
+}
+
+export function getRangoActual() {
+  return _rangoActual;
 }
 
 export function getRegistros() {
