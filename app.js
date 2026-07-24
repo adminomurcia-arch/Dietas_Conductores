@@ -1731,7 +1731,7 @@ async function liqGastosPagar() {
 }
 
 function liqGastosXML() {
-  const checks = document.querySelectorAll('.chk-liq-g:checked');
+  const checks = [...Array.from(document.querySelectorAll('.chk-liq-g:checked')), ...Array.from(document.querySelectorAll('.chk-gi:checked'))];
   if (!checks.length) { showToast('Selecciona al menos un registro', 'error'); return; }
   // Pre-rellenar modal SEPA con datos memorizados
   const mem = JSON.parse(localStorage.getItem('sepa_config') || '{}');
